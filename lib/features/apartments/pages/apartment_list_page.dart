@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../router/app_routes.dart';
+import '../widgets/apartment_card.dart';
 
 class ApartmentListPage extends StatelessWidget {
   const ApartmentListPage({super.key});
@@ -29,9 +30,8 @@ class ApartmentListPage extends StatelessWidget {
         itemCount: sampleApartments.length,
         itemBuilder: (context, index) {
           final apartment = sampleApartments[index];
-          return ListTile(
-            title: Text(apartment.title),
-            subtitle: Text(apartment.city),
+          return ApartmentCard(
+            apartment: apartment,
             onTap: () => context.go(AppRoutes.apartmentDetail(apartment.id)),
           );
         },
