@@ -23,7 +23,7 @@ void main() {
     await tester.pumpWidget(const HomeFlowApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sample apartment'));
+    await tester.tap(find.text('Bright apartment near the old town'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, 'Apartment 1'), findsOneWidget);
 

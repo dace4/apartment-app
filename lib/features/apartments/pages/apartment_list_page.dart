@@ -1,20 +1,41 @@
+import 'package:appartment_app_group_2/features/apartments/data/sample_apartments.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../router/app_routes.dart';
-import '../../../shared/widgets/placeholder_page.dart';
 
 class ApartmentListPage extends StatelessWidget {
   const ApartmentListPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PlaceholderPage(
-      title: 'Apartments',
-      links: [
-        const PageLink('Filters', AppRoutes.filters),
-        const PageLink('Compare', AppRoutes.compare),
-        PageLink('Sample apartment', AppRoutes.apartmentDetail('1')),
-      ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Apartments'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: 'Filters',
+            onPressed: () => context.go(AppRoutes.filters),
+          ),
+          IconButton(
+            icon: const Icon(Icons.compare_arrows),
+            tooltip: 'Compare',
+            onPressed: () => context.go(AppRoutes.compare),
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        itemCount: sampleApartments.length,
+        itemBuilder: (context, index) {
+          final apartment = sampleApartments[index];
+          return ListTile(
+            title: Text(apartment.title),
+            subtitle: Text(apartment.city),
+            onTap: () => context.go(AppRoutes.apartmentDetail(apartment.id)),
+          );
+        },
+      ),
     );
   }
 }
