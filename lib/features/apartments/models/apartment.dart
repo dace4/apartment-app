@@ -1,7 +1,7 @@
 // Apartment is rent or sale
 enum ListingType { rent, sale }
 
-// One apartment listing, in the search result and detail page 
+// One apartment listing, in the search result and detail page
 class Apartment {
   const Apartment({
     required this.id,
@@ -32,5 +32,4 @@ class Apartment {
 
   final String imageUrl;
   final String description;
-
 }

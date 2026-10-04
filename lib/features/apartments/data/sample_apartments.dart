@@ -11,8 +11,7 @@ const sampleApartments = <Apartment>[
     price: 1850,
     rooms: 3.5,
     surface: 85,
-    imageUrl:
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
     description:
         'Renovated apartment on the 3rd floor with a large balcony facing '
         'the castles. Close to shops, schools and the train station.',
@@ -26,8 +25,7 @@ const sampleApartments = <Apartment>[
     price: 950,
     rooms: 1.5,
     surface: 32,
-    imageUrl:
-        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
     description:
         'Furnished studio a few minutes from the HES-SO campus. '
         'Equipped kitchen, cellar and laundry room in the building.',
@@ -56,8 +54,7 @@ const sampleApartments = <Apartment>[
     price: 2100,
     rooms: 2.5,
     surface: 78,
-    imageUrl:
-        'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&q=80',
     description:
         'Open-plan loft with high ceilings and large windows. '
         'Shops, restaurants and public transport at the door.',
@@ -71,8 +68,7 @@ const sampleApartments = <Apartment>[
     price: 1450,
     rooms: 2.5,
     surface: 60,
-    imageUrl:
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&q=80',
     description:
         'Bright apartment with a new kitchen and a view of the Dents du '
         'Midi. Elevator and bicycle storage in the building.',
@@ -86,8 +82,7 @@ const sampleApartments = <Apartment>[
     price: 1600,
     rooms: 3.5,
     surface: 82,
-    imageUrl:
-        'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80',
     description:
         'Well-kept apartment two minutes from the train station, ideal for '
         'commuters. Balcony, cellar and shared garden.',
@@ -101,8 +96,7 @@ const sampleApartments = <Apartment>[
     price: 890000,
     rooms: 3.5,
     surface: 95,
-    imageUrl:
-        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
     description:
         'Charming flat with a fireplace and a south-facing terrace, '
         'close to the ski slopes and the golf course.',
@@ -116,8 +110,7 @@ const sampleApartments = <Apartment>[
     price: 745000,
     rooms: 4.5,
     surface: 120,
-    imageUrl:
-        'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&q=80',
     description:
         'Apartment in a new Minergie building surrounded by vineyards. '
         'Two parking spaces and a large covered terrace.',
