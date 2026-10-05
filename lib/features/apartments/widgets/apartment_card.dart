@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../shared/utils/formatters.dart';
 import '../models/apartment.dart';
 
+import '../utils/apartment_formatters.dart';
+import 'apartment_image.dart';
+
 //Summury of an apartment : photo, price, title, location and size
 class ApartmentCard extends StatelessWidget {
   const ApartmentCard({super.key, required this.apartment, this.onTap});
@@ -16,10 +19,7 @@ class ApartmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final price = switch (apartment.listingType) {
-      ListingType.rent => '${formatChf(apartment.price)} / month',
-      ListingType.sale => formatChf(apartment.price),
-    };
+    final price = formatApartmentPrice(apartment);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -28,19 +28,7 @@ class ApartmentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ColoredBox(
-                // Grey background shown while the image is loading.
-                color: theme.colorScheme.surfaceContainerHighest,
-                child: Image.network(
-                  apartment.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Center(child: Icon(Icons.home_outlined, size: 48)),
-                ),
-              ),
-            ),
+            ApartmentImage(imageUrl: apartment.imageUrl),
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
