@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:appartment_app_group_2/app.dart';
+import 'package:appartment_app_group_2/features/apartments/widgets/apartment_card.dart';
 
 void main() {
   testWidgets('starts on Apartments and switches tabs', (tester) async {
@@ -23,10 +24,16 @@ void main() {
     await tester.pumpWidget(const HomeFlowApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sample apartment'));
+    await tester.tap(
+      find.widgetWithText(ApartmentCard, 'Bright apartment near the old town'),
+    );
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'Apartment 1'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Apartment details'), findsOneWidget);
+    expect(find.text('Bright apartment near the old town'), findsOneWidget);
 
+    // The Apply button is below the description, so scroll to it first.
+    await tester.ensureVisible(find.text('Apply'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
     expect(
@@ -37,6 +44,6 @@ void main() {
     // Back button returns to the apartment detail.
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'Apartment 1'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Apartment details'), findsOneWidget);
   });
 }
