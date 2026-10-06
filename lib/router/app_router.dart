@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/data/auth_repository.dart';
+
 import '../features/apartments/pages/apartment_detail_page.dart';
 import '../features/apartments/pages/apartment_list_page.dart';
 import '../features/apartments/pages/compare_page.dart';
@@ -9,6 +11,7 @@ import '../features/applications/pages/applications_page.dart';
 import '../features/applications/pages/apply_page.dart';
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/register_page.dart';
+import '../features/auth/pages/verify_email_page.dart';
 import '../features/favourites/pages/favourites_page.dart';
 import '../features/messages/pages/contact_advertiser_page.dart';
 import '../features/profile/pages/faq_page.dart';
@@ -23,17 +26,46 @@ import '../features/services/pages/services_page.dart';
 import '../shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 
-GoRouter createAppRouter() => GoRouter(
+/// The app is only usable after logging in with a verified email:
+/// - signed out: only Log in and Create account are reachable,
+/// - email not verified: only the Verify email page is reachable,
+/// - verified: every page except the auth pages.
+String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
+  final user = authRepository.currentUser;
+  final location = state.matchedLocation;
+  final onAuthPage =
+      location == AppRoutes.login || location == AppRoutes.register;
+  final onVerifyPage = location == AppRoutes.verifyEmail;
+
+  if (user == null) {
+    return onAuthPage ? null : AppRoutes.login;
+  }
+  if (!user.emailVerified) {
+    return onVerifyPage ? null : AppRoutes.verifyEmail;
+  }
+  // US-07: a successful log in leads to the home page.
+  return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
+}
+
+GoRouter createAppRouter({required AuthRepository authRepository}) => GoRouter(
   initialLocation: AppRoutes.apartments,
+  // Re-runs the redirect whenever the signed-in user changes.
+  refreshListenable: authRepository,
+  redirect: (context, state) => _authRedirect(authRepository, state),
   routes: [
     // Full-screen pages without the bottom navigation bar.
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) => const LoginPage(),
+      builder: (context, state) => LoginPage(authRepository: authRepository),
     ),
     GoRoute(
       path: AppRoutes.register,
-      builder: (context, state) => const RegisterPage(),
+      builder: (context, state) => RegisterPage(authRepository: authRepository),
+    ),
+    GoRoute(
+      path: AppRoutes.verifyEmail,
+      builder: (context, state) =>
+          VerifyEmailPage(authRepository: authRepository),
     ),
 
     // One branch per bottom-navigation tab, in the same order as the tabs.
@@ -137,7 +169,8 @@ GoRouter createAppRouter() => GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.profile,
-              builder: (context, state) => const ProfilePage(),
+              builder: (context, state) =>
+                  ProfilePage(authRepository: authRepository),
               routes: [
                 GoRoute(
                   path: 'notifications',
