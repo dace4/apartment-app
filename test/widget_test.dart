@@ -4,9 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:appartment_app_group_2/app.dart';
 import 'package:appartment_app_group_2/features/apartments/widgets/apartment_card.dart';
 
+import 'package:appartment_app_group_2/features/auth/data/auth_repository.dart';
+
+import 'fakes/fake_auth_repository.dart';
+
+/// The app is only reachable after logging in with a verified email.
+FakeAuthRepository _signedIn() => FakeAuthRepository(
+  currentUser: const AppUser(
+    id: '1',
+    email: 'anna@hevs.ch',
+    emailVerified: true,
+  ),
+);
+
 void main() {
   testWidgets('starts on Apartments and switches tabs', (tester) async {
-    await tester.pumpWidget(const HomeFlowApp());
+    await tester.pumpWidget(HomeFlowApp(authRepository: _signedIn()));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(AppBar, 'Apartments'), findsOneWidget);
@@ -21,7 +34,7 @@ void main() {
   });
 
   testWidgets('opens an apartment and its apply page', (tester) async {
-    await tester.pumpWidget(const HomeFlowApp());
+    await tester.pumpWidget(HomeFlowApp(authRepository: _signedIn()));
     await tester.pumpAndSettle();
 
     await tester.tap(

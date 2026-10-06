@@ -3,6 +3,7 @@ abstract final class AppRoutes {
   // Auth (outside the bottom navigation)
   static const login = '/login';
   static const register = '/register';
+  static const verifyEmail = '/verify-email';
 
   // Tab 1: Search
   static const apartments = '/apartments';
