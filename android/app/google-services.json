@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "443000297815",
+    "project_id": "homeflow-a106f",
+    "storage_bucket": "homeflow-a106f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:443000297815:android:847cc603cc99ca4891c612",
+        "android_client_info": {
+          "package_name": "ch.hevs.apartment_app_group_2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJB48oTsbqUYxcVsHrmP7lq5D15KTT_Ec"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
