@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/data/auth_repository.dart';
+import '../features/apartments/data/apartment_repository.dart';
 import '../features/messages/data/contact_listing_repository.dart';
 import '../features/messages/data/message_repository.dart';
 
@@ -51,6 +52,7 @@ String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
 
 GoRouter createAppRouter({
   required AuthRepository authRepository,
+  ApartmentRepository apartmentRepository = const ApartmentRepository(),
   ContactListingRepository contactListingRepository =
       const SampleContactListingRepository(),
   MessageRepository messageRepository = const UnconfiguredMessageRepository(),
@@ -84,7 +86,8 @@ GoRouter createAppRouter({
           routes: [
             GoRoute(
               path: AppRoutes.apartments,
-              builder: (context, state) => const ApartmentListPage(),
+              builder: (context, state) =>
+                  ApartmentListPage(repository: apartmentRepository),
               routes: [
                 // Static paths must come before ':id' to be matched first.
                 GoRoute(
@@ -98,6 +101,7 @@ GoRouter createAppRouter({
                 GoRoute(
                   path: ':id',
                   builder: (context, state) => ApartmentDetailPage(
+                    repository: apartmentRepository,
                     apartmentId: state.pathParameters['id']!,
                   ),
                   routes: [
