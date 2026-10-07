@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Retain the new database's production-mode protection for all other data.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    function verified() {
+      // Rules use the signed token claim, not a value supplied by the contact form.
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function participant() {
+      // Only the sender and the addressed advertiser can read a stored message.
+      return resource.data.senderId == request.auth.uid ||
+        resource.data.advertiserId == request.auth.uid;
+    }
+    // US 12 only. Keep other stories' deployed matches when integrating this file.
+    match /advertiserContacts/{apartmentId} {
+      allow read: if verified();
+      allow write: if false;
+    }
+    match /advertiserMessages/{messageId} {
+      // Transactions first read their generated ID. A missing document carries
+      // no private data; existing messages remain restricted to participants.
+      allow get: if verified() &&
+        (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant());
+      // Queries must constrain senderId or advertiserId to the current UID.
+      // Broader queries are rejected; rules do not filter out private messages.
+      allow list: if verified() && participant();
+      allow create: if verified() && validMessage();
+      allow update, delete: if false;
+
+      function validMessage() {
+        let data = request.resource.data;
+        let fields = ['apartmentId', 'advertiserId', 'senderId', 'senderEmail',
+          'subject', 'body', 'createdAt', 'status'];
+        // Require exactly this schema, authenticated sender identity, nonblank
+        // text within the limits, a server timestamp and the listing's recipient.
+        // The regex accepts multiline messages but rejects whitespace-only text.
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.senderId == request.auth.uid &&
+          data.senderEmail == request.auth.token.email &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.advertiserId is string && data.advertiserId.size() > 0 &&
+          data.subject is string && data.subject.size() <= 120 &&
+          data.subject.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.body is string && data.body.size() <= 2000 &&
+          data.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.createdAt == request.time && data.status == 'sent' &&
+          exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
+          get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId;
+      }
+    }
+  }
+}

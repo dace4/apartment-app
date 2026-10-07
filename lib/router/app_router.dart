@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/apartments/data/apartment_repository.dart';
+import '../features/messages/data/contact_listing_repository.dart';
+import '../features/messages/data/message_repository.dart';
 
 import '../features/apartments/pages/apartment_detail_page.dart';
 import '../features/apartments/pages/apartment_list_page.dart';
@@ -51,6 +53,9 @@ String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
 GoRouter createAppRouter({
   required AuthRepository authRepository,
   ApartmentRepository apartmentRepository = const ApartmentRepository(),
+  ContactListingRepository contactListingRepository =
+      const SampleContactListingRepository(),
+  MessageRepository messageRepository = const UnconfiguredMessageRepository(),
 }) => GoRouter(
   initialLocation: AppRoutes.apartments,
   // Re-runs the redirect whenever the signed-in user changes.
@@ -109,6 +114,9 @@ GoRouter createAppRouter({
                       path: 'contact',
                       builder: (context, state) => ContactAdvertiserPage(
                         apartmentId: state.pathParameters['id']!,
+                        authRepository: authRepository,
+                        listingRepository: contactListingRepository,
+                        messageRepository: messageRepository,
                       ),
                     ),
                   ],
