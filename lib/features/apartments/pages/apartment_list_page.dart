@@ -20,20 +20,45 @@ class ApartmentListPage extends StatefulWidget {
 }
 
 class _ApartmentListPageState extends State<ApartmentListPage> {
-  // Started once in initState, not in build, so rebuilding the page
-  // does not download the listings again.
-  late Future<List<Apartment>> _apartments;
+  // Keep the stream outside build() so selecting a filter does not reconnect it.
+  late Stream<List<Apartment>> _apartments;
+  // null represents All; the filter only affects the visible list, not its data.
+  ApartmentAvailability? _availability;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _apartments = widget.repository.fetchApartments();
+    _apartments = widget.repository.watchApartments();
   }
 
   void _reload() {
     setState(() {
-      _apartments = widget.repository.fetchApartments();
+      _apartments = widget.repository.watchApartments();
     });
+  }
+
+  Future<void> _refresh() async {
+    // Pull-to-refresh and the toolbar share this guard against parallel requests.
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await widget.repository.fetchApartments().timeout(
+        const Duration(seconds: 12),
+      );
+      // Reconnect after a successful repository read, retaining the selected filter.
+      if (mounted) _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not refresh availability. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   @override
@@ -42,6 +67,11 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
       appBar: AppBar(
         title: const Text('Apartments'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh availability',
+            onPressed: _refreshing ? null : _refresh,
+          ),
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Filters',
@@ -54,47 +84,96 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Apartment>>(
-        future: _apartments,
-        builder: (context, snapshot) {
-          // 1. Loading
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('All'),
+                  selected: _availability == null,
+                  onSelected: (_) => setState(() => _availability = null),
+                ),
+                for (final status in ApartmentAvailability.values)
+                  ChoiceChip(
+                    label: Text(status.label),
+                    selected: _availability == status,
+                    onSelected: (_) => setState(() => _availability = status),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<List<Apartment>>(
+              stream: _apartments,
+              builder: (context, snapshot) {
+                // 1. Loading
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          // 2. Error
-          if (snapshot.hasError) {
-            return MessageView(
-              icon: Icons.cloud_off,
-              message: 'Could not load the apartments.',
-              actionLabel: 'Retry',
-              onAction: _reload,
-            );
-          }
+                // 2. Error
+                if (snapshot.hasError) {
+                  return MessageView(
+                    icon: Icons.cloud_off,
+                    message: 'Could not load the apartments.',
+                    actionLabel: 'Retry',
+                    onAction: _reload,
+                  );
+                }
 
-          // 3. Empty
-          final apartments = snapshot.requireData;
-          if (apartments.isEmpty) {
-            return const MessageView(
-              icon: Icons.search_off,
-              message: 'No apartments available right now.',
-            );
-          }
+                // Reapply the active filter on every snapshot so a property that
+                // becomes reserved immediately leaves an Available-only list.
+                final apartments = (snapshot.data ?? <Apartment>[])
+                    .where(
+                      (apartment) =>
+                          _availability == null ||
+                          apartment.availability == _availability,
+                    )
+                    .toList();
+                if (apartments.isEmpty) {
+                  // A scrollable empty state still permits pull-to-refresh.
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        MessageView(
+                          icon: Icons.search_off,
+                          message: _availability == null
+                              ? 'No apartments available right now.'
+                              : 'No results found.',
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-          // 4. Data
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: apartments.length,
-            itemBuilder: (context, index) {
-              final apartment = apartments[index];
-              return ApartmentCard(
-                apartment: apartment,
-                onTap: () =>
-                    context.go(AppRoutes.apartmentDetail(apartment.id)),
-              );
-            },
-          );
-        },
+                // 4. Data
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(8),
+                    itemCount: apartments.length,
+                    itemBuilder: (context, index) {
+                      final apartment = apartments[index];
+                      return ApartmentCard(
+                        key: ValueKey(apartment.id),
+                        apartment: apartment,
+                        onTap: () =>
+                            context.go(AppRoutes.apartmentDetail(apartment.id)),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -8,6 +8,7 @@ import '../data/apartment_repository.dart';
 import '../models/apartment.dart';
 import '../utils/apartment_formatters.dart';
 import '../widgets/apartment_image.dart';
+import '../widgets/availability_badge.dart';
 
 class ApartmentDetailPage extends StatefulWidget {
   const ApartmentDetailPage({
@@ -24,29 +25,63 @@ class ApartmentDetailPage extends StatefulWidget {
 }
 
 class _ApartmentDetailPageState extends State<ApartmentDetailPage> {
-  late Future<Apartment?> _apartment;
+  // The subscription stays stable across rebuilds and updates open details live.
+  late Stream<Apartment?> _apartment;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _apartment = widget.repository.fetchApartment(widget.apartmentId);
+    _apartment = widget.repository.watchApartment(widget.apartmentId);
   }
 
   void _reload() {
     setState(() {
-      _apartment = widget.repository.fetchApartment(widget.apartmentId);
+      _apartment = widget.repository.watchApartment(widget.apartmentId);
     });
+  }
+
+  Future<void> _refresh() async {
+    // Bound the repository read; the user may navigate away while it is pending,
+    // so asynchronous UI updates below also check mounted.
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await widget.repository
+          .fetchApartment(widget.apartmentId)
+          .timeout(const Duration(seconds: 12));
+      if (mounted) _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not refresh availability. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Apartment details')),
-      body: FutureBuilder<Apartment?>(
-        future: _apartment,
+      appBar: AppBar(
+        title: const Text('Apartment details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh availability',
+            onPressed: _refreshing ? null : _refresh,
+          ),
+        ],
+      ),
+      body: StreamBuilder<Apartment?>(
+        stream: _apartment,
         builder: (context, snapshot) {
           // 1. Loading
-          if (snapshot.connectionState != ConnectionState.done) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -74,7 +109,10 @@ class _ApartmentDetailPageState extends State<ApartmentDetailPage> {
           }
 
           // 4. Data
-          return _ApartmentDetails(apartment: apartment);
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: _ApartmentDetails(apartment: apartment),
+          );
         },
       ),
     );
@@ -93,6 +131,7 @@ class _ApartmentDetails extends StatelessWidget {
     final isForRent = apartment.listingType == ListingType.rent;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         ApartmentImage(imageUrl: apartment.imageUrl),
         Padding(
@@ -124,6 +163,7 @@ class _ApartmentDetails extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  AvailabilityBadge(apartment: apartment),
                   Chip(
                     avatar: const Icon(Icons.sell_outlined),
                     label: Text(isForRent ? 'For rent' : 'For sale'),
@@ -138,17 +178,27 @@ class _ApartmentDetails extends StatelessWidget {
                   ),
                 ],
               ),
+              if (apartment.availability != ApartmentAvailability.available)
+                Text(
+                  apartment.availability == ApartmentAvailability.reserved
+                      ? 'This apartment is reserved. You can still ask the advertiser questions.'
+                      : 'This apartment is unavailable. You can still ask the advertiser questions.',
+                ),
               const SizedBox(height: 24),
               Text('Description', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Text(apartment.description, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 24),
+              // US 8: only Available listings can open Apply.
               FilledButton.icon(
-                onPressed: () => context.go(AppRoutes.apply(apartment.id)),
+                onPressed: apartment.canApply
+                    ? () => context.go(AppRoutes.apply(apartment.id))
+                    : null,
                 icon: const Icon(Icons.send),
                 label: const Text('Apply'),
               ),
               const SizedBox(height: 8),
+              // Availability does not prevent asking the advertiser a question.
               OutlinedButton.icon(
                 onPressed: () =>
                     context.go(AppRoutes.contactAdvertiser(apartment.id)),

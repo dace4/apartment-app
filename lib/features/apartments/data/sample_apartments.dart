@@ -4,6 +4,7 @@ import '../models/apartment.dart';
 const sampleApartments = <Apartment>[
   Apartment(
     id: '1',
+    availability: ApartmentAvailability.available,
     title: 'Bright apartment near the old town',
     address: 'Rue du Grand-Pont 12',
     city: '1950 Sion',
@@ -18,6 +19,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '2',
+    availability: ApartmentAvailability.reserved,
     title: 'Studio for students',
     address: 'Route du Rawyl 47',
     city: '1950 Sion',
@@ -32,6 +34,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '3',
+    availability: ApartmentAvailability.unavailable,
     title: 'Family apartment with garden',
     address: 'Avenue de la Gare 8',
     city: '3960 Sierre',
@@ -47,6 +50,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '4',
+    availability: ApartmentAvailability.available,
     title: 'Modern loft in the city centre',
     address: 'Place Centrale 3',
     city: '1920 Martigny',
@@ -61,6 +65,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '5',
+    availability: ApartmentAvailability.available,
     title: 'Cosy apartment with mountain view',
     address: 'Route du Simplon 22',
     city: '1870 Monthey',
@@ -75,6 +80,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '6',
+    availability: ApartmentAvailability.available,
     title: 'Quiet apartment close to the station',
     address: 'Bahnhofstrasse 15',
     city: '3900 Brig',
@@ -89,6 +95,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '7',
+    availability: ApartmentAvailability.available,
     title: 'Chalet-style flat for sale',
     address: 'Route de la Combaz 5',
     city: '3963 Crans-Montana',
@@ -103,6 +110,7 @@ const sampleApartments = <Apartment>[
   ),
   Apartment(
     id: '8',
+    availability: ApartmentAvailability.available,
     title: 'New-build apartment for sale',
     address: 'Chemin des Vignes 9',
     city: '1964 Conthey',
