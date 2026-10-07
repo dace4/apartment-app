@@ -37,8 +37,11 @@ dependencies:
   go_router: ^18.0.2
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
 
 dev_dependencies:
+  # US 12 repository tests run without sending messages to real advertisers.
+  fake_cloud_firestore: ^4.0.2
   flutter_test:
     sdk: flutter
 
