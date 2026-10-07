@@ -5,6 +5,7 @@ import '../models/apartment.dart';
 
 import '../utils/apartment_formatters.dart';
 import 'apartment_image.dart';
+import 'availability_badge.dart';
 
 //Summury of an apartment : photo, price, title, location and size
 class ApartmentCard extends StatelessWidget {
@@ -34,6 +35,7 @@ class ApartmentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  AvailabilityBadge(apartment: apartment),
                   Text(
                     price,
                     style: theme.textTheme.titleLarge?.copyWith(

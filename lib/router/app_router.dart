@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/data/auth_repository.dart';
+import '../features/apartments/data/apartment_repository.dart';
 
 import '../features/apartments/pages/apartment_detail_page.dart';
 import '../features/apartments/pages/apartment_list_page.dart';
@@ -47,7 +48,10 @@ String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
   return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
 }
 
-GoRouter createAppRouter({required AuthRepository authRepository}) => GoRouter(
+GoRouter createAppRouter({
+  required AuthRepository authRepository,
+  ApartmentRepository apartmentRepository = const ApartmentRepository(),
+}) => GoRouter(
   initialLocation: AppRoutes.apartments,
   // Re-runs the redirect whenever the signed-in user changes.
   refreshListenable: authRepository,
@@ -77,7 +81,8 @@ GoRouter createAppRouter({required AuthRepository authRepository}) => GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.apartments,
-              builder: (context, state) => const ApartmentListPage(),
+              builder: (context, state) =>
+                  ApartmentListPage(repository: apartmentRepository),
               routes: [
                 // Static paths must come before ':id' to be matched first.
                 GoRoute(
@@ -91,6 +96,7 @@ GoRouter createAppRouter({required AuthRepository authRepository}) => GoRouter(
                 GoRoute(
                   path: ':id',
                   builder: (context, state) => ApartmentDetailPage(
+                    repository: apartmentRepository,
                     apartmentId: state.pathParameters['id']!,
                   ),
                   routes: [
