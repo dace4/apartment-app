@@ -51,6 +51,15 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
     if (filter != null && mounted) setState(() => _filter = filter);
   }
 
+  /// Removes every filter, including the availability one, from the
+  /// no-results state so the user is never stuck on an empty list.
+  void _clearFilters() {
+    setState(() {
+      _filter = const ApartmentFilter();
+      _availability = null;
+    });
+  }
+
   Future<void> _refresh() async {
     // Pull-to-refresh and the toolbar share this guard against parallel requests.
     if (_refreshing) return;
@@ -86,7 +95,12 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
             onPressed: _refreshing ? null : _refresh,
           ),
           IconButton(
-            icon: const Icon(Icons.tune),
+            // The badge shows how many criteria are active.
+            icon: Badge(
+              isLabelVisible: !_filter.isEmpty,
+              label: Text('${_filter.activeCount}'),
+              child: const Icon(Icons.tune),
+            ),
             tooltip: 'Filters',
             onPressed: _openFilters,
           ),
@@ -155,12 +169,19 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
                         const SizedBox(height: 80),
-                        MessageView(
-                          icon: Icons.search_off,
-                          message: _availability == null && _filter.isEmpty
-                              ? 'No apartments available right now.'
-                              : 'No results found.',
-                        ),
+                        if (_availability == null && _filter.isEmpty)
+                          const MessageView(
+                            icon: Icons.search_off,
+                            message: 'No apartments available right now.',
+                          )
+                        else
+                          // US 5: listings exist, but none match the filters.
+                          MessageView(
+                            icon: Icons.filter_alt_off_outlined,
+                            message: 'No results found.',
+                            actionLabel: 'Clear filters',
+                            onAction: _clearFilters,
+                          ),
                       ],
                     ),
                   );

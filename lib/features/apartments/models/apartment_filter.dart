@@ -33,14 +33,18 @@ class ApartmentFilter {
   final Set<Amenity> amenities;
 
   /// True when no criterion is set, so every apartment matches.
-  bool get isEmpty =>
-      location.trim().isEmpty &&
-      listingType == null &&
-      minPrice == null &&
-      maxPrice == null &&
-      minRooms == null &&
-      minSurface == null &&
-      amenities.isEmpty;
+  bool get isEmpty => activeCount == 0;
+
+  /// How many criteria are set, shown as a badge on the Filters button.
+  /// The price range counts as one criterion.
+  int get activeCount => [
+    location.trim().isNotEmpty,
+    listingType != null,
+    minPrice != null || maxPrice != null,
+    minRooms != null,
+    minSurface != null,
+    amenities.isNotEmpty,
+  ].where((isSet) => isSet).length;
 
   /// Whether [apartment] meets every criterion that is set.
   bool matches(Apartment apartment) {

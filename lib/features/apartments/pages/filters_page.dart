@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/apartment.dart';
 import '../models/apartment_filter.dart';
@@ -62,13 +63,60 @@ class _FiltersPageState extends State<FiltersPage> {
     return null;
   }
 
+  /// Closes the page and gives the new filter back to the list.
+  void _apply() {
+    // Shows the error messages and stops if a value is invalid.
+    if (!_formKey.currentState!.validate()) return;
+
+    context.pop(
+      ApartmentFilter(
+        location: _location.text.trim(),
+        listingType: _listingType,
+        // An empty field gives null: no constraint.
+        minPrice: int.tryParse(_minPrice.text),
+        maxPrice: int.tryParse(_maxPrice.text),
+        minRooms: _minRooms,
+        minSurface: int.tryParse(_minSurface.text),
+        amenities: {..._amenities},
+      ),
+    );
+  }
+
+  /// Clears every control. The list only changes once Apply is pressed.
+  void _reset() {
+    // Not FormState.reset(): it would restore the pre-filled values. Each
+    // field validates again on change, which hides the error messages.
+    _location.clear();
+    _minPrice.clear();
+    _maxPrice.clear();
+    _minSurface.clear();
+    setState(() {
+      _listingType = null;
+      _minRooms = null;
+      _amenities.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Rents are monthly, sale prices are totals.
     final priceUnit = _listingType == ListingType.rent ? 'CHF / month' : 'CHF';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Filters')),
+      appBar: AppBar(
+        title: const Text('Filters'),
+        actions: [TextButton(onPressed: _reset, child: const Text('Reset'))],
+      ),
+      // Outside the scrolling form, so Apply is always visible.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: FilledButton(
+            onPressed: _apply,
+            child: const Text('Apply filters'),
+          ),
+        ),
+      ),
       body: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
