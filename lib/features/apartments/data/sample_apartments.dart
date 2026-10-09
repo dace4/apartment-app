@@ -12,6 +12,7 @@ const sampleApartments = <Apartment>[
     price: 1850,
     rooms: 3.5,
     surface: 85,
+    amenities: {Amenity.balcony},
     imageUrl: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80',
     description:
         'Renovated apartment on the 3rd floor with a large balcony facing '
@@ -27,6 +28,7 @@ const sampleApartments = <Apartment>[
     price: 950,
     rooms: 1.5,
     surface: 32,
+    amenities: {Amenity.furnished, Amenity.cellar},
     imageUrl: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
     description:
         'Furnished studio a few minutes from the HES-SO campus. '
@@ -42,6 +44,7 @@ const sampleApartments = <Apartment>[
     price: 2350,
     rooms: 4.5,
     surface: 115,
+    amenities: {Amenity.garden, Amenity.parking},
     imageUrl:
         'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80',
     description:
@@ -73,6 +76,7 @@ const sampleApartments = <Apartment>[
     price: 1450,
     rooms: 2.5,
     surface: 60,
+    amenities: {Amenity.elevator},
     imageUrl: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&q=80',
     description:
         'Bright apartment with a new kitchen and a view of the Dents du '
@@ -88,6 +92,7 @@ const sampleApartments = <Apartment>[
     price: 1600,
     rooms: 3.5,
     surface: 82,
+    amenities: {Amenity.balcony, Amenity.cellar, Amenity.garden},
     imageUrl: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800&q=80',
     description:
         'Well-kept apartment two minutes from the train station, ideal for '
@@ -103,6 +108,7 @@ const sampleApartments = <Apartment>[
     price: 890000,
     rooms: 3.5,
     surface: 95,
+    amenities: {Amenity.balcony},
     imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
     description:
         'Charming flat with a fireplace and a south-facing terrace, '
@@ -118,6 +124,7 @@ const sampleApartments = <Apartment>[
     price: 745000,
     rooms: 4.5,
     surface: 120,
+    amenities: {Amenity.balcony, Amenity.parking},
     imageUrl: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&q=80',
     description:
         'Apartment in a new Minergie building surrounded by vineyards. '
