@@ -31,4 +31,32 @@ class ApartmentFilter {
 
   /// The apartment must have all of them.
   final Set<Amenity> amenities;
+
+  /// True when no criterion is set, so every apartment matches.
+  bool get isEmpty =>
+      location.trim().isEmpty &&
+      listingType == null &&
+      minPrice == null &&
+      maxPrice == null &&
+      minRooms == null &&
+      minSurface == null &&
+      amenities.isEmpty;
+
+  /// Whether [apartment] meets every criterion that is set.
+  bool matches(Apartment apartment) {
+    // Case-insensitive, so "sion" finds "1950 Sion".
+    final query = location.trim().toLowerCase();
+    if (query.isNotEmpty && !apartment.city.toLowerCase().contains(query)) {
+      return false;
+    }
+    if (listingType != null && apartment.listingType != listingType) {
+      return false;
+    }
+    if (minPrice != null && apartment.price < minPrice!) return false;
+    if (maxPrice != null && apartment.price > maxPrice!) return false;
+    if (minRooms != null && apartment.rooms < minRooms!) return false;
+    if (minSurface != null && apartment.surface < minSurface!) return false;
+    // An empty set is contained in any set, so no amenity means no constraint.
+    return apartment.amenities.containsAll(amenities);
+  }
 }

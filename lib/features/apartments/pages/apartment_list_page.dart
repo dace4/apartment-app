@@ -5,6 +5,7 @@ import '../../../router/app_routes.dart';
 import '../../../shared/widgets/message_view.dart';
 import '../data/apartment_repository.dart';
 import '../models/apartment.dart';
+import '../models/apartment_filter.dart';
 import '../widgets/apartment_card.dart';
 
 class ApartmentListPage extends StatefulWidget {
@@ -24,6 +25,8 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
   late Stream<List<Apartment>> _apartments;
   // null represents All; the filter only affects the visible list, not its data.
   ApartmentAvailability? _availability;
+  // US 5: criteria from the Filters page, combined with the availability.
+  ApartmentFilter _filter = const ApartmentFilter();
   bool _refreshing = false;
 
   @override
@@ -36,6 +39,16 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
     setState(() {
       _apartments = widget.repository.watchApartments();
     });
+  }
+
+  /// Opens the Filters page pre-filled with the active filter, and keeps the
+  /// filter it returns. Leaving the page with Back returns null: no change.
+  Future<void> _openFilters() async {
+    final filter = await context.push<ApartmentFilter>(
+      AppRoutes.filters,
+      extra: _filter,
+    );
+    if (filter != null && mounted) setState(() => _filter = filter);
   }
 
   Future<void> _refresh() async {
@@ -75,7 +88,7 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Filters',
-            onPressed: () => context.go(AppRoutes.filters),
+            onPressed: _openFilters,
           ),
           IconButton(
             icon: const Icon(Icons.compare_arrows),
@@ -129,8 +142,9 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
                 final apartments = (snapshot.data ?? <Apartment>[])
                     .where(
                       (apartment) =>
-                          _availability == null ||
-                          apartment.availability == _availability,
+                          (_availability == null ||
+                              apartment.availability == _availability) &&
+                          _filter.matches(apartment),
                     )
                     .toList();
                 if (apartments.isEmpty) {
@@ -143,7 +157,7 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
                         const SizedBox(height: 80),
                         MessageView(
                           icon: Icons.search_off,
-                          message: _availability == null
+                          message: _availability == null && _filter.isEmpty
                               ? 'No apartments available right now.'
                               : 'No results found.',
                         ),
