@@ -5,6 +5,7 @@ import '../features/apartments/data/apartment_repository.dart';
 import '../features/messages/data/contact_listing_repository.dart';
 import '../features/messages/data/message_repository.dart';
 
+import '../features/apartments/models/apartment_filter.dart';
 import '../features/apartments/pages/apartment_detail_page.dart';
 import '../features/apartments/pages/apartment_list_page.dart';
 import '../features/apartments/pages/compare_page.dart';
@@ -92,7 +93,14 @@ GoRouter createAppRouter({
                 // Static paths must come before ':id' to be matched first.
                 GoRoute(
                   path: 'filters',
-                  builder: (context, state) => const FiltersPage(),
+                  // The list passes its active filter so the page opens
+                  // pre-filled.
+                  builder: (context, state) => FiltersPage(
+                    initialFilter: switch (state.extra) {
+                      final ApartmentFilter filter => filter,
+                      _ => const ApartmentFilter(),
+                    },
+                  ),
                 ),
                 GoRoute(
                   path: 'compare',

@@ -11,6 +11,19 @@ enum ApartmentAvailability {
   final String label;
 }
 
+/// equipment an apartment can have, with its user-facing label.
+enum Amenity {
+  balcony('Balcony / terrace'),
+  garden('Garden'),
+  parking('Parking'),
+  elevator('Elevator'),
+  furnished('Furnished'),
+  cellar('Cellar');
+
+  const Amenity(this.label);
+  final String label;
+}
+
 // One apartment listing, in the search result and detail page
 class Apartment {
   const Apartment({
@@ -25,6 +38,7 @@ class Apartment {
     required this.imageUrl,
     required this.description,
     this.availability = ApartmentAvailability.unavailable,
+    this.amenities = const {},
   });
 
   final String id;
@@ -46,6 +60,9 @@ class Apartment {
   // Unknown availability defaults to unavailable so old listings are safe.
   final ApartmentAvailability availability;
 
+  /// equipment of the apartment, used by the amenities filter.
+  final Set<Amenity> amenities;
+
   /// Controls the Apply button; opening the form does not reserve the apartment.
   bool get canApply => availability == ApartmentAvailability.available;
 
@@ -61,6 +78,7 @@ class Apartment {
     surface: surface,
     imageUrl: imageUrl,
     description: description,
+    amenities: amenities,
     availability: availability ?? this.availability,
   );
 }
