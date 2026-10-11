@@ -10,6 +10,12 @@ String formatChf(int amount) {
   return 'CHF $buffer';
 }
 
+// Format a date the Swiss way, e.g. 03.11.2026
+String formatDate(DateTime date) {
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  return '${twoDigits(date.day)}.${twoDigits(date.month)}.${date.year}';
+}
+
 //Format a swiss room count without a useless ".0"
 String formatRooms(double rooms) {
   final number = rooms % 1 == 0 ? rooms.toInt().toString() : rooms.toString();

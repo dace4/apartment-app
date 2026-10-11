@@ -51,5 +51,69 @@ service cloud.firestore {
           get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId;
       }
     }
+    // US 16: each user can only see and change their own applications.
+    match /applications/{applicationId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Acceptance criterion: edit or withdraw within 5 days, and only while
+      // the application still waits for a decision.
+      function changeable() {
+        return resource.data.status in ['submitted', 'underReview'] &&
+          request.time < resource.data.submittedAt + duration.value(5, 'd');
+      }
+      function validDetails(data) {
+        return data.fullName is string && data.fullName.size() <= 100 &&
+          data.fullName.matches('.*\\S.*') &&
+          data.phone is string && data.phone.matches('[+0-9 ()\\-]{6,20}') &&
+          data.moveInDate is timestamp &&
+          data.occupants is int && data.occupants >= 1 && data.occupants <= 10 &&
+          data.message is string && data.message.size() <= 1000;
+      }
+      // A day of tolerance, because the app stores the date at local midnight.
+      function moveInNotPast(data) {
+        return data.moveInDate > request.time - duration.value(1, 'd');
+      }
+
+      // Submitting first checks that the generated ID is unused. A missing
+      // document carries no private data.
+      allow get: if verified() && (resource == null || owner());
+      // Queries must filter on userId == the current UID.
+      allow list: if verified() && owner();
+      allow create: if verified() && validNewApplication();
+      allow update: if verified() && owner() && changeable() &&
+        (validEdit() || validWithdraw());
+      allow delete: if false;
+
+      function validNewApplication() {
+        let data = request.resource.data;
+        let fields = ['userId', 'apartmentId', 'apartmentTitle', 'fullName',
+          'phone', 'moveInDate', 'occupants', 'message', 'status',
+          'submittedAt', 'updatedAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.userId == request.auth.uid &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          validDetails(data) && moveInNotPast(data) &&
+          data.status == 'submitted' &&
+          data.submittedAt == request.time && data.updatedAt == request.time;
+      }
+      function validEdit() {
+        let data = request.resource.data;
+        let changed = data.diff(resource.data).affectedKeys();
+        return changed.hasOnly(['fullName', 'phone', 'moveInDate', 'occupants',
+            'message', 'updatedAt']) &&
+          validDetails(data) && data.updatedAt == request.time &&
+          // A kept move-in date may lie in the past; a new one may not.
+          (!changed.hasAny(['moveInDate']) || moveInNotPast(data));
+      }
+      function validWithdraw() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'withdrawn' && data.updatedAt == request.time;
+      }
+    }
   }
 }

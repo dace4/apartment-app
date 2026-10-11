@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/apartments/data/apartment_repository.dart';
+import '../features/applications/data/application_repository.dart';
 import '../features/messages/data/contact_listing_repository.dart';
 import '../features/messages/data/message_repository.dart';
 
@@ -13,6 +14,7 @@ import '../features/apartments/pages/filters_page.dart';
 import '../features/applications/pages/application_detail_page.dart';
 import '../features/applications/pages/applications_page.dart';
 import '../features/applications/pages/apply_page.dart';
+import '../features/applications/pages/edit_application_page.dart';
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/register_page.dart';
 import '../features/auth/pages/verify_email_page.dart';
@@ -57,6 +59,8 @@ GoRouter createAppRouter({
   ContactListingRepository contactListingRepository =
       const SampleContactListingRepository(),
   MessageRepository messageRepository = const UnconfiguredMessageRepository(),
+  ApplicationRepository applicationRepository =
+      const UnconfiguredApplicationRepository(),
 }) => GoRouter(
   initialLocation: AppRoutes.apartments,
   // Re-runs the redirect whenever the signed-in user changes.
@@ -115,8 +119,11 @@ GoRouter createAppRouter({
                   routes: [
                     GoRoute(
                       path: 'apply',
-                      builder: (context, state) =>
-                          ApplyPage(apartmentId: state.pathParameters['id']!),
+                      builder: (context, state) => ApplyPage(
+                        apartmentId: state.pathParameters['id']!,
+                        apartmentRepository: apartmentRepository,
+                        applicationRepository: applicationRepository,
+                      ),
                     ),
                     GoRoute(
                       path: 'contact',
@@ -145,13 +152,24 @@ GoRouter createAppRouter({
           routes: [
             GoRoute(
               path: AppRoutes.applications,
-              builder: (context, state) => const ApplicationsPage(),
+              builder: (context, state) =>
+                  ApplicationsPage(repository: applicationRepository),
               routes: [
                 GoRoute(
                   path: ':id',
                   builder: (context, state) => ApplicationDetailPage(
                     applicationId: state.pathParameters['id']!,
+                    repository: applicationRepository,
                   ),
+                  routes: [
+                    GoRoute(
+                      path: 'edit',
+                      builder: (context, state) => EditApplicationPage(
+                        applicationId: state.pathParameters['id']!,
+                        repository: applicationRepository,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

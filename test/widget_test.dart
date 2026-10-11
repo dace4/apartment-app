@@ -49,10 +49,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apply'));
     await tester.pumpAndSettle();
-    expect(
-      find.widgetWithText(AppBar, 'Apply for apartment 1'),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(AppBar, 'Apply'), findsOneWidget);
+    expect(find.text('Submit application'), findsOneWidget);
 
     // Back button returns to the apartment detail.
     await tester.tap(find.byType(BackButton));
