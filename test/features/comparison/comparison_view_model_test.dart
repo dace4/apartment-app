@@ -71,7 +71,7 @@ void main() {
   });
 
   test('compute the price per m2', () {
-    //1500CHF:80m2 = 18.75 => round to 19
+    //1500CHF:80m2 = 18.75 => round
     expect(pricePerSquareMeter(_apartment('a')), 19);
   });
 }

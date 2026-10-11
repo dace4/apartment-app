@@ -9,12 +9,20 @@ import 'availability_badge.dart';
 
 //Summury of an apartment : photo, price, title, location and size
 class ApartmentCard extends StatelessWidget {
-  const ApartmentCard({super.key, required this.apartment, this.onTap});
+  const ApartmentCard({
+    super.key,
+    required this.apartment,
+    this.onTap,
+    this.onCompare,
+    this.isSelectedForCompare = false,
+  });
 
   final Apartment apartment;
 
   //Called when the cared is tapped, the card itself don't navigate so we can reused on any page
   final VoidCallback? onTap;
+  final VoidCallback? onCompare;
+  final bool isSelectedForCompare;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +43,26 @@ class ApartmentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AvailabilityBadge(apartment: apartment),
+                  // US 13: the compare button sits next to the availability badge.
+                  Row(
+                    children: [
+                      AvailabilityBadge(apartment: apartment),
+                      const Spacer(),
+                      if (onCompare != null)
+                        IconButton(
+                          tooltip: isSelectedForCompare
+                              ? 'Remove from comparison'
+                              : 'Add to comparison',
+                          isSelected: isSelectedForCompare,
+                          icon: const Icon(Icons.compare_arrows),
+                          selectedIcon: Icon(
+                            Icons.check_circle,
+                            color: theme.colorScheme.primary,
+                          ),
+                          onPressed: onCompare,
+                        ),
+                    ],
+                  ),
                   Text(
                     price,
                     style: theme.textTheme.titleLarge?.copyWith(

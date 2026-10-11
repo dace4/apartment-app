@@ -98,8 +98,10 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.apartments,
-                builder: (context, state) =>
-                    ApartmentListPage(repository: apartmentRepository),
+                builder: (context, state) => ApartmentListPage(
+                  repository: apartmentRepository,
+                  comparison: comparison,
+                ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
                   GoRoute(

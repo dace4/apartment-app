@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../router/app_routes.dart';
 import '../../../shared/widgets/message_view.dart';
+import '../../comparison/view_models/comparison_view_model.dart';
 import '../data/apartment_repository.dart';
 import '../models/apartment.dart';
 import '../models/apartment_filter.dart';
@@ -12,9 +13,13 @@ class ApartmentListPage extends StatefulWidget {
   const ApartmentListPage({
     super.key,
     this.repository = const ApartmentRepository(),
+    this.comparison,
   });
 
   final ApartmentRepository repository;
+
+  //US13
+  final ComparisonViewModel? comparison;
 
   @override
   State<ApartmentListPage> createState() => _ApartmentListPageState();
@@ -28,6 +33,9 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
   // US 5: criteria from the Filters page, combined with the availability.
   ApartmentFilter _filter = const ApartmentFilter();
   bool _refreshing = false;
+
+  late final ComparisonViewModel _comparison =
+      widget.comparison ?? ComparisonViewModel();
 
   @override
   void initState() {
@@ -58,6 +66,20 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
       _filter = const ApartmentFilter();
       _availability = null;
     });
+  }
+
+  ///US13 add or remove an apartment + explain a reject selection
+  void _toggleCompare(Apartment apartment) {
+    final message = switch (_comparison.toggle(apartment)) {
+      SelectionResult.limitReached => 'You can compare up to 2 apartments',
+      SelectionResult.differentListingType =>
+        'Only apartment of the same type (rent or sales) can be compared. ',
+      SelectionResult.added || SelectionResult.removed => null,
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _refresh() async {
@@ -110,6 +132,40 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
             onPressed: () => context.go(AppRoutes.compare),
           ),
         ],
+      ),
+
+      //US13 : show the selection and compare button once 1 is picked
+      bottomNavigationBar: ListenableBuilder(
+        listenable: _comparison,
+        builder: (context, _) {
+          if (_comparison.count == 0) return const SizedBox.shrink();
+          return Material(
+            elevation: 3,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${_comparison.count}/${ComparisonViewModel.maxSelection} selected',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _comparison.clear,
+                    child: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _comparison.canCompare
+                        ? () => context.go(AppRoutes.compare)
+                        : null,
+                    child: const Text('Compare'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
       body: Column(
         children: [
@@ -196,11 +252,21 @@ class _ApartmentListPageState extends State<ApartmentListPage> {
                     itemCount: apartments.length,
                     itemBuilder: (context, index) {
                       final apartment = apartments[index];
-                      return ApartmentCard(
-                        key: ValueKey(apartment.id),
-                        apartment: apartment,
-                        onTap: () =>
-                            context.go(AppRoutes.apartmentDetail(apartment.id)),
+
+                      //US13
+                      return ListenableBuilder(
+                        listenable: _comparison,
+                        builder: (context, _) => ApartmentCard(
+                          key: ValueKey(apartment.id),
+                          apartment: apartment,
+                          onTap: () => context.go(
+                            AppRoutes.apartmentDetail(apartment.id),
+                          ),
+                          isSelectedForCompare: _comparison.isSelected(
+                            apartment,
+                          ),
+                          onCompare: () => _toggleCompare(apartment),
+                        ),
                       );
                     },
                   ),
