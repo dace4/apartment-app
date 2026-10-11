@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'features/apartments/data/apartment_repository.dart';
+import 'features/applications/data/firebase_application_repository.dart';
 import 'features/auth/data/firebase_auth_repository.dart';
 import 'features/messages/data/firebase_contact_listing_repository.dart';
 import 'features/messages/data/firebase_message_repository.dart';
@@ -29,6 +30,12 @@ Future<void> main() async {
         refreshSession: refreshVerifiedSession,
       ),
       messageRepository: FirebaseMessageRepository(
+        firestore: firestore,
+        authRepository: authRepository,
+        refreshSession: refreshVerifiedSession,
+      ),
+      // US 16: applications are stored in Firestore, one document each.
+      applicationRepository: FirebaseApplicationRepository(
         firestore: firestore,
         authRepository: authRepository,
         refreshSession: refreshVerifiedSession,

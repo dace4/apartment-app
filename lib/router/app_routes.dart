@@ -19,6 +19,7 @@ abstract final class AppRoutes {
   // Tab 3: Applications
   static const applications = '/applications';
   static String applicationDetail(String id) => '/applications/$id';
+  static String editApplication(String id) => '/applications/$id/edit';
 
   // Tab 4: Services
   static const services = '/services';
