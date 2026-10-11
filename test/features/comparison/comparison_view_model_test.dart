@@ -69,4 +69,9 @@ void main() {
 
     expect(viewModel.count, 0);
   });
+
+  test('compute the price per m2', () {
+    //1500CHF:80m2 = 18.75 => round to 19
+    expect(pricePerSquareMeter(_apartment('a')), 19);
+  });
 }

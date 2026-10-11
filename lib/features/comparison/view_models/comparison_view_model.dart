@@ -41,3 +41,10 @@ class ComparisonViewModel extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+//price per m2, rounded to francs
+//return null when surface is missing to make sure it not divide 0
+int? pricePerSquareMeter(Apartment apartment) {
+  if (apartment.surface <= 0) return null;
+  return (apartment.price / apartment.surface).round();
+}
