@@ -1,120 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../shared/utils/formatters.dart';
-import '../../../shared/widgets/message_view.dart';
-import '../data/apartment_repository.dart';
-import '../models/apartment.dart';
-import '../utils/apartment_formatters.dart';
-import '../widgets/apartment_image.dart';
-import '../widgets/availability_badge.dart';
+import '../../models/apartment.dart';
+import '../../router/app_routes.dart';
+import '../../shared/utils/formatters.dart';
+import '../../shared/widgets/message_view.dart';
+import '../../view_models/apartment_detail_view_model.dart';
+import 'widgets/apartment_image.dart';
+import 'widgets/availability_badge.dart';
 
-class ApartmentDetailPage extends StatefulWidget {
-  const ApartmentDetailPage({
-    super.key,
-    required this.apartmentId,
-    this.repository = const ApartmentRepository(),
-  });
+class ApartmentDetailView extends StatefulWidget {
+  const ApartmentDetailView({super.key, required this.apartmentId});
 
   final String apartmentId;
-  final ApartmentRepository repository;
 
   @override
-  State<ApartmentDetailPage> createState() => _ApartmentDetailPageState();
+  State<ApartmentDetailView> createState() => _ApartmentDetailViewState();
 }
 
-class _ApartmentDetailPageState extends State<ApartmentDetailPage> {
-  // The subscription stays stable across rebuilds and updates open details live.
-  late Stream<Apartment?> _apartment;
-  bool _refreshing = false;
+class _ApartmentDetailViewState extends State<ApartmentDetailView> {
+  final viewModel = ApartmentDetailViewModel();
 
   @override
   void initState() {
     super.initState();
-    _apartment = widget.repository.watchApartment(widget.apartmentId);
-  }
-
-  void _reload() {
-    setState(() {
-      _apartment = widget.repository.watchApartment(widget.apartmentId);
-    });
-  }
-
-  Future<void> _refresh() async {
-    // Bound the repository read; the user may navigate away while it is pending,
-    // so asynchronous UI updates below also check mounted.
-    if (_refreshing) return;
-    setState(() => _refreshing = true);
-    try {
-      await widget.repository
-          .fetchApartment(widget.apartmentId)
-          .timeout(const Duration(seconds: 12));
-      if (mounted) _reload();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not refresh availability. Please try again.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _refreshing = false);
-    }
+    viewModel.fetchApartment(widget.apartmentId);
   }
 
   @override
+  void dispose() {
+    viewModel.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() => viewModel.fetchApartment(widget.apartmentId);
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Apartment details'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh availability',
-            onPressed: _refreshing ? null : _refresh,
+    return ListenableBuilder(
+      listenable: viewModel,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Apartment details'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh',
+                onPressed: viewModel.isLoading ? null : _refresh,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: StreamBuilder<Apartment?>(
-        stream: _apartment,
-        builder: (context, snapshot) {
-          // 1. Loading
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          body: _buildBody(),
+        );
+      },
+    );
+  }
 
-          // 2. Error
-          if (snapshot.hasError) {
-            return MessageView(
-              icon: Icons.cloud_off,
-              message: 'Could not load this apartment.',
-              actionLabel: 'Retry',
-              onAction: _reload,
-            );
-          }
+  Widget _buildBody() {
+    final apartment = viewModel.apartment;
 
-          // 3. Not found
-          final apartment = snapshot.data;
-          if (apartment == null) {
-            return MessageView(
-              icon: Icons.search_off,
-              message:
-                  'This apartment does not exist or is no longer '
-                  'available.',
-              actionLabel: 'Back to the list',
-              onAction: () => context.go(AppRoutes.apartments),
-            );
-          }
+    // 1. Loading (only the first time: a refresh keeps the details visible)
+    if (viewModel.isLoading && apartment == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-          // 4. Data
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: _ApartmentDetails(apartment: apartment),
-          );
-        },
-      ),
+    // 2. Error
+    if (viewModel.errorMessage != null) {
+      return MessageView(
+        icon: Icons.cloud_off,
+        message: viewModel.errorMessage!,
+        actionLabel: 'Retry',
+        onAction: _refresh,
+      );
+    }
+
+    // 3. Not found
+    if (apartment == null) {
+      return MessageView(
+        icon: Icons.search_off,
+        message: 'This apartment does not exist or is no longer available.',
+        actionLabel: 'Back to the list',
+        onAction: () => context.go(AppRoutes.apartments),
+      );
+    }
+
+    // 4. Data
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: _ApartmentDetails(apartment: apartment),
     );
   }
 }

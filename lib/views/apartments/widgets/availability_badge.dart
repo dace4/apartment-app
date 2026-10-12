@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/apartment.dart';
+import '../../../models/apartment.dart';
 
 /// US 8: shared status display for cards and details. Text and icons communicate
 /// the status without relying on color.

@@ -1,4 +1,4 @@
-import '../../apartments/data/sample_apartments.dart';
+import '../../../services/sample_apartments.dart';
 import '../models/advertiser_message.dart';
 
 abstract class ContactListingRepository {

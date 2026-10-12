@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../router/app_routes.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../../shared/widgets/message_view.dart';
-import '../../apartments/data/apartment_repository.dart';
-import '../../apartments/models/apartment.dart';
+import '../../../services/apartment_service.dart';
+import '../../../models/apartment.dart';
 import '../data/application_repository.dart';
 import '../models/rental_application.dart';
 import '../widgets/application_form.dart';
@@ -16,12 +16,10 @@ class ApplyPage extends StatefulWidget {
   const ApplyPage({
     super.key,
     required this.apartmentId,
-    this.apartmentRepository = const ApartmentRepository(),
     this.applicationRepository = const UnconfiguredApplicationRepository(),
   });
 
   final String apartmentId;
-  final ApartmentRepository apartmentRepository;
   final ApplicationRepository applicationRepository;
 
   @override
@@ -29,6 +27,7 @@ class ApplyPage extends StatefulWidget {
 }
 
 class _ApplyPageState extends State<ApplyPage> {
+  final _apartmentService = ApartmentService();
   late Future<Apartment?> _apartment;
 
   // Reused on every retry, so a submission whose response was lost is
@@ -39,14 +38,12 @@ class _ApplyPageState extends State<ApplyPage> {
   @override
   void initState() {
     super.initState();
-    _apartment = widget.apartmentRepository.fetchApartment(widget.apartmentId);
+    _apartment = _apartmentService.getApartment(widget.apartmentId);
   }
 
   void _reload() {
     setState(() {
-      _apartment = widget.apartmentRepository.fetchApartment(
-        widget.apartmentId,
-      );
+      _apartment = _apartmentService.getApartment(widget.apartmentId);
     });
   }
 

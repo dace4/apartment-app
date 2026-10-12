@@ -2,48 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import '../models/apartment.dart';
-import '../models/apartment_filter.dart';
+import '../../models/apartment.dart';
+import '../../models/apartment_filter.dart';
+import '../../view_models/apartments_view_model.dart';
 
 /// US 5: lets the user choose the search criteria of the apartment list.
-class FiltersPage extends StatefulWidget {
-  const FiltersPage({super.key, this.initialFilter = const ApartmentFilter()});
+class FiltersView extends StatefulWidget {
+  const FiltersView({super.key, required this.viewModel});
 
-  /// Criteria already active on the list, shown pre-filled.
-  final ApartmentFilter initialFilter;
+  /// Shared with the apartment list.
+  final ApartmentsViewModel viewModel;
 
   @override
-  State<FiltersPage> createState() => _FiltersPageState();
+  State<FiltersView> createState() => _FiltersViewState();
 }
 
-class _FiltersPageState extends State<FiltersPage> {
+class _FiltersViewState extends State<FiltersView> {
   // "Any" first, then the minimum number of rooms.
   static const _roomOptions = <double?>[null, 1, 2, 3, 4];
 
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _location;
-  late final TextEditingController _minPrice;
-  late final TextEditingController _maxPrice;
-  late final TextEditingController _minSurface;
-  late ListingType? _listingType;
-  late double? _minRooms;
-  late Set<Amenity> _amenities;
 
-  @override
-  void initState() {
-    super.initState();
-    final filter = widget.initialFilter;
-    _location = TextEditingController(text: filter.location);
-    _minPrice = TextEditingController(text: filter.minPrice?.toString() ?? '');
-    _maxPrice = TextEditingController(text: filter.maxPrice?.toString() ?? '');
-    _minSurface = TextEditingController(
-      text: filter.minSurface?.toString() ?? '',
-    );
-    _listingType = filter.listingType;
-    _minRooms = filter.minRooms;
-    // A copy, so ticking a chip here does not change the list's filter.
-    _amenities = {...filter.amenities};
-  }
+  // The form starts with the active filter. Nothing changes on the list
+  // until Apply is pressed.
+  late final _location = TextEditingController(text: _filter.location);
+  late final _minPrice = TextEditingController(text: _toText(_filter.minPrice));
+  late final _maxPrice = TextEditingController(text: _toText(_filter.maxPrice));
+  late final _minSurface = TextEditingController(
+    text: _toText(_filter.minSurface),
+  );
+  late ListingType? _listingType = _filter.listingType;
+  late double? _minRooms = _filter.minRooms;
+  late final Set<Amenity> _amenities = {..._filter.amenities};
+
+  ApartmentFilter get _filter => widget.viewModel.filter;
+
+  String _toText(int? value) => value?.toString() ?? '';
 
   @override
   void dispose() {
@@ -54,21 +48,10 @@ class _FiltersPageState extends State<FiltersPage> {
     super.dispose();
   }
 
-  String? _validateMaxPrice(String? value) {
-    final min = int.tryParse(_minPrice.text);
-    final max = int.tryParse(value ?? '');
-    if (min != null && max != null && max < min) {
-      return 'Must be at least the minimum.';
-    }
-    return null;
-  }
-
-  /// Closes the page and gives the new filter back to the list.
   void _apply() {
-    // Shows the error messages and stops if a value is invalid.
     if (!_formKey.currentState!.validate()) return;
 
-    context.pop(
+    widget.viewModel.applyFilter(
       ApartmentFilter(
         location: _location.text.trim(),
         listingType: _listingType,
@@ -77,15 +60,13 @@ class _FiltersPageState extends State<FiltersPage> {
         maxPrice: int.tryParse(_maxPrice.text),
         minRooms: _minRooms,
         minSurface: int.tryParse(_minSurface.text),
-        amenities: {..._amenities},
+        amenities: _amenities,
       ),
     );
+    context.pop();
   }
 
-  /// Clears every control. The list only changes once Apply is pressed.
   void _reset() {
-    // Not FormState.reset(): it would restore the pre-filled values. Each
-    // field validates again on change, which hides the error messages.
     _location.clear();
     _minPrice.clear();
     _maxPrice.clear();
@@ -127,7 +108,6 @@ class _FiltersPageState extends State<FiltersPage> {
               title: 'Location',
               child: TextFormField(
                 controller: _location,
-                textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                   hintText: 'City or postcode, e.g. Sion or 1950',
                   prefixIcon: Icon(Icons.search),
@@ -140,10 +120,7 @@ class _FiltersPageState extends State<FiltersPage> {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  for (final type in <ListingType?>[
-                    null,
-                    ...ListingType.values,
-                  ])
+                  for (final type in [null, ...ListingType.values])
                     ChoiceChip(
                       label: Text(switch (type) {
                         null => 'Any',
@@ -172,7 +149,10 @@ class _FiltersPageState extends State<FiltersPage> {
                     child: _NumberField(
                       controller: _maxPrice,
                       label: 'Max ($priceUnit)',
-                      validator: _validateMaxPrice,
+                      validator: (value) => widget.viewModel.validateMaxPrice(
+                        _minPrice.text,
+                        value,
+                      ),
                     ),
                   ),
                 ],

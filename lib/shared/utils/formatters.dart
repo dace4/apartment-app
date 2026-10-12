@@ -1,3 +1,5 @@
+import '../../models/apartment.dart';
+
 //Format an amoubt in Swiss francs with ' exemple => 1850 ; 1'850
 String formatChf(int amount) {
   final digits = amount.toString();
@@ -21,3 +23,10 @@ String formatRooms(double rooms) {
   final number = rooms % 1 == 0 ? rooms.toInt().toString() : rooms.toString();
   return '$number rooms';
 }
+
+/// Price as shown to the user, e.g. "CHF 1'850 / month" or "CHF 890'000".
+String formatApartmentPrice(Apartment apartment) =>
+    switch (apartment.listingType) {
+      ListingType.rent => '${formatChf(apartment.price)} / month',
+      ListingType.sale => formatChf(apartment.price),
+    };

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/utils/formatters.dart';
-import '../models/apartment.dart';
+import '../../../models/apartment.dart';
 
-import '../utils/apartment_formatters.dart';
 import 'apartment_image.dart';
 import 'availability_badge.dart';
 
