@@ -1,46 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'features/auth/data/auth_repository.dart';
-import 'features/apartments/data/apartment_repository.dart';
-import 'features/applications/data/application_repository.dart';
-import 'features/messages/data/contact_listing_repository.dart';
-import 'features/messages/data/message_repository.dart';
 import 'router/app_router.dart';
+import 'view_models/apartments_view_model.dart';
+import 'view_models/auth_view_model.dart';
 
 class HomeFlowApp extends StatefulWidget {
-  const HomeFlowApp({
-    super.key,
-    required this.authRepository,
-    this.apartmentRepository = const ApartmentRepository(),
-    this.contactListingRepository = const SampleContactListingRepository(),
-    this.messageRepository = const UnconfiguredMessageRepository(),
-    this.applicationRepository = const UnconfiguredApplicationRepository(),
-  });
-
-  final AuthRepository authRepository;
-  final ApartmentRepository apartmentRepository;
-  final ContactListingRepository contactListingRepository;
-  final MessageRepository messageRepository;
-  final ApplicationRepository applicationRepository;
+  const HomeFlowApp({super.key});
 
   @override
   State<HomeFlowApp> createState() => _HomeFlowAppState();
 }
 
 class _HomeFlowAppState extends State<HomeFlowApp> {
-  // Created once per app instance so it isn't rebuilt on every build.
+  // ViewModels shared by several screens are created once, here
+  // (see ARCHITECTURE.md §4).
+  final _authViewModel = AuthViewModel();
+  final _apartmentsViewModel = ApartmentsViewModel();
+
   late final GoRouter _router = createAppRouter(
-    authRepository: widget.authRepository,
-    apartmentRepository: widget.apartmentRepository,
-    contactListingRepository: widget.contactListingRepository,
-    messageRepository: widget.messageRepository,
-    applicationRepository: widget.applicationRepository,
+    authViewModel: _authViewModel,
+    apartmentsViewModel: _apartmentsViewModel,
   );
 
   @override
   void dispose() {
     _router.dispose();
+    _authViewModel.dispose();
+    _apartmentsViewModel.dispose();
     super.dispose();
   }
 

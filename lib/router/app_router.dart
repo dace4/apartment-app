@@ -1,43 +1,39 @@
 import 'package:go_router/go_router.dart';
 
-import '../features/auth/data/auth_repository.dart';
-import '../features/apartments/data/apartment_repository.dart';
-import '../features/applications/data/application_repository.dart';
-import '../features/messages/data/contact_listing_repository.dart';
-import '../features/messages/data/message_repository.dart';
+import '../view_models/auth_view_model.dart';
 
-import '../features/apartments/models/apartment_filter.dart';
-import '../features/apartments/pages/apartment_detail_page.dart';
-import '../features/apartments/pages/apartment_list_page.dart';
-import '../features/apartments/pages/compare_page.dart';
-import '../features/apartments/pages/filters_page.dart';
-import '../features/applications/pages/application_detail_page.dart';
-import '../features/applications/pages/applications_page.dart';
-import '../features/applications/pages/apply_page.dart';
-import '../features/applications/pages/edit_application_page.dart';
-import '../features/auth/pages/login_page.dart';
-import '../features/auth/pages/register_page.dart';
-import '../features/auth/pages/verify_email_page.dart';
-import '../features/favourites/pages/favourites_page.dart';
-import '../features/messages/pages/contact_advertiser_page.dart';
-import '../features/profile/pages/faq_page.dart';
-import '../features/profile/pages/notifications_page.dart';
-import '../features/profile/pages/profile_page.dart';
-import '../features/services/pages/contractors_page.dart';
-import '../features/services/pages/insurance_page.dart';
-import '../features/services/pages/maintenance_page.dart';
-import '../features/services/pages/market_trends_page.dart';
-import '../features/services/pages/mortgage_calculator_page.dart';
-import '../features/services/pages/services_page.dart';
-import '../shared/widgets/scaffold_with_nav_bar.dart';
+import '../view_models/apartments_view_model.dart';
+import '../views/apartments/apartment_detail_view.dart';
+import '../views/apartments/apartments_view.dart';
+import '../views/apartments/compare_view.dart';
+import '../views/apartments/filters_view.dart';
+import '../views/applications/application_detail_view.dart';
+import '../views/applications/applications_view.dart';
+import '../views/applications/apply_view.dart';
+import '../views/applications/edit_application_view.dart';
+import '../views/auth/login_view.dart';
+import '../views/auth/register_view.dart';
+import '../views/auth/verify_email_view.dart';
+import '../views/favourites/favourites_view.dart';
+import '../views/messages/contact_advertiser_view.dart';
+import '../views/profile/faq_view.dart';
+import '../views/profile/notifications_view.dart';
+import '../views/profile/profile_view.dart';
+import '../views/services/contractors_view.dart';
+import '../views/services/insurance_view.dart';
+import '../views/services/maintenance_view.dart';
+import '../views/services/market_trends_view.dart';
+import '../views/services/mortgage_calculator_view.dart';
+import '../views/services/services_view.dart';
+import '../views/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 
 /// The app is only usable after logging in with a verified email:
 /// - signed out: only Log in and Create account are reachable,
 /// - email not verified: only the Verify email page is reachable,
 /// - verified: every page except the auth pages.
-String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
-  final user = authRepository.currentUser;
+String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
+  final user = authViewModel.user;
   final location = state.matchedLocation;
   final onAuthPage =
       location == AppRoutes.login || location == AppRoutes.register;
@@ -54,177 +50,157 @@ String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
 }
 
 GoRouter createAppRouter({
-  required AuthRepository authRepository,
-  ApartmentRepository apartmentRepository = const ApartmentRepository(),
-  ContactListingRepository contactListingRepository =
-      const SampleContactListingRepository(),
-  MessageRepository messageRepository = const UnconfiguredMessageRepository(),
-  ApplicationRepository applicationRepository =
-      const UnconfiguredApplicationRepository(),
-}) => GoRouter(
-  initialLocation: AppRoutes.apartments,
-  // Re-runs the redirect whenever the signed-in user changes.
-  refreshListenable: authRepository,
-  redirect: (context, state) => _authRedirect(authRepository, state),
-  routes: [
-    // Full-screen pages without the bottom navigation bar.
-    GoRoute(
-      path: AppRoutes.login,
-      builder: (context, state) => LoginPage(authRepository: authRepository),
-    ),
-    GoRoute(
-      path: AppRoutes.register,
-      builder: (context, state) => RegisterPage(authRepository: authRepository),
-    ),
-    GoRoute(
-      path: AppRoutes.verifyEmail,
-      builder: (context, state) =>
-          VerifyEmailPage(authRepository: authRepository),
-    ),
+  required AuthViewModel authViewModel,
+  required ApartmentsViewModel apartmentsViewModel,
+}) {
+  return GoRouter(
+    initialLocation: AppRoutes.apartments,
+    // Re-runs the redirect whenever the signed-in user changes.
+    refreshListenable: authViewModel,
+    redirect: (context, state) => _authRedirect(authViewModel, state),
+    routes: [
+      // Full-screen pages without the bottom navigation bar.
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => const LoginView(),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (context, state) => const RegisterView(),
+      ),
+      GoRoute(
+        path: AppRoutes.verifyEmail,
+        builder: (context, state) => VerifyEmailView(viewModel: authViewModel),
+      ),
 
-    // One branch per bottom-navigation tab, in the same order as the tabs.
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          ScaffoldWithNavBar(navigationShell: navigationShell),
-      branches: [
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.apartments,
-              builder: (context, state) =>
-                  ApartmentListPage(repository: apartmentRepository),
-              routes: [
-                // Static paths must come before ':id' to be matched first.
-                GoRoute(
-                  path: 'filters',
-                  // The list passes its active filter so the page opens
-                  // pre-filled.
-                  builder: (context, state) => FiltersPage(
-                    initialFilter: switch (state.extra) {
-                      final ApartmentFilter filter => filter,
-                      _ => const ApartmentFilter(),
-                    },
+      // One branch per bottom-navigation tab, in the same order as the tabs.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            ScaffoldWithNavBar(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.apartments,
+                builder: (context, state) =>
+                    ApartmentsView(viewModel: apartmentsViewModel),
+                routes: [
+                  // Static paths must come before ':id' to be matched first.
+                  GoRoute(
+                    path: 'filters',
+                    builder: (context, state) =>
+                        FiltersView(viewModel: apartmentsViewModel),
                   ),
-                ),
-                GoRoute(
-                  path: 'compare',
-                  builder: (context, state) => const ComparePage(),
-                ),
-                GoRoute(
-                  path: ':id',
-                  builder: (context, state) => ApartmentDetailPage(
-                    repository: apartmentRepository,
-                    apartmentId: state.pathParameters['id']!,
+                  GoRoute(
+                    path: 'compare',
+                    builder: (context, state) => const CompareView(),
                   ),
-                  routes: [
-                    GoRoute(
-                      path: 'apply',
-                      builder: (context, state) => ApplyPage(
-                        apartmentId: state.pathParameters['id']!,
-                        apartmentRepository: apartmentRepository,
-                        applicationRepository: applicationRepository,
-                      ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => ApartmentDetailView(
+                      apartmentId: state.pathParameters['id']!,
                     ),
-                    GoRoute(
-                      path: 'contact',
-                      builder: (context, state) => ContactAdvertiserPage(
-                        apartmentId: state.pathParameters['id']!,
-                        authRepository: authRepository,
-                        listingRepository: contactListingRepository,
-                        messageRepository: messageRepository,
+                    routes: [
+                      GoRoute(
+                        path: 'apply',
+                        builder: (context, state) =>
+                            ApplyView(apartmentId: state.pathParameters['id']!),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.favourites,
-              builder: (context, state) => const FavouritesPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.applications,
-              builder: (context, state) =>
-                  ApplicationsPage(repository: applicationRepository),
-              routes: [
-                GoRoute(
-                  path: ':id',
-                  builder: (context, state) => ApplicationDetailPage(
-                    applicationId: state.pathParameters['id']!,
-                    repository: applicationRepository,
+                      GoRoute(
+                        path: 'contact',
+                        builder: (context, state) => ContactAdvertiserView(
+                          apartmentId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
                   ),
-                  routes: [
-                    GoRoute(
-                      path: 'edit',
-                      builder: (context, state) => EditApplicationPage(
-                        applicationId: state.pathParameters['id']!,
-                        repository: applicationRepository,
-                      ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.favourites,
+                builder: (context, state) => const FavouritesView(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.applications,
+                builder: (context, state) => const ApplicationsView(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => ApplicationDetailView(
+                      applicationId: state.pathParameters['id']!,
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.services,
-              builder: (context, state) => const ServicesPage(),
-              routes: [
-                GoRoute(
-                  path: 'mortgage',
-                  builder: (context, state) => const MortgageCalculatorPage(),
-                ),
-                GoRoute(
-                  path: 'maintenance',
-                  builder: (context, state) => const MaintenancePage(),
-                ),
-                GoRoute(
-                  path: 'insurance',
-                  builder: (context, state) => const InsurancePage(),
-                ),
-                GoRoute(
-                  path: 'contractors',
-                  builder: (context, state) => const ContractorsPage(),
-                ),
-                GoRoute(
-                  path: 'market-trends',
-                  builder: (context, state) => const MarketTrendsPage(),
-                ),
-              ],
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.profile,
-              builder: (context, state) =>
-                  ProfilePage(authRepository: authRepository),
-              routes: [
-                GoRoute(
-                  path: 'notifications',
-                  builder: (context, state) => const NotificationsPage(),
-                ),
-                GoRoute(
-                  path: 'faq',
-                  builder: (context, state) => const FaqPage(),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    ),
-  ],
-);
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) => EditApplicationView(
+                          applicationId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.services,
+                builder: (context, state) => const ServicesView(),
+                routes: [
+                  GoRoute(
+                    path: 'mortgage',
+                    builder: (context, state) => const MortgageCalculatorView(),
+                  ),
+                  GoRoute(
+                    path: 'maintenance',
+                    builder: (context, state) => const MaintenanceView(),
+                  ),
+                  GoRoute(
+                    path: 'insurance',
+                    builder: (context, state) => const InsuranceView(),
+                  ),
+                  GoRoute(
+                    path: 'contractors',
+                    builder: (context, state) => const ContractorsView(),
+                  ),
+                  GoRoute(
+                    path: 'market-trends',
+                    builder: (context, state) => const MarketTrendsView(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                builder: (context, state) =>
+                    ProfileView(viewModel: authViewModel),
+                routes: [
+                  GoRoute(
+                    path: 'notifications',
+                    builder: (context, state) => const NotificationsView(),
+                  ),
+                  GoRoute(
+                    path: 'faq',
+                    builder: (context, state) => const FaqView(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
