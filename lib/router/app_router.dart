@@ -1,6 +1,6 @@
 import 'package:go_router/go_router.dart';
 
-import '../features/auth/data/auth_repository.dart';
+import '../view_models/auth_view_model.dart';
 import '../features/applications/data/application_repository.dart';
 import '../features/messages/data/contact_listing_repository.dart';
 import '../features/messages/data/message_repository.dart';
@@ -14,9 +14,9 @@ import '../features/applications/pages/application_detail_page.dart';
 import '../features/applications/pages/applications_page.dart';
 import '../features/applications/pages/apply_page.dart';
 import '../features/applications/pages/edit_application_page.dart';
-import '../features/auth/pages/login_page.dart';
-import '../features/auth/pages/register_page.dart';
-import '../features/auth/pages/verify_email_page.dart';
+import '../views/auth/login_view.dart';
+import '../views/auth/register_view.dart';
+import '../views/auth/verify_email_view.dart';
 import '../features/favourites/pages/favourites_page.dart';
 import '../features/messages/pages/contact_advertiser_page.dart';
 import '../features/profile/pages/faq_page.dart';
@@ -35,8 +35,8 @@ import 'app_routes.dart';
 /// - signed out: only Log in and Create account are reachable,
 /// - email not verified: only the Verify email page is reachable,
 /// - verified: every page except the auth pages.
-String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
-  final user = authRepository.currentUser;
+String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
+  final user = authViewModel.user;
   final location = state.matchedLocation;
   final onAuthPage =
       location == AppRoutes.login || location == AppRoutes.register;
@@ -53,7 +53,7 @@ String? _authRedirect(AuthRepository authRepository, GoRouterState state) {
 }
 
 GoRouter createAppRouter({
-  required AuthRepository authRepository,
+  required AuthViewModel authViewModel,
   ContactListingRepository contactListingRepository =
       const SampleContactListingRepository(),
   MessageRepository messageRepository = const UnconfiguredMessageRepository(),
@@ -66,23 +66,21 @@ GoRouter createAppRouter({
   return GoRouter(
     initialLocation: AppRoutes.apartments,
     // Re-runs the redirect whenever the signed-in user changes.
-    refreshListenable: authRepository,
-    redirect: (context, state) => _authRedirect(authRepository, state),
+    refreshListenable: authViewModel,
+    redirect: (context, state) => _authRedirect(authViewModel, state),
     routes: [
       // Full-screen pages without the bottom navigation bar.
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => LoginPage(authRepository: authRepository),
+        builder: (context, state) => const LoginView(),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) =>
-            RegisterPage(authRepository: authRepository),
+        builder: (context, state) => const RegisterView(),
       ),
       GoRoute(
         path: AppRoutes.verifyEmail,
-        builder: (context, state) =>
-            VerifyEmailPage(authRepository: authRepository),
+        builder: (context, state) => VerifyEmailView(viewModel: authViewModel),
       ),
 
       // One branch per bottom-navigation tab, in the same order as the tabs.
@@ -124,7 +122,7 @@ GoRouter createAppRouter({
                         path: 'contact',
                         builder: (context, state) => ContactAdvertiserPage(
                           apartmentId: state.pathParameters['id']!,
-                          authRepository: authRepository,
+                          authViewModel: authViewModel,
                           listingRepository: contactListingRepository,
                           messageRepository: messageRepository,
                         ),
@@ -205,7 +203,7 @@ GoRouter createAppRouter({
               GoRoute(
                 path: AppRoutes.profile,
                 builder: (context, state) =>
-                    ProfilePage(authRepository: authRepository),
+                    ProfilePage(viewModel: authViewModel),
                 routes: [
                   GoRoute(
                     path: 'notifications',

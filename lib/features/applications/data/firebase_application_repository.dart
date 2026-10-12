@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../auth/data/auth_repository.dart';
+import '../../../models/app_user.dart';
+import '../../../services/auth_service.dart';
 import '../models/rental_application.dart';
 import '../utils/application_validators.dart';
 import 'application_repository.dart';
@@ -13,14 +14,14 @@ import 'application_repository.dart';
 class FirebaseApplicationRepository extends ApplicationRepository {
   FirebaseApplicationRepository({
     required this.firestore,
-    required this.authRepository,
+    required this.authService,
     this.refreshSession,
     this.clock = DateTime.now,
     this.writeTimeout = const Duration(seconds: 15),
   });
 
   final FirebaseFirestore firestore;
-  final AuthRepository authRepository;
+  final AuthService authService;
   final Future<void> Function()? refreshSession;
   final DateTime Function() clock;
   final Duration writeTimeout;
@@ -37,7 +38,7 @@ class FirebaseApplicationRepository extends ApplicationRepository {
 
   @override
   Stream<List<RentalApplication>> watchMyApplications() async* {
-    final user = authRepository.currentUser;
+    final user = authService.currentUser;
     if (user == null) {
       yield const [];
       return;
@@ -59,7 +60,7 @@ class FirebaseApplicationRepository extends ApplicationRepository {
 
   @override
   Stream<RentalApplication?> watchApplication(String id) async* {
-    final user = authRepository.currentUser;
+    final user = authService.currentUser;
     if (user == null) {
       yield null;
       return;
@@ -73,7 +74,7 @@ class FirebaseApplicationRepository extends ApplicationRepository {
 
   @override
   Future<RentalApplication?> fetchApplication(String id) async {
-    final user = authRepository.currentUser;
+    final user = authService.currentUser;
     if (user == null) return null;
     await _refreshForReading();
     // A normal read: it falls back to the cache offline. Saving checks the
@@ -202,7 +203,7 @@ class FirebaseApplicationRepository extends ApplicationRepository {
   }
 
   AppUser _verifiedUser() {
-    final user = authRepository.currentUser;
+    final user = authService.currentUser;
     if (user == null || !user.emailVerified) {
       throw const ApplicationException(
         'Log in with a verified email to manage applications.',

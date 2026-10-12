@@ -29,6 +29,8 @@ Firebase ──▶ Service ──(Models)──▶ ViewModel ──▶ View
 - It decides something or holds state (filtering, validation, loading…) → **ViewModel**
 - It is a widget, a style, or navigation → **View**
 - It describes what a piece of data contains → **Model**
+- It is a small pure function used by several screens (form validator,
+  price formatter…) → **utils/**
 
 ---
 
@@ -48,6 +50,9 @@ lib/
 ├── view_models/              # One file per screen
 │   ├── apartments_view_model.dart
 │   └── applications_view_model.dart
+├── utils/                    # Pure helpers shared by several screens
+│   ├── formatters.dart
+│   └── validators.dart
 └── views/
     ├── apartments/           # One folder per feature
     │   ├── apartments_view.dart
@@ -302,8 +307,14 @@ The list rebuilds by itself because it listens to the same ViewModel.
   `package:flutter/foundation.dart` for `ChangeNotifier`.
 - **No values returned through navigation** (`pop(result)`). Share a ViewModel
   instead (§4).
-- **Error messages are created in the ViewModel**, as simple `String`s the View
-  shows as-is.
+- **The View shows error messages as-is.** The ViewModel puts them in
+  `errorMessage`. When the message depends on the Firebase error (wrong
+  password, email already used…), the Service throws an exception that
+  already contains a readable message (see `AuthException` in
+  `auth_service.dart`), and the ViewModel copies it.
+- **Generic form validators** (email, password…) go in `utils/validators.dart`.
+  A validator specific to one screen (max price ≥ min price) goes in that
+  screen's ViewModel.
 - **Keep it simple.** Write the straightforward version first. Add timeouts,
   retries, caching or abstractions only when there is a real need.
 - One public class per file, the file named after the class.

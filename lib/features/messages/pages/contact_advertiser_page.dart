@@ -5,7 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../router/app_routes.dart';
 import '../../../shared/widgets/message_view.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../../models/app_user.dart';
+import '../../../view_models/auth_view_model.dart';
 import '../data/contact_listing_repository.dart';
 import '../data/message_repository.dart';
 import '../models/advertiser_message.dart';
@@ -16,14 +17,14 @@ class ContactAdvertiserPage extends StatefulWidget {
   const ContactAdvertiserPage({
     super.key,
     required this.apartmentId,
-    required this.authRepository,
+    required this.authViewModel,
     this.listingRepository = const SampleContactListingRepository(),
     this.messageRepository = const UnconfiguredMessageRepository(),
     this.submissionTimeout = const Duration(seconds: 15),
   });
 
   final String apartmentId;
-  final AuthRepository authRepository;
+  final AuthViewModel authViewModel;
   final ContactListingRepository listingRepository;
   final MessageRepository messageRepository;
   final Duration submissionTimeout;
@@ -67,7 +68,7 @@ class _ContactAdvertiserPageState extends State<ContactAdvertiserPage> {
     // Block duplicate taps and prevent a second send after confirmed success.
     if (_sending || _receipt != null) return;
     if (_pendingDraft == null && !_formKey.currentState!.validate()) return;
-    final user = widget.authRepository.currentUser;
+    final user = widget.authViewModel.user;
     if (user == null || !user.emailVerified) return;
     // New enquiries get a new reference. Confirmation retries reuse the original
     // frozen content and recipient, even if fields or listing data have changed.
@@ -135,9 +136,9 @@ class _ContactAdvertiserPageState extends State<ContactAdvertiserPage> {
       child: AnimatedBuilder(
         // React immediately to logout or verification changes while this page is
         // open, in addition to the router's existing authentication redirect.
-        animation: widget.authRepository,
+        animation: widget.authViewModel,
         builder: (context, _) {
-          final user = widget.authRepository.currentUser;
+          final user = widget.authViewModel.user;
           if (user == null || !user.emailVerified) {
             return const MessageView(
               icon: Icons.lock_outline,

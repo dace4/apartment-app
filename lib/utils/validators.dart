@@ -1,6 +1,6 @@
-/// Form validators for the auth pages. Each returns an error message,
+/// Form validators used by several screens. Each returns an error message,
 /// or null when the value is valid.
-abstract final class AuthValidators {
+abstract final class Validators {
   static const minPasswordLength = 8;
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');

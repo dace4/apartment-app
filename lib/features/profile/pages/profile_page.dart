@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../router/app_routes.dart';
-import '../../auth/data/auth_repository.dart';
+import '../../../view_models/auth_view_model.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key, required this.authRepository});
+  const ProfilePage({super.key, required this.viewModel});
 
-  final AuthRepository authRepository;
+  final AuthViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -15,16 +15,15 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(title: const Text('Profile')),
       // Rebuilds when the user logs in or out.
       body: ListenableBuilder(
-        listenable: authRepository,
+        listenable: viewModel,
         builder: (context, _) {
-          final user = authRepository.currentUser;
+          final user = viewModel.user;
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // Signed-out users are redirected to the login page by the router.
-              if (user != null)
-                _SignedInCard(user: user, authRepository: authRepository),
+              if (user != null) _SignedInCard(viewModel: viewModel),
               const SizedBox(height: 16),
               Card(
                 child: ListTile(
@@ -50,35 +49,15 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-class _SignedInCard extends StatefulWidget {
-  const _SignedInCard({required this.user, required this.authRepository});
+class _SignedInCard extends StatelessWidget {
+  const _SignedInCard({required this.viewModel});
 
-  final AppUser user;
-  final AuthRepository authRepository;
-
-  @override
-  State<_SignedInCard> createState() => _SignedInCardState();
-}
-
-class _SignedInCardState extends State<_SignedInCard> {
-  bool _loggingOut = false;
-
-  Future<void> _logOut() async {
-    setState(() => _loggingOut = true);
-    try {
-      await widget.authRepository.signOut();
-    } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      if (mounted) setState(() => _loggingOut = false);
-    }
-  }
+  final AuthViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
+    final user = viewModel.user!;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -88,16 +67,14 @@ class _SignedInCardState extends State<_SignedInCard> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(widget.user.email),
+              title: Text(user.email),
               subtitle: Text(
-                widget.user.emailVerified
-                    ? 'Email verified'
-                    : 'Email not verified',
+                user.emailVerified ? 'Email verified' : 'Email not verified',
               ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: _loggingOut ? null : _logOut,
+              onPressed: viewModel.signOut,
               icon: const Icon(Icons.logout),
               label: const Text('Log out'),
             ),

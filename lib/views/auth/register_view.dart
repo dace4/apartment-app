@@ -1,62 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../data/auth_repository.dart';
-import '../utils/auth_validators.dart';
-import '../widgets/password_field.dart';
+import '../../router/app_routes.dart';
+import '../../utils/validators.dart';
+import '../../view_models/register_view_model.dart';
+import 'widgets/password_field.dart';
 
-/// Welcome page and US-07: log in with email and password. Signed-out
-/// users always land here; on success the router redirects to the home
-/// page (see `redirect` in app_router.dart).
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.authRepository});
-
-  final AuthRepository authRepository;
+/// US-06: create an account. Firebase sends the confirmation email and
+/// the router then shows the verify email page.
+class RegisterView extends StatefulWidget {
+  const RegisterView({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterView> createState() => _RegisterViewState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterViewState extends State<RegisterView> {
+  final viewModel = RegisterViewModel();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _loading = false;
-  String? _error;
+  final _confirmController = TextEditingController();
 
   @override
   void dispose() {
+    viewModel.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_loading || !_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await widget.authRepository.signIn(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-    } on AuthException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+  void _submit() {
+    if (viewModel.isLoading || !_formKey.currentState!.validate()) return;
+    viewModel.register(_emailController.text, _passwordController.text);
   }
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: viewModel,
+      builder: (context, _) => _buildPage(context),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
 
-    // No app bar: this is the first page users see when signed out.
     return Scaffold(
+      appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -69,31 +61,18 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(
-                        Icons.home_rounded,
-                        size: 72,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(height: 8),
                       Text(
-                        'Welcome to HomeFlow',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineSmall,
+                        'Save your preferences and access personalised '
+                        'features.',
+                        style: theme.textTheme.bodyLarge,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Find, compare and apply for apartments. '
-                        'Log in or create an account to continue.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.email],
-                        validator: AuthValidators.email,
+                        validator: Validators.email,
                         decoration: const InputDecoration(
                           labelText: 'Email',
                           border: OutlineInputBorder(),
@@ -103,34 +82,44 @@ class _LoginPageState extends State<LoginPage> {
                       PasswordField(
                         controller: _passwordController,
                         label: 'Password',
-                        validator: AuthValidators.requiredPassword,
+                        validator: Validators.newPassword,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newPassword],
+                      ),
+                      const SizedBox(height: 16),
+                      PasswordField(
+                        controller: _confirmController,
+                        label: 'Confirm password',
+                        validator: (value) => viewModel.validateConfirmation(
+                          _passwordController.text,
+                          value,
+                        ),
                         textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.password],
                         onFieldSubmitted: (_) => _submit(),
                       ),
-                      if (_error != null) ...[
+                      if (viewModel.errorMessage != null) ...[
                         const SizedBox(height: 16),
                         Text(
-                          _error!,
+                          viewModel.errorMessage!,
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
                       ],
                       const SizedBox(height: 24),
                       FilledButton(
-                        onPressed: _loading ? null : _submit,
-                        child: _loading
+                        onPressed: viewModel.isLoading ? null : _submit,
+                        child: viewModel.isLoading
                             ? const SizedBox.square(
                                 dimension: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Log in'),
+                            : const Text('Create account'),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                        onPressed: () => context.go(AppRoutes.register),
-                        child: const Text('No account yet? Create one'),
+                        onPressed: () => context.go(AppRoutes.login),
+                        child: const Text('Already have an account? Log in'),
                       ),
                     ],
                   ),

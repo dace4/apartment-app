@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../auth/data/auth_repository.dart';
+import '../../../services/auth_service.dart';
 import '../models/advertiser_message.dart';
 import '../utils/message_validators.dart';
 import 'message_repository.dart';
@@ -9,11 +9,11 @@ import 'message_repository.dart';
 class FirebaseMessageRepository extends MessageRepository {
   FirebaseMessageRepository({
     required this.firestore,
-    required this.authRepository,
+    required this.authService,
     this.refreshSession,
   });
   final FirebaseFirestore firestore;
-  final AuthRepository authRepository;
+  final AuthService authService;
   final Future<void> Function()? refreshSession;
 
   @override
@@ -25,7 +25,7 @@ class FirebaseMessageRepository extends MessageRepository {
   Future<MessageReceipt> send(MessageDraft draft) async {
     // Recheck identity and validation at the service boundary. A caller can
     // bypass the form, and the Firestore rules enforce these checks independently.
-    final user = authRepository.currentUser;
+    final user = authService.currentUser;
     if (user == null || !user.emailVerified) {
       throw const MessageException(
         'Log in with a verified email to send a message.',
@@ -51,8 +51,8 @@ class FirebaseMessageRepository extends MessageRepository {
       await refreshSession?.call();
       // An account change while refreshing must not send the previous user's
       // enquiry from a new session.
-      if (authRepository.currentUser?.id != user.id ||
-          authRepository.currentUser?.emailVerified != true) {
+      if (authService.currentUser?.id != user.id ||
+          authService.currentUser?.emailVerified != true) {
         throw const MessageException(
           'Log in again before sending this message.',
         );

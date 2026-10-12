@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'features/auth/data/auth_repository.dart';
+import 'view_models/auth_view_model.dart';
 import 'features/applications/data/application_repository.dart';
 import 'features/messages/data/contact_listing_repository.dart';
 import 'features/messages/data/message_repository.dart';
@@ -10,13 +10,13 @@ import 'router/app_router.dart';
 class HomeFlowApp extends StatefulWidget {
   const HomeFlowApp({
     super.key,
-    required this.authRepository,
+    required this.authViewModel,
     this.contactListingRepository = const SampleContactListingRepository(),
     this.messageRepository = const UnconfiguredMessageRepository(),
     this.applicationRepository = const UnconfiguredApplicationRepository(),
   });
 
-  final AuthRepository authRepository;
+  final AuthViewModel authViewModel;
   final ContactListingRepository contactListingRepository;
   final MessageRepository messageRepository;
   final ApplicationRepository applicationRepository;
@@ -28,7 +28,7 @@ class HomeFlowApp extends StatefulWidget {
 class _HomeFlowAppState extends State<HomeFlowApp> {
   // Created once per app instance so it isn't rebuilt on every build.
   late final GoRouter _router = createAppRouter(
-    authRepository: widget.authRepository,
+    authViewModel: widget.authViewModel,
     contactListingRepository: widget.contactListingRepository,
     messageRepository: widget.messageRepository,
     applicationRepository: widget.applicationRepository,
