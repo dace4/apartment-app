@@ -76,4 +76,24 @@ abstract final class Validators {
 
   static DateTime dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
+
+  // Message to an advertiser. firestore.rules checks the same limits.
+  static const subjectLimit = 120;
+  static const bodyLimit = 2000;
+
+  static String? messageSubject(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Enter a subject.';
+    if (text.length > subjectLimit) {
+      return 'Use at most $subjectLimit characters.';
+    }
+    return null;
+  }
+
+  static String? messageBody(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Enter your message.';
+    if (text.length > bodyLimit) return 'Use at most $bodyLimit characters.';
+    return null;
+  }
 }

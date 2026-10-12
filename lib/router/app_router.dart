@@ -1,8 +1,6 @@
 import 'package:go_router/go_router.dart';
 
 import '../view_models/auth_view_model.dart';
-import '../features/messages/data/contact_listing_repository.dart';
-import '../features/messages/data/message_repository.dart';
 
 import '../view_models/apartments_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
@@ -17,7 +15,7 @@ import '../views/auth/login_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
 import '../features/favourites/pages/favourites_page.dart';
-import '../features/messages/pages/contact_advertiser_page.dart';
+import '../views/messages/contact_advertiser_view.dart';
 import '../features/profile/pages/faq_page.dart';
 import '../features/profile/pages/notifications_page.dart';
 import '../features/profile/pages/profile_page.dart';
@@ -51,12 +49,7 @@ String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
   return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
 }
 
-GoRouter createAppRouter({
-  required AuthViewModel authViewModel,
-  ContactListingRepository contactListingRepository =
-      const SampleContactListingRepository(),
-  MessageRepository messageRepository = const UnconfiguredMessageRepository(),
-}) {
+GoRouter createAppRouter({required AuthViewModel authViewModel}) {
   // Shared by the apartment list and the Filters page (ARCHITECTURE.md §4).
   final apartmentsViewModel = ApartmentsViewModel();
 
@@ -115,11 +108,8 @@ GoRouter createAppRouter({
                       ),
                       GoRoute(
                         path: 'contact',
-                        builder: (context, state) => ContactAdvertiserPage(
+                        builder: (context, state) => ContactAdvertiserView(
                           apartmentId: state.pathParameters['id']!,
-                          authViewModel: authViewModel,
-                          listingRepository: contactListingRepository,
-                          messageRepository: messageRepository,
                         ),
                       ),
                     ],
