@@ -1,4 +1,4 @@
-import '../../models/apartment.dart';
+import '../models/apartment.dart';
 
 //Format an amoubt in Swiss francs with ' exemple => 1850 ; 1'850
 String formatChf(int amount) {

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../view_models/auth_view_model.dart';
+import '../../router/app_routes.dart';
+import '../../view_models/auth_view_model.dart';
 
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key, required this.viewModel});
+class ProfileView extends StatelessWidget {
+  const ProfileView({super.key, required this.viewModel});
 
   final AuthViewModel viewModel;
 

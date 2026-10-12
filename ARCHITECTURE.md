@@ -38,11 +38,14 @@ Firebase ──▶ Service ──(Models)──▶ ViewModel ──▶ View
 
 ```
 lib/
-├── main.dart                 # Firebase init, creates the shared Services/ViewModels
-├── router.dart               # GoRouter routes + auth redirect
+├── main.dart                 # Firebase init, starts the app
+├── app.dart                  # MaterialApp, creates AuthViewModel and the router
+├── router/
+│   ├── app_router.dart       # GoRouter routes + auth redirect
+│   └── app_routes.dart       # Every path of the app (AppRoutes.apartments…)
 ├── models/                   # Data classes
 │   ├── apartment.dart
-│   └── application.dart
+│   └── rental_application.dart
 ├── services/                 # Firebase access, one file per kind of data
 │   ├── auth_service.dart
 │   ├── apartment_service.dart
@@ -80,7 +83,10 @@ One **ViewModel per screen** (or per group of screens sharing state, see §4).
 
 ## 3. Templates
 
-Copy these when you create something new.
+Copy these when you create something new. They are shortened versions of the
+real applications files (`rental_application.dart`, `application_service.dart`,
+`applications_view_model.dart`, `applications_view.dart`): open those to see a
+complete example.
 
 ### Model
 
@@ -325,11 +331,11 @@ hide the form.
 Some state is needed by several screens. For example, the apartment list and the
 Filters page must see the same filter, and the whole app needs the signed-in user.
 
-In that case the ViewModel is **created once** (in `main.dart` or `router.dart`)
+In that case the ViewModel is **created once** (in `app.dart` or `router/app_router.dart`)
 and **passed to each View through its constructor**:
 
 ```dart
-// router.dart
+// router/app_router.dart
 final apartmentsViewModel = ApartmentsViewModel();
 
 GoRoute(
@@ -368,7 +374,8 @@ The list rebuilds by itself because it listens to the same ViewModel.
 3. **ViewModel**: create `lib/view_models/xxx_view_model.dart` (state + actions).
 4. **View**: create `lib/views/xxx/xxx_view.dart`, plus its widgets in
    `lib/views/xxx/widgets/`.
-5. **Route**: add the route in `lib/router.dart`.
+5. **Route**: add the path in `lib/router/app_routes.dart` and the route in
+   `lib/router/app_router.dart`.
 6. **Check**: `flutter analyze` passes, then try it in the app.
 
 ---

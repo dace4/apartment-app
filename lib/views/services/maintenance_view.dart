@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/placeholder_page.dart';
+import '../shared/widgets/placeholder_page.dart';
 
-class MaintenancePage extends StatelessWidget {
-  const MaintenancePage({super.key});
+class MaintenanceView extends StatelessWidget {
+  const MaintenanceView({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -14,18 +14,18 @@ import '../views/applications/edit_application_view.dart';
 import '../views/auth/login_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
-import '../features/favourites/pages/favourites_page.dart';
+import '../views/favourites/favourites_view.dart';
 import '../views/messages/contact_advertiser_view.dart';
-import '../features/profile/pages/faq_page.dart';
-import '../features/profile/pages/notifications_page.dart';
-import '../features/profile/pages/profile_page.dart';
-import '../features/services/pages/contractors_page.dart';
-import '../features/services/pages/insurance_page.dart';
-import '../features/services/pages/maintenance_page.dart';
-import '../features/services/pages/market_trends_page.dart';
-import '../features/services/pages/mortgage_calculator_page.dart';
-import '../features/services/pages/services_page.dart';
-import '../shared/widgets/scaffold_with_nav_bar.dart';
+import '../views/profile/faq_view.dart';
+import '../views/profile/notifications_view.dart';
+import '../views/profile/profile_view.dart';
+import '../views/services/contractors_view.dart';
+import '../views/services/insurance_view.dart';
+import '../views/services/maintenance_view.dart';
+import '../views/services/market_trends_view.dart';
+import '../views/services/mortgage_calculator_view.dart';
+import '../views/services/services_view.dart';
+import '../views/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 
 /// The app is only usable after logging in with a verified email:
@@ -122,7 +122,7 @@ GoRouter createAppRouter({required AuthViewModel authViewModel}) {
             routes: [
               GoRoute(
                 path: AppRoutes.favourites,
-                builder: (context, state) => const FavouritesPage(),
+                builder: (context, state) => const FavouritesView(),
               ),
             ],
           ),
@@ -154,27 +154,27 @@ GoRouter createAppRouter({required AuthViewModel authViewModel}) {
             routes: [
               GoRoute(
                 path: AppRoutes.services,
-                builder: (context, state) => const ServicesPage(),
+                builder: (context, state) => const ServicesView(),
                 routes: [
                   GoRoute(
                     path: 'mortgage',
-                    builder: (context, state) => const MortgageCalculatorPage(),
+                    builder: (context, state) => const MortgageCalculatorView(),
                   ),
                   GoRoute(
                     path: 'maintenance',
-                    builder: (context, state) => const MaintenancePage(),
+                    builder: (context, state) => const MaintenanceView(),
                   ),
                   GoRoute(
                     path: 'insurance',
-                    builder: (context, state) => const InsurancePage(),
+                    builder: (context, state) => const InsuranceView(),
                   ),
                   GoRoute(
                     path: 'contractors',
-                    builder: (context, state) => const ContractorsPage(),
+                    builder: (context, state) => const ContractorsView(),
                   ),
                   GoRoute(
                     path: 'market-trends',
-                    builder: (context, state) => const MarketTrendsPage(),
+                    builder: (context, state) => const MarketTrendsView(),
                   ),
                 ],
               ),
@@ -185,15 +185,15 @@ GoRouter createAppRouter({required AuthViewModel authViewModel}) {
               GoRoute(
                 path: AppRoutes.profile,
                 builder: (context, state) =>
-                    ProfilePage(viewModel: authViewModel),
+                    ProfileView(viewModel: authViewModel),
                 routes: [
                   GoRoute(
                     path: 'notifications',
-                    builder: (context, state) => const NotificationsPage(),
+                    builder: (context, state) => const NotificationsView(),
                   ),
                   GoRoute(
                     path: 'faq',
-                    builder: (context, state) => const FaqPage(),
+                    builder: (context, state) => const FaqView(),
                   ),
                 ],
               ),

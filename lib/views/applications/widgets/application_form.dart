@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/rental_application.dart';
-import '../../../shared/utils/formatters.dart';
+import '../../../utils/formatters.dart';
 import '../../../utils/validators.dart';
 
 /// The application fields, used to apply and to edit an application.

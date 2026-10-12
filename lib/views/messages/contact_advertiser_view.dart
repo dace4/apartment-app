@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../router/app_routes.dart';
-import '../../shared/widgets/message_view.dart';
+import '../shared/widgets/message_view.dart';
 import '../../utils/validators.dart';
 import '../../view_models/contact_advertiser_view_model.dart';
 

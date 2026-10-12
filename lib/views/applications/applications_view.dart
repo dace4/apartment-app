@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/rental_application.dart';
 import '../../router/app_routes.dart';
-import '../../shared/utils/formatters.dart';
-import '../../shared/widgets/message_view.dart';
+import '../../utils/formatters.dart';
+import '../shared/widgets/message_view.dart';
 import '../../view_models/applications_view_model.dart';
 import 'widgets/application_status_chip.dart';
 

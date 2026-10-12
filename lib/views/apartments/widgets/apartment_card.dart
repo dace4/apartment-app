@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/utils/formatters.dart';
+import '../../../utils/formatters.dart';
 import '../../../models/apartment.dart';
 
 import 'apartment_image.dart';

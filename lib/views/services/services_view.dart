@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../shared/widgets/placeholder_page.dart';
+import '../../router/app_routes.dart';
+import '../shared/widgets/placeholder_page.dart';
 
-class ServicesPage extends StatelessWidget {
-  const ServicesPage({super.key});
+class ServicesView extends StatelessWidget {
+  const ServicesView({super.key});
 
   @override
   Widget build(BuildContext context) {

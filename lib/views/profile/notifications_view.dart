@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/placeholder_page.dart';
+import '../shared/widgets/placeholder_page.dart';
 
-class NotificationsPage extends StatelessWidget {
-  const NotificationsPage({super.key});
+class NotificationsView extends StatelessWidget {
+  const NotificationsView({super.key});
 
   @override
   Widget build(BuildContext context) {

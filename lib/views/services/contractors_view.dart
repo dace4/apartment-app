@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/placeholder_page.dart';
+import '../shared/widgets/placeholder_page.dart';
 
-class ContractorsPage extends StatelessWidget {
-  const ContractorsPage({super.key});
+class ContractorsView extends StatelessWidget {
+  const ContractorsView({super.key});
 
   @override
   Widget build(BuildContext context) {

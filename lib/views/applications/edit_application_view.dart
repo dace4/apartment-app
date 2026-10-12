@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/rental_application.dart';
 import '../../router/app_routes.dart';
-import '../../shared/widgets/message_view.dart';
+import '../shared/widgets/message_view.dart';
 import '../../view_models/edit_application_view_model.dart';
 import 'widgets/application_form.dart';
 
