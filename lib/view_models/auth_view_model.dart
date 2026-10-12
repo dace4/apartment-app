@@ -19,20 +19,20 @@ class AuthViewModel extends ChangeNotifier {
   bool isLoading = false;
 
   /// Feedback shown on the Verify email page (sent again, not verified yet…).
-  String? message;
+  String? feedbackMessage;
 
   AppUser? get user => service.currentUser;
 
   Future<void> resendVerificationEmail() async {
     isLoading = true;
-    message = null;
+    feedbackMessage = null;
     notifyListeners();
 
     try {
       await service.sendEmailVerification();
-      message = 'Confirmation email sent again.';
+      feedbackMessage = 'Confirmation email sent again.';
     } on AuthException catch (e) {
-      message = e.message;
+      feedbackMessage = e.message;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -42,17 +42,17 @@ class AuthViewModel extends ChangeNotifier {
   /// When the email is verified, the router leaves the Verify email page.
   Future<void> checkEmailVerified() async {
     isLoading = true;
-    message = null;
+    feedbackMessage = null;
     notifyListeners();
 
     try {
       await service.reloadUser();
       if (user?.emailVerified != true) {
-        message =
+        feedbackMessage =
             'Your email is not verified yet. Open the link in the email first.';
       }
     } on AuthException catch (e) {
-      message = e.message;
+      feedbackMessage = e.message;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -61,7 +61,7 @@ class AuthViewModel extends ChangeNotifier {
 
   /// The router then goes back to the login page.
   Future<void> signOut() async {
-    message = null;
+    feedbackMessage = null;
     await service.signOut();
   }
 

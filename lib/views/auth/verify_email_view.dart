@@ -64,9 +64,12 @@ class VerifyEmailView extends StatelessWidget {
                             : viewModel.signOut,
                         child: const Text('Log out'),
                       ),
-                      if (viewModel.message != null) ...[
+                      if (viewModel.feedbackMessage != null) ...[
                         const SizedBox(height: 16),
-                        Text(viewModel.message!, textAlign: TextAlign.center),
+                        Text(
+                          viewModel.feedbackMessage!,
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                     ],
                   );

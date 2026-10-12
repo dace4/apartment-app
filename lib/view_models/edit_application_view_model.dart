@@ -14,7 +14,7 @@ class EditApplicationViewModel extends ChangeNotifier {
   String? errorMessage;
 
   bool isSaving = false;
-  String? saveError;
+  String? actionError;
 
   bool get canChange => application?.canChange(DateTime.now()) ?? false;
 
@@ -36,14 +36,14 @@ class EditApplicationViewModel extends ChangeNotifier {
   /// Returns true when the changes were saved.
   Future<bool> save(ApplicationDetails details) async {
     isSaving = true;
-    saveError = null;
+    actionError = null;
     notifyListeners();
 
     try {
       await service.update(application!.id, details);
       return true;
     } catch (e) {
-      saveError = 'Could not save the changes. Please try again.';
+      actionError = 'Could not save the changes. Please try again.';
       return false;
     } finally {
       isSaving = false;

@@ -99,7 +99,7 @@ class _EditApplicationViewState extends State<EditApplicationView> {
                       initial: application.details,
                       submitLabel: 'Save changes',
                       isSaving: viewModel.isSaving,
-                      errorMessage: viewModel.saveError,
+                      errorMessage: viewModel.actionError,
                       onSubmit: _save,
                     ),
                   ],

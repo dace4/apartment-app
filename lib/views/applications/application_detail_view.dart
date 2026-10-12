@@ -154,10 +154,10 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
                       : const Icon(Icons.undo),
                   label: const Text('Withdraw'),
                 ),
-                if (viewModel.withdrawError != null) ...[
+                if (viewModel.actionError != null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    viewModel.withdrawError!,
+                    viewModel.actionError!,
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                 ],

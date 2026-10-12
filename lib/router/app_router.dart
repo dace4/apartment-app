@@ -49,10 +49,10 @@ String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
   return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
 }
 
-GoRouter createAppRouter({required AuthViewModel authViewModel}) {
-  // Shared by the apartment list and the Filters page (ARCHITECTURE.md §4).
-  final apartmentsViewModel = ApartmentsViewModel();
-
+GoRouter createAppRouter({
+  required AuthViewModel authViewModel,
+  required ApartmentsViewModel apartmentsViewModel,
+}) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
     // Re-runs the redirect whenever the signed-in user changes.

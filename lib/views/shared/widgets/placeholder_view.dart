@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// A link shown on a [PlaceholderPage] to reach another route.
+/// A link shown on a [PlaceholderView] to reach another route.
 class PageLink {
   const PageLink(this.label, this.location);
 
@@ -11,8 +11,8 @@ class PageLink {
 
 /// Empty page used until a feature is implemented. Lists links to the
 /// pages reachable from here so the navigation can already be tested.
-class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({
+class PlaceholderView extends StatelessWidget {
+  const PlaceholderView({
     super.key,
     required this.title,
     this.links = const [],

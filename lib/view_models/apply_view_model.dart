@@ -16,7 +16,7 @@ class ApplyViewModel extends ChangeNotifier {
   String? errorMessage;
 
   bool isSaving = false;
-  String? saveError;
+  String? actionError;
 
   Future<void> fetchApartment(String id) async {
     isLoading = true;
@@ -36,7 +36,7 @@ class ApplyViewModel extends ChangeNotifier {
   /// Returns true when the application was submitted.
   Future<bool> submit(ApplicationDetails details) async {
     isSaving = true;
-    saveError = null;
+    actionError = null;
     notifyListeners();
 
     try {
@@ -48,14 +48,15 @@ class ApplyViewModel extends ChangeNotifier {
             application.status.isOpen,
       );
       if (alreadyApplied) {
-        saveError = 'You already have an open application for this apartment.';
+        actionError =
+            'You already have an open application for this apartment.';
         return false;
       }
 
       await applicationService.submit(apartment!, details);
       return true;
     } catch (e) {
-      saveError = 'Could not submit the application. Please try again.';
+      actionError = 'Could not submit the application. Please try again.';
       return false;
     } finally {
       isSaving = false;

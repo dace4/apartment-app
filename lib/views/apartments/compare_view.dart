@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../shared/widgets/placeholder_page.dart';
+import '../shared/widgets/placeholder_view.dart';
 
 class CompareView extends StatelessWidget {
   const CompareView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const PlaceholderPage(title: 'Compare apartments');
+    return const PlaceholderView(title: 'Compare apartments');
   }
 }

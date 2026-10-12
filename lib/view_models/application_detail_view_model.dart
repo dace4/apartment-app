@@ -17,7 +17,7 @@ class ApplicationDetailViewModel extends ChangeNotifier {
   String? errorMessage;
 
   bool isWithdrawing = false;
-  String? withdrawError;
+  String? actionError;
 
   bool get canChange => application?.canChange(DateTime.now()) ?? false;
 
@@ -47,13 +47,13 @@ class ApplicationDetailViewModel extends ChangeNotifier {
   Future<void> withdraw() async {
     if (!canChange) return;
     isWithdrawing = true;
-    withdrawError = null;
+    actionError = null;
     notifyListeners();
 
     try {
       await service.withdraw(application!.id);
     } catch (e) {
-      withdrawError = 'Could not withdraw the application. Please try again.';
+      actionError = 'Could not withdraw the application. Please try again.';
     } finally {
       isWithdrawing = false;
       notifyListeners();

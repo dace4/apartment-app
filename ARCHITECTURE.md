@@ -18,7 +18,7 @@ Firebase ──▶ Service ──(Models)──▶ ViewModel ──▶ View
 
 | Layer | Role | Knows about | Never does |
 |---|---|---|---|
-| **Model** | The shape of a piece of data (`Apartment`: id, title, price…) and its conversion from/to Firebase (`fromMap` / `toMap`). | nothing (pure Dart, except Firestore's `Timestamp` to convert dates in `fromMap` / `toMap`) | fetch data, hold app state |
+| **Model** | The shape of a piece of data (`Apartment`: id, title, price…), its conversion from/to Firebase (`fromMap` / `toMap`), and small getters that only read its own fields (`apartment.canApply`). | nothing (pure Dart, except Firestore's `Timestamp` to convert dates in `fromMap` / `toMap`) | fetch data, hold app state |
 | **Service** | Reads and writes Firebase (Firestore, Auth). One method = one operation. Returns Models. | Firebase, Models | hold state, call `notifyListeners()`, import `material.dart` |
 | **ViewModel** | The state and logic of **one screen**: data to show, `isLoading`, `errorMessage`, filters, validation, actions (`fetchX()`, `submit()`…). | Services, Models | import `cloud_firestore` / `firebase_auth`, build widgets, navigate |
 | **View** | Displays the ViewModel and forwards user actions (taps, input) to it. | its ViewModel, widgets | call a Service, take decisions (filter, validate, compute…) |
@@ -299,13 +299,13 @@ ViewModel method returns `true` when it worked, and the **View** navigates:
 // ViewModel
 Future<bool> save(ApplicationDetails details) async {
   isSaving = true;
-  saveError = null;
+  actionError = null;
   notifyListeners();
   try {
     await service.update(application!.id, details);
     return true;
   } catch (e) {
-    saveError = 'Could not save the changes. Please try again.';
+    actionError = 'Could not save the changes. Please try again.';
     return false;
   } finally {
     isSaving = false;
@@ -321,7 +321,7 @@ Future<void> _save(ApplicationDetails details) async {
 ```
 
 Keep the loading error (`errorMessage`, replaces the page) separate from the
-action error (`saveError`, shown under the button) so a failed save does not
+action error (`actionError`, shown under the button) so a failed save does not
 hide the form.
 
 ---
@@ -331,13 +331,18 @@ hide the form.
 Some state is needed by several screens. For example, the apartment list and the
 Filters page must see the same filter, and the whole app needs the signed-in user.
 
-In that case the ViewModel is **created once** (in `app.dart` or `router/app_router.dart`)
-and **passed to each View through its constructor**:
+In that case the ViewModel is **created once in `app.dart`**, given to the
+router, and **passed to each View through its constructor**:
 
 ```dart
-// router/app_router.dart
-final apartmentsViewModel = ApartmentsViewModel();
+// app.dart
+final _apartmentsViewModel = ApartmentsViewModel();
+late final GoRouter _router = createAppRouter(
+  authViewModel: _authViewModel,
+  apartmentsViewModel: _apartmentsViewModel,
+);
 
+// router/app_router.dart
 GoRoute(
   path: '/apartments',
   builder: (context, state) => ApartmentsView(viewModel: apartmentsViewModel),
@@ -390,8 +395,20 @@ The list rebuilds by itself because it listens to the same ViewModel.
   |---|---|
   | Filter the apartments | Show `viewModel.apartments` |
   | Check that max price ≥ min price | Show the error message the ViewModel gives |
-  | Know if an application can still be edited (5 days) | Disable the button when `viewModel.canEdit` is false |
+  | Know if an application can still be edited (5 days) | Hide the buttons when `viewModel.canChange` is false |
   | Compute a monthly mortgage payment | Show `viewModel.monthlyPayment` |
+  | Choose which apartments are visible | Read the form fields and build the `ApartmentFilter` passed to `viewModel.applyFilter()` |
+
+  Reading a form (controllers, `int.tryParse`) and building the Model to send
+  is the View's job: it is input, not a decision.
+- **Model getters stay small.** A Model may have a getter that only reads its
+  own fields (`apartment.canApply`, `application.canChange(now)`,
+  `filter.matches(apartment)`), so several ViewModels can reuse it. Anything
+  that combines several pieces of data, uses the current user or calls a
+  Service belongs in the ViewModel.
+- **Same names everywhere.** `isLoading` / `errorMessage` for loading the page
+  (the error replaces it), `isSaving` / `actionError` for an action (the error
+  is shown under the button).
 - **No Firebase outside `services/`.** `cloud_firestore` and `firebase_auth` are
   only imported there. Only exception: a Model may use Firestore's `Timestamp`
   to convert dates in `fromMap` / `toMap`.

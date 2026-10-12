@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'router/app_router.dart';
+import 'view_models/apartments_view_model.dart';
 import 'view_models/auth_view_model.dart';
 
 class HomeFlowApp extends StatefulWidget {
@@ -12,14 +13,21 @@ class HomeFlowApp extends StatefulWidget {
 }
 
 class _HomeFlowAppState extends State<HomeFlowApp> {
-  // Created once for the whole app (see ARCHITECTURE.md §4).
+  // ViewModels shared by several screens are created once, here
+  // (see ARCHITECTURE.md §4).
   final _authViewModel = AuthViewModel();
-  late final GoRouter _router = createAppRouter(authViewModel: _authViewModel);
+  final _apartmentsViewModel = ApartmentsViewModel();
+
+  late final GoRouter _router = createAppRouter(
+    authViewModel: _authViewModel,
+    apartmentsViewModel: _apartmentsViewModel,
+  );
 
   @override
   void dispose() {
     _router.dispose();
     _authViewModel.dispose();
+    _apartmentsViewModel.dispose();
     super.dispose();
   }
 

@@ -64,14 +64,16 @@ class _ApplicationsViewState extends State<ApplicationsView> {
           }
 
           // 4. Data
-          final now = DateTime.now();
           return ListView.builder(
             padding: const EdgeInsets.all(8),
             itemCount: viewModel.applications.length,
-            itemBuilder: (context, index) => _ApplicationTile(
-              application: viewModel.applications[index],
-              now: now,
-            ),
+            itemBuilder: (context, index) {
+              final application = viewModel.applications[index];
+              return _ApplicationTile(
+                application: application,
+                canChange: viewModel.canChange(application),
+              );
+            },
           );
         },
       ),
@@ -80,10 +82,10 @@ class _ApplicationsViewState extends State<ApplicationsView> {
 }
 
 class _ApplicationTile extends StatelessWidget {
-  const _ApplicationTile({required this.application, required this.now});
+  const _ApplicationTile({required this.application, required this.canChange});
 
   final RentalApplication application;
-  final DateTime now;
+  final bool canChange;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +109,7 @@ class _ApplicationTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text('Submitted ${formatDate(application.submittedAt)}'),
-                    if (application.canChange(now))
+                    if (canChange)
                       Text(
                         'Editable until '
                         '${formatDate(application.changeDeadline)}',

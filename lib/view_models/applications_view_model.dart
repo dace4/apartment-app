@@ -15,6 +15,10 @@ class ApplicationsViewModel extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
+  /// Whether the application can still be edited or withdrawn (5 days).
+  bool canChange(RentalApplication application) =>
+      application.canChange(DateTime.now());
+
   void listenToApplications() {
     isLoading = true;
     errorMessage = null;

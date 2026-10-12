@@ -102,7 +102,7 @@ class _ApplyViewState extends State<ApplyView> {
                     ApplicationForm(
                       submitLabel: 'Submit application',
                       isSaving: viewModel.isSaving,
-                      errorMessage: viewModel.saveError,
+                      errorMessage: viewModel.actionError,
                       onSubmit: _submit,
                     ),
                   ],

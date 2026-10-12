@@ -137,10 +137,10 @@ class _ContactAdvertiserViewState extends State<ContactAdvertiserView> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-                if (viewModel.sendError != null) ...[
+                if (viewModel.actionError != null) ...[
                   const SizedBox(height: 16),
                   Text(
-                    viewModel.sendError!,
+                    viewModel.actionError!,
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                 ],

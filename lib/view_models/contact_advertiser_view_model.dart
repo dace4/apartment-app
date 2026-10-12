@@ -21,7 +21,7 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
   String? errorMessage;
 
   bool isSending = false;
-  String? sendError;
+  String? actionError;
 
   /// Set once the message is stored: the page then shows a confirmation.
   String? sentMessageId;
@@ -48,7 +48,7 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
 
   Future<void> send(String subject, String body) async {
     isSending = true;
-    sendError = null;
+    actionError = null;
     notifyListeners();
 
     try {
@@ -64,7 +64,7 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
           // Offline, Firestore waits forever for the server: stop waiting.
           .timeout(const Duration(seconds: 15));
     } catch (e) {
-      sendError =
+      actionError =
           'Could not send the message. Check your connection and try '
           'again.';
     } finally {
