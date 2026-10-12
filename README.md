@@ -72,7 +72,7 @@ Derived from the Product Backlog (`ProductBacklog_FIG_2026_Apartment`):
 - **Programming Language:** [Dart](https://dart.dev/)
 - **Backend & Database:** [Google Firebase](https://firebase.google.com/) (Authentication, Cloud Firestore, Firebase Storage)
 - **Routing & Navigation:** [`go_router`](https://pub.dev/packages/go_router)
-- **State Management:** Provider / Riverpod / Bloc *(team preference)*
+- **Architecture & State Management:** MVVM with `ChangeNotifier` + `ListenableBuilder`. See [ARCHITECTURE.md](ARCHITECTURE.md) before contributing.
 - **Version Control:** Git & GitHub
 
 ---
