@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/rental_application.dart';
+import '../../../models/rental_application.dart';
 
 /// Shows an application's status with a colour and icon per state.
 class ApplicationStatusChip extends StatelessWidget {

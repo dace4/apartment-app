@@ -1,7 +1,6 @@
 import 'package:go_router/go_router.dart';
 
 import '../view_models/auth_view_model.dart';
-import '../features/applications/data/application_repository.dart';
 import '../features/messages/data/contact_listing_repository.dart';
 import '../features/messages/data/message_repository.dart';
 
@@ -10,10 +9,10 @@ import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
 import '../views/apartments/filters_view.dart';
-import '../features/applications/pages/application_detail_page.dart';
-import '../features/applications/pages/applications_page.dart';
-import '../features/applications/pages/apply_page.dart';
-import '../features/applications/pages/edit_application_page.dart';
+import '../views/applications/application_detail_view.dart';
+import '../views/applications/applications_view.dart';
+import '../views/applications/apply_view.dart';
+import '../views/applications/edit_application_view.dart';
 import '../views/auth/login_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
@@ -57,8 +56,6 @@ GoRouter createAppRouter({
   ContactListingRepository contactListingRepository =
       const SampleContactListingRepository(),
   MessageRepository messageRepository = const UnconfiguredMessageRepository(),
-  ApplicationRepository applicationRepository =
-      const UnconfiguredApplicationRepository(),
 }) {
   // Shared by the apartment list and the Filters page (ARCHITECTURE.md §4).
   final apartmentsViewModel = ApartmentsViewModel();
@@ -113,10 +110,8 @@ GoRouter createAppRouter({
                     routes: [
                       GoRoute(
                         path: 'apply',
-                        builder: (context, state) => ApplyPage(
-                          apartmentId: state.pathParameters['id']!,
-                          applicationRepository: applicationRepository,
-                        ),
+                        builder: (context, state) =>
+                            ApplyView(apartmentId: state.pathParameters['id']!),
                       ),
                       GoRoute(
                         path: 'contact',
@@ -145,21 +140,18 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.applications,
-                builder: (context, state) =>
-                    ApplicationsPage(repository: applicationRepository),
+                builder: (context, state) => const ApplicationsView(),
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) => ApplicationDetailPage(
+                    builder: (context, state) => ApplicationDetailView(
                       applicationId: state.pathParameters['id']!,
-                      repository: applicationRepository,
                     ),
                     routes: [
                       GoRoute(
                         path: 'edit',
-                        builder: (context, state) => EditApplicationPage(
+                        builder: (context, state) => EditApplicationView(
                           applicationId: state.pathParameters['id']!,
-                          repository: applicationRepository,
                         ),
                       ),
                     ],

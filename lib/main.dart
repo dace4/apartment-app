@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
-import 'features/applications/data/firebase_application_repository.dart';
 import 'services/auth_service.dart';
 import 'view_models/auth_view_model.dart';
 import 'features/messages/data/firebase_contact_listing_repository.dart';
@@ -28,12 +27,6 @@ Future<void> main() async {
         refreshSession: refreshVerifiedSession,
       ),
       messageRepository: FirebaseMessageRepository(
-        firestore: firestore,
-        authService: AuthService(),
-        refreshSession: refreshVerifiedSession,
-      ),
-      // US 16: applications are stored in Firestore, one document each.
-      applicationRepository: FirebaseApplicationRepository(
         firestore: firestore,
         authService: AuthService(),
         refreshSession: refreshVerifiedSession,

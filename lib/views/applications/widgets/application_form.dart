@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/rental_application.dart';
 import '../../../shared/utils/formatters.dart';
-import '../models/rental_application.dart';
-import '../utils/application_validators.dart';
+import '../../../utils/validators.dart';
 
 /// The application fields, used to apply and to edit an application.
 class ApplicationForm extends StatefulWidget {
@@ -10,6 +10,8 @@ class ApplicationForm extends StatefulWidget {
     super.key,
     this.initial,
     required this.submitLabel,
+    required this.isSaving,
+    required this.errorMessage,
     required this.onSubmit,
   });
 
@@ -17,8 +19,12 @@ class ApplicationForm extends StatefulWidget {
   final ApplicationDetails? initial;
   final String submitLabel;
 
-  /// Saves the details and returns an error message, or null on success.
-  final Future<String?> Function(ApplicationDetails details) onSubmit;
+  /// Both come from the screen's ViewModel.
+  final bool isSaving;
+  final String? errorMessage;
+
+  /// Called with the filled-in details once the form is valid.
+  final void Function(ApplicationDetails details) onSubmit;
 
   @override
   State<ApplicationForm> createState() => _ApplicationFormState();
@@ -33,8 +39,6 @@ class _ApplicationFormState extends State<ApplicationForm> {
   );
   late final _message = TextEditingController(text: widget.initial?.message);
   late DateTime? _moveInDate = widget.initial?.moveInDate;
-  bool _saving = false;
-  String? _error;
 
   @override
   void dispose() {
@@ -45,24 +49,12 @@ class _ApplicationFormState extends State<ApplicationForm> {
     super.dispose();
   }
 
-  String? _validateMoveInDate(DateTime? value) {
-    final initial = widget.initial?.moveInDate;
-    // A date kept from the original application may lie in the past by now.
-    if (value != null &&
-        initial != null &&
-        ApplicationValidators.dateOnly(value) ==
-            ApplicationValidators.dateOnly(initial)) {
-      return null;
-    }
-    return ApplicationValidators.moveInDate(value, DateTime.now());
-  }
-
   Future<void> _pickMoveInDate(FormFieldState<DateTime> field) async {
-    final today = ApplicationValidators.dateOnly(DateTime.now());
+    final today = Validators.dateOnly(DateTime.now());
     final current = field.value;
     // The picker requires initialDate >= firstDate.
     final firstDate = current != null && current.isBefore(today)
-        ? ApplicationValidators.dateOnly(current)
+        ? Validators.dateOnly(current)
         : today;
     final picked = await showDatePicker(
       context: context,
@@ -76,14 +68,10 @@ class _ApplicationFormState extends State<ApplicationForm> {
     field.didChange(picked);
   }
 
-  Future<void> _submit() async {
-    if (_saving || !_formKey.currentState!.validate()) return;
+  void _submit() {
+    if (widget.isSaving || !_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final error = await widget.onSubmit(
+    widget.onSubmit(
       ApplicationDetails(
         fullName: _fullName.text.trim(),
         phone: _phone.text.trim(),
@@ -92,12 +80,6 @@ class _ApplicationFormState extends State<ApplicationForm> {
         message: _message.text.trim(),
       ),
     );
-    if (mounted) {
-      setState(() {
-        _saving = false;
-        _error = error;
-      });
-    }
   }
 
   @override
@@ -111,12 +93,12 @@ class _ApplicationFormState extends State<ApplicationForm> {
         children: [
           TextFormField(
             controller: _fullName,
-            readOnly: _saving,
+            readOnly: widget.isSaving,
             textInputAction: TextInputAction.next,
             textCapitalization: TextCapitalization.words,
             autofillHints: const [AutofillHints.name],
-            maxLength: ApplicationValidators.nameLimit,
-            validator: ApplicationValidators.fullName,
+            maxLength: Validators.nameLimit,
+            validator: Validators.fullName,
             decoration: const InputDecoration(
               labelText: 'Full name',
               border: OutlineInputBorder(),
@@ -125,11 +107,11 @@ class _ApplicationFormState extends State<ApplicationForm> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _phone,
-            readOnly: _saving,
+            readOnly: widget.isSaving,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.telephoneNumber],
-            validator: ApplicationValidators.phone,
+            validator: Validators.phone,
             decoration: const InputDecoration(
               labelText: 'Phone',
               border: OutlineInputBorder(),
@@ -138,9 +120,12 @@ class _ApplicationFormState extends State<ApplicationForm> {
           const SizedBox(height: 16),
           FormField<DateTime>(
             initialValue: _moveInDate,
-            validator: _validateMoveInDate,
+            validator: (value) => Validators.moveInDate(
+              value,
+              initial: widget.initial?.moveInDate,
+            ),
             builder: (field) => InkWell(
-              onTap: _saving ? null : () => _pickMoveInDate(field),
+              onTap: widget.isSaving ? null : () => _pickMoveInDate(field),
               child: InputDecorator(
                 decoration: InputDecoration(
                   labelText: 'Move-in date',
@@ -159,10 +144,10 @@ class _ApplicationFormState extends State<ApplicationForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _occupants,
-            readOnly: _saving,
+            readOnly: widget.isSaving,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.next,
-            validator: ApplicationValidators.occupants,
+            validator: Validators.occupants,
             decoration: const InputDecoration(
               labelText: 'Number of occupants',
               border: OutlineInputBorder(),
@@ -171,31 +156,31 @@ class _ApplicationFormState extends State<ApplicationForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _message,
-            readOnly: _saving,
+            readOnly: widget.isSaving,
             minLines: 3,
             maxLines: 6,
-            maxLength: ApplicationValidators.messageLimit,
+            maxLength: Validators.messageLimit,
             keyboardType: TextInputType.multiline,
-            validator: ApplicationValidators.message,
+            validator: Validators.applicationMessage,
             decoration: const InputDecoration(
               labelText: 'Message to the advertiser (optional)',
               border: OutlineInputBorder(),
             ),
           ),
-          if (_error != null) ...[
+          if (widget.errorMessage != null) ...[
             const SizedBox(height: 8),
             Semantics(
               liveRegion: true,
               child: Text(
-                _error!,
+                widget.errorMessage!,
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
           ],
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _saving ? null : _submit,
-            child: _saving
+            onPressed: widget.isSaving ? null : _submit,
+            child: widget.isSaving
                 ? const SizedBox.square(
                     dimension: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),

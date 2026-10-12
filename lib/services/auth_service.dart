@@ -58,6 +58,11 @@ class AuthService {
   Future<void> reloadUser() async {
     try {
       await _auth.currentUser?.reload();
+      // firestore.rules read "email verified" from the login token: get a
+      // new token so they see the verification right away.
+      if (_auth.currentUser?.emailVerified == true) {
+        await _auth.currentUser!.getIdToken(true);
+      }
     } on FirebaseAuthException catch (e) {
       throw AuthException(_messageFor(e.code));
     }

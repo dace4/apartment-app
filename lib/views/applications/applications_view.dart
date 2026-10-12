@@ -1,64 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../shared/utils/formatters.dart';
-import '../../../shared/widgets/message_view.dart';
-import '../data/application_repository.dart';
-import '../models/rental_application.dart';
-import '../widgets/application_status_chip.dart';
+import '../../models/rental_application.dart';
+import '../../router/app_routes.dart';
+import '../../shared/utils/formatters.dart';
+import '../../shared/widgets/message_view.dart';
+import '../../view_models/applications_view_model.dart';
+import 'widgets/application_status_chip.dart';
 
 /// US 16: lists the user's applications with their current status.
-class ApplicationsPage extends StatefulWidget {
-  const ApplicationsPage({
-    super.key,
-    this.repository = const UnconfiguredApplicationRepository(),
-  });
-
-  final ApplicationRepository repository;
+class ApplicationsView extends StatefulWidget {
+  const ApplicationsView({super.key});
 
   @override
-  State<ApplicationsPage> createState() => _ApplicationsPageState();
+  State<ApplicationsView> createState() => _ApplicationsViewState();
 }
 
-class _ApplicationsPageState extends State<ApplicationsPage> {
-  // Started once, so rebuilding the page does not open a second listener.
-  late Stream<List<RentalApplication>> _applications;
+class _ApplicationsViewState extends State<ApplicationsView> {
+  final viewModel = ApplicationsViewModel();
 
   @override
   void initState() {
     super.initState();
-    _applications = widget.repository.watchMyApplications();
+    viewModel.listenToApplications();
   }
 
-  void _reload() {
-    setState(() => _applications = widget.repository.watchMyApplications());
+  @override
+  void dispose() {
+    viewModel.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('My applications')),
-      body: StreamBuilder<List<RentalApplication>>(
-        stream: _applications,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            final error = snapshot.error;
-            return MessageView(
-              icon: Icons.cloud_off,
-              message: error is ApplicationException
-                  ? error.message
-                  : 'Could not load your applications.',
-              actionLabel: 'Retry',
-              onAction: _reload,
-            );
-          }
-          if (!snapshot.hasData) {
+      body: ListenableBuilder(
+        listenable: viewModel,
+        builder: (context, _) {
+          // 1. Loading
+          if (viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final applications = snapshot.requireData;
-          if (applications.isEmpty) {
+          // 2. Error
+          if (viewModel.errorMessage != null) {
+            return MessageView(
+              icon: Icons.cloud_off,
+              message: viewModel.errorMessage!,
+              actionLabel: 'Retry',
+              onAction: viewModel.listenToApplications,
+            );
+          }
+
+          // 3. Empty
+          if (viewModel.applications.isEmpty) {
             return MessageView(
               icon: Icons.description_outlined,
               message: 'You have not applied for an apartment yet.',
@@ -67,14 +63,15 @@ class _ApplicationsPageState extends State<ApplicationsPage> {
             );
           }
 
+          // 4. Data
           final now = DateTime.now();
           return ListView.builder(
             padding: const EdgeInsets.all(8),
-            itemCount: applications.length,
-            itemBuilder: (context, index) {
-              final application = applications[index];
-              return _ApplicationTile(application: application, now: now);
-            },
+            itemCount: viewModel.applications.length,
+            itemBuilder: (context, index) => _ApplicationTile(
+              application: viewModel.applications[index],
+              now: now,
+            ),
           );
         },
       ),

@@ -1,43 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../shared/utils/formatters.dart';
-import '../../../shared/widgets/message_view.dart';
-import '../data/application_repository.dart';
-import '../models/rental_application.dart';
-import '../widgets/application_status_chip.dart';
+import '../../models/rental_application.dart';
+import '../../router/app_routes.dart';
+import '../../shared/utils/formatters.dart';
+import '../../shared/widgets/message_view.dart';
+import '../../view_models/application_detail_view_model.dart';
+import 'widgets/application_status_chip.dart';
 
 /// US 16: shows one application and lets the user edit or withdraw it
 /// within 5 days of submitting.
-class ApplicationDetailPage extends StatefulWidget {
-  const ApplicationDetailPage({
-    super.key,
-    required this.applicationId,
-    this.repository = const UnconfiguredApplicationRepository(),
-  });
+class ApplicationDetailView extends StatefulWidget {
+  const ApplicationDetailView({super.key, required this.applicationId});
 
   final String applicationId;
-  final ApplicationRepository repository;
 
   @override
-  State<ApplicationDetailPage> createState() => _ApplicationDetailPageState();
+  State<ApplicationDetailView> createState() => _ApplicationDetailViewState();
 }
 
-class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
-  late Stream<RentalApplication?> _application;
-  bool _withdrawing = false;
+class _ApplicationDetailViewState extends State<ApplicationDetailView> {
+  final viewModel = ApplicationDetailViewModel();
 
   @override
   void initState() {
     super.initState();
-    _application = widget.repository.watchApplication(widget.applicationId);
+    viewModel.listenToApplication(widget.applicationId);
   }
 
-  void _reload() {
-    setState(() {
-      _application = widget.repository.watchApplication(widget.applicationId);
-    });
+  @override
+  void dispose() {
+    viewModel.dispose();
+    super.dispose();
   }
 
   Future<void> _withdraw() async {
@@ -61,48 +55,42 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _withdrawing = true);
-    String message = 'Application withdrawn.';
-    try {
-      await widget.repository.withdraw(widget.applicationId);
-    } on ApplicationException catch (e) {
-      message = e.message;
-    } finally {
-      if (mounted) setState(() => _withdrawing = false);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    }
+    if (confirmed == true) viewModel.withdraw();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Application')),
-      body: StreamBuilder<RentalApplication?>(
-        stream: _application,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return MessageView(
-              icon: Icons.cloud_off,
-              message: 'Could not load the application.',
-              actionLabel: 'Retry',
-              onAction: _reload,
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: ListenableBuilder(
+        listenable: viewModel,
+        builder: (context, _) {
+          // 1. Loading
+          if (viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          final application = snapshot.data;
+
+          // 2. Error
+          if (viewModel.errorMessage != null) {
+            return MessageView(
+              icon: Icons.cloud_off,
+              message: viewModel.errorMessage!,
+              actionLabel: 'Retry',
+              onAction: () =>
+                  viewModel.listenToApplication(widget.applicationId),
+            );
+          }
+
+          // 3. Not found
+          final application = viewModel.application;
           if (application == null) {
             return const MessageView(
               icon: Icons.search_off,
               message: 'This application does not exist.',
             );
           }
+
+          // 4. Data
           return _details(context, application);
         },
       ),
@@ -112,7 +100,7 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
   Widget _details(BuildContext context, RentalApplication application) {
     final theme = Theme.of(context);
     final details = application.details;
-    final canChange = application.canChange(DateTime.now());
+    final canChange = viewModel.canChange;
 
     return Align(
       alignment: Alignment.topCenter,
@@ -147,7 +135,7 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
               if (canChange) ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: _withdrawing
+                  onPressed: viewModel.isWithdrawing
                       ? null
                       : () => context.go(
                           AppRoutes.editApplication(application.id),
@@ -157,8 +145,8 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: _withdrawing ? null : _withdraw,
-                  icon: _withdrawing
+                  onPressed: viewModel.isWithdrawing ? null : _withdraw,
+                  icon: viewModel.isWithdrawing
                       ? const SizedBox.square(
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
@@ -166,6 +154,13 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage> {
                       : const Icon(Icons.undo),
                   label: const Text('Withdraw'),
                 ),
+                if (viewModel.withdrawError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    viewModel.withdrawError!,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ],
               ],
               const SizedBox(height: 8),
               TextButton(

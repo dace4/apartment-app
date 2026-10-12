@@ -1,83 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../router/app_routes.dart';
-import '../../../shared/widgets/message_view.dart';
-import '../data/application_repository.dart';
-import '../models/rental_application.dart';
-import '../widgets/application_form.dart';
+import '../../models/rental_application.dart';
+import '../../router/app_routes.dart';
+import '../../shared/widgets/message_view.dart';
+import '../../view_models/edit_application_view_model.dart';
+import 'widgets/application_form.dart';
 
 /// US 16: edit an application within 5 days of submitting it.
-class EditApplicationPage extends StatefulWidget {
-  const EditApplicationPage({
-    super.key,
-    required this.applicationId,
-    this.repository = const UnconfiguredApplicationRepository(),
-  });
+class EditApplicationView extends StatefulWidget {
+  const EditApplicationView({super.key, required this.applicationId});
 
   final String applicationId;
-  final ApplicationRepository repository;
 
   @override
-  State<EditApplicationPage> createState() => _EditApplicationPageState();
+  State<EditApplicationView> createState() => _EditApplicationViewState();
 }
 
-class _EditApplicationPageState extends State<EditApplicationPage> {
-  // Loaded once: the form keeps the user's edits even if the stored
-  // application changes meanwhile.
-  late Future<RentalApplication?> _application;
+class _EditApplicationViewState extends State<EditApplicationView> {
+  final viewModel = EditApplicationViewModel();
 
   @override
   void initState() {
     super.initState();
-    _application = _load();
+    viewModel.fetchApplication(widget.applicationId);
   }
 
-  Future<RentalApplication?> _load() =>
-      widget.repository.fetchApplication(widget.applicationId);
+  @override
+  void dispose() {
+    viewModel.dispose();
+    super.dispose();
+  }
 
-  void _reload() => setState(() => _application = _load());
-
-  Future<String?> _save(ApplicationDetails details) async {
-    try {
-      await widget.repository.update(widget.applicationId, details);
-    } on ApplicationException catch (e) {
-      return e.message;
-    }
-    if (mounted) {
+  Future<void> _save(ApplicationDetails details) async {
+    final saved = await viewModel.save(details);
+    if (saved && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Changes saved.')));
       context.go(AppRoutes.applicationDetail(widget.applicationId));
     }
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Edit application')),
-      body: FutureBuilder<RentalApplication?>(
-        future: _application,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+      body: ListenableBuilder(
+        listenable: viewModel,
+        builder: (context, _) {
+          // 1. Loading
+          if (viewModel.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
+
+          // 2. Error
+          if (viewModel.errorMessage != null) {
             return MessageView(
               icon: Icons.cloud_off,
-              message: 'Could not load the application.',
+              message: viewModel.errorMessage!,
               actionLabel: 'Retry',
-              onAction: _reload,
+              onAction: () => viewModel.fetchApplication(widget.applicationId),
             );
           }
-          final application = snapshot.data;
+
+          // 3. Not found or too late
+          final application = viewModel.application;
           if (application == null) {
             return const MessageView(
               icon: Icons.search_off,
               message: 'This application does not exist.',
             );
           }
-          if (!application.canChange(DateTime.now())) {
+          if (!viewModel.canChange) {
             return const MessageView(
               icon: Icons.lock_clock,
               message:
@@ -86,6 +80,7 @@ class _EditApplicationPageState extends State<EditApplicationPage> {
             );
           }
 
+          // 4. Data
           return Align(
             alignment: Alignment.topCenter,
             child: SingleChildScrollView(
@@ -103,6 +98,8 @@ class _EditApplicationPageState extends State<EditApplicationPage> {
                     ApplicationForm(
                       initial: application.details,
                       submitLabel: 'Save changes',
+                      isSaving: viewModel.isSaving,
+                      errorMessage: viewModel.saveError,
                       onSubmit: _save,
                     ),
                   ],

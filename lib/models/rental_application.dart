@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// US 16: where an application is in the process, with its user-facing label.
 enum ApplicationStatus {
   submitted('Submitted'),
@@ -39,6 +41,29 @@ class ApplicationDetails {
   final DateTime moveInDate;
   final int occupants;
   final String message;
+
+  factory ApplicationDetails.fromMap(Map<String, dynamic> map) {
+    return ApplicationDetails(
+      fullName: map['fullName'] as String,
+      phone: map['phone'] as String,
+      moveInDate: (map['moveInDate'] as Timestamp).toDate(),
+      occupants: map['occupants'] as int,
+      message: map['message'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'fullName': fullName.trim(),
+      'phone': phone.trim(),
+      // Date only: the time of day is not stored.
+      'moveInDate': Timestamp.fromDate(
+        DateTime(moveInDate.year, moveInDate.month, moveInDate.day),
+      ),
+      'occupants': occupants,
+      'message': message.trim(),
+    };
+  }
 }
 
 /// A submitted application for one apartment.
@@ -72,4 +97,18 @@ class RentalApplication {
   /// Whether the applicant may still edit or withdraw it. The Firestore
   /// rules enforce the same limit on the server.
   bool canChange(DateTime now) => status.isOpen && now.isBefore(changeDeadline);
+
+  factory RentalApplication.fromMap(String id, Map<String, dynamic> map) {
+    return RentalApplication(
+      id: id,
+      userId: map['userId'] as String,
+      apartmentId: map['apartmentId'] as String,
+      apartmentTitle: map['apartmentTitle'] as String,
+      details: ApplicationDetails.fromMap(map),
+      status: ApplicationStatus.fromName(map['status']),
+      // null for a moment after submitting, until the server sets the time.
+      submittedAt:
+          (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
 }

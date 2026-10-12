@@ -18,7 +18,7 @@ Firebase ──▶ Service ──(Models)──▶ ViewModel ──▶ View
 
 | Layer | Role | Knows about | Never does |
 |---|---|---|---|
-| **Model** | The shape of a piece of data (`Apartment`: id, title, price…) and its conversion from/to Firebase (`fromMap` / `toMap`). | nothing (pure Dart) | fetch data, hold app state |
+| **Model** | The shape of a piece of data (`Apartment`: id, title, price…) and its conversion from/to Firebase (`fromMap` / `toMap`). | nothing (pure Dart, except Firestore's `Timestamp` to convert dates in `fromMap` / `toMap`) | fetch data, hold app state |
 | **Service** | Reads and writes Firebase (Firestore, Auth). One method = one operation. Returns Models. | Firebase, Models | hold state, call `notifyListeners()`, import `material.dart` |
 | **ViewModel** | The state and logic of **one screen**: data to show, `isLoading`, `errorMessage`, filters, validation, actions (`fetchX()`, `submit()`…). | Services, Models | import `cloud_firestore` / `firebase_auth`, build widgets, navigate |
 | **View** | Displays the ViewModel and forwards user actions (taps, input) to it. | its ViewModel, widgets | call a Service, take decisions (filter, validate, compute…) |
@@ -234,6 +234,90 @@ class _ApplicationsViewState extends State<ApplicationsView> {
 Every View that loads data handles the same 4 states in the same order:
 **loading → error → empty → data**.
 
+### Live data (Firestore `snapshots()`)
+
+Use it when the data can change while the screen stays open, for example
+when another screen edits it. Tabs stay alive, so a list read once with
+`get()` would not show a new or edited item. (Applications use this.)
+
+```dart
+// Service: snapshots() instead of get()
+Stream<List<RentalApplication>> watchMyApplications() {
+  return _collection
+      .where('userId', isEqualTo: _userId)
+      .snapshots()
+      .map((snapshot) => snapshot.docs
+          .map((doc) => RentalApplication.fromMap(doc.id, doc.data()))
+          .toList());
+}
+
+// ViewModel: listen instead of await, and cancel in dispose()
+StreamSubscription<List<RentalApplication>>? _subscription;
+
+void listenToApplications() {
+  isLoading = true;
+  errorMessage = null;
+  notifyListeners();
+
+  _subscription?.cancel();
+  _subscription = service.watchMyApplications().listen(
+    (newApplications) {
+      applications = newApplications;
+      isLoading = false;
+      notifyListeners();
+    },
+    onError: (e) {
+      errorMessage = 'Could not load your applications.';
+      isLoading = false;
+      notifyListeners();
+    },
+  );
+}
+
+@override
+void dispose() {
+  _subscription?.cancel();
+  super.dispose();
+}
+```
+
+The View calls `viewModel.listenToApplications()` in `initState`, exactly
+like a `fetchX()`.
+
+### Actions followed by navigation
+
+When an action (submit, save…) must open another page on success, the
+ViewModel method returns `true` when it worked, and the **View** navigates:
+
+```dart
+// ViewModel
+Future<bool> save(ApplicationDetails details) async {
+  isSaving = true;
+  saveError = null;
+  notifyListeners();
+  try {
+    await service.update(application!.id, details);
+    return true;
+  } catch (e) {
+    saveError = 'Could not save the changes. Please try again.';
+    return false;
+  } finally {
+    isSaving = false;
+    notifyListeners();
+  }
+}
+
+// View
+Future<void> _save(ApplicationDetails details) async {
+  final saved = await viewModel.save(details);
+  if (saved && mounted) context.go(AppRoutes.applicationDetail(id));
+}
+```
+
+Keep the loading error (`errorMessage`, replaces the page) separate from the
+action error (`saveError`, shown under the button) so a failed save does not
+hide the form.
+
 ---
 
 ## 4. Sharing a ViewModel between Views
@@ -302,7 +386,8 @@ The list rebuilds by itself because it listens to the same ViewModel.
   | Know if an application can still be edited (5 days) | Disable the button when `viewModel.canEdit` is false |
   | Compute a monthly mortgage payment | Show `viewModel.monthlyPayment` |
 - **No Firebase outside `services/`.** `cloud_firestore` and `firebase_auth` are
-  only imported there.
+  only imported there. Only exception: a Model may use Firestore's `Timestamp`
+  to convert dates in `fromMap` / `toMap`.
 - **No `material.dart` in ViewModels or Services.** Use
   `package:flutter/foundation.dart` for `ChangeNotifier`.
 - **No values returned through navigation** (`pop(result)`). Share a ViewModel

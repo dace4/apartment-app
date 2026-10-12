@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'view_models/auth_view_model.dart';
-import 'features/applications/data/application_repository.dart';
 import 'features/messages/data/contact_listing_repository.dart';
 import 'features/messages/data/message_repository.dart';
 import 'router/app_router.dart';
@@ -13,13 +12,11 @@ class HomeFlowApp extends StatefulWidget {
     required this.authViewModel,
     this.contactListingRepository = const SampleContactListingRepository(),
     this.messageRepository = const UnconfiguredMessageRepository(),
-    this.applicationRepository = const UnconfiguredApplicationRepository(),
   });
 
   final AuthViewModel authViewModel;
   final ContactListingRepository contactListingRepository;
   final MessageRepository messageRepository;
-  final ApplicationRepository applicationRepository;
 
   @override
   State<HomeFlowApp> createState() => _HomeFlowAppState();
@@ -31,7 +28,6 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
     authViewModel: widget.authViewModel,
     contactListingRepository: widget.contactListingRepository,
     messageRepository: widget.messageRepository,
-    applicationRepository: widget.applicationRepository,
   );
 
   @override
