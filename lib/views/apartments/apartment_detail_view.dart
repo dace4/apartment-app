@@ -182,7 +182,8 @@ class _ApartmentDetails extends StatelessWidget {
               if (!isForRent) ...[
                 const SizedBox(height: 8),
                 TextButton.icon(
-                  onPressed: () => context.go(AppRoutes.mortgage),
+                  onPressed: () =>
+                      context.go(AppRoutes.mortgageForPrice(apartment.price)),
                   icon: const Icon(Icons.calculate_outlined),
                   label: const Text('Mortgage calculator'),
                 ),

@@ -158,7 +158,12 @@ GoRouter createAppRouter({
                 routes: [
                   GoRoute(
                     path: 'mortgage',
-                    builder: (context, state) => const MortgageCalculatorView(),
+                    // ?price= comes from an apartment for sale (US-09).
+                    builder: (context, state) => MortgageCalculatorView(
+                      initialPrice: int.tryParse(
+                        state.uri.queryParameters['price'] ?? '',
+                      ),
+                    ),
                   ),
                   GoRoute(
                     path: 'maintenance',
