@@ -38,6 +38,8 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
   cloud_firestore: ^6.10.0
+  # US-11: integrity fingerprints for reviewed and signed records.
+  crypto: ^3.0.7
 
 dev_dependencies:
   # US 12 repository tests run without sending messages to real advertisers.

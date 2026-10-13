@@ -18,6 +18,49 @@ service cloud.firestore {
       allow read: if verified();
       allow write: if false;
     }
+    // US-11: trusted staff provision assignments; clients cannot edit originals.
+    match /signingDocuments/{documentId} {
+      allow get: if verified() &&
+        (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if verified() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+    // US-11: deterministic ID enforces one signed record per assignment.
+    match /signedDocuments/{documentId} {
+      allow get: if verified() &&
+        (resource == null || resource.data.signerId == request.auth.uid);
+      allow list: if verified() && resource.data.signerId == request.auth.uid;
+      allow create: if verified() && validSignedRecord();
+      allow update, delete: if false;
+
+      function validSignedRecord() {
+        let data = request.resource.data;
+        let original = get(/databases/$(database)/documents/signingDocuments/$(documentId)).data;
+        let fields = ['document', 'signerId', 'signerEmail', 'signerName',
+          'signature', 'documentHash', 'recordHash', 'consentVersion',
+          'consentText', 'consented', 'signedAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          original.userId == request.auth.uid && original.state == 'ready' &&
+          original.keys().hasAll(['userId', 'title', 'body', 'version', 'issuedAt', 'state']) &&
+          original.keys().hasOnly(['userId', 'title', 'body', 'version', 'issuedAt', 'state']) &&
+          original.title is string && original.title.size() <= 200 &&
+          original.title.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          original.body is string && original.body.size() <= 100000 &&
+          original.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          original.version is int && original.version > 0 && original.issuedAt is timestamp &&
+          data.document == original &&
+          data.signerId == request.auth.uid &&
+          data.signerEmail == request.auth.token.email &&
+          data.signerName is string && data.signerName.size() <= 100 &&
+          data.signerName.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.signature is string && data.signature.size() >= 20 && data.signature.size() <= 100000 &&
+          data.documentHash is string && data.documentHash.matches('[0-9a-f]{64}') &&
+          data.recordHash is string && data.recordHash.matches('[0-9a-f]{64}') &&
+          data.consentVersion == 'US-11-v1' &&
+          data.consentText == 'I have reviewed this document and consent to sign it electronically. I understand that my signature and this document will be saved together and cannot be edited after signing.' &&
+          data.consented == true && data.signedAt == request.time;
+      }
+    }
     // Favourites: each user manages only their own saved apartments.
     match /favourites/{favouriteId} {
       // Queries must constrain userId to the signed-in user.

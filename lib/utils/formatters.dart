@@ -18,6 +18,17 @@ String formatDate(DateTime date) {
   return '${twoDigits(date.day)}.${twoDigits(date.month)}.${date.year}';
 }
 
+/// US-11: human-readable audit time with the local UTC offset.
+String formatSigningTime(DateTime timestamp) {
+  final date = timestamp.toLocal();
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  final offset = date.timeZoneOffset;
+  final sign = offset.isNegative ? '-' : '+';
+  final minutes = offset.inMinutes.abs();
+  return '${formatDate(date)} ${twoDigits(date.hour)}:${twoDigits(date.minute)} '
+      '(UTC$sign${twoDigits(minutes ~/ 60)}:${twoDigits(minutes % 60)})';
+}
+
 //Format a swiss room count without a useless ".0"
 String formatRooms(double rooms) {
   final number = rooms % 1 == 0 ? rooms.toInt().toString() : rooms.toString();

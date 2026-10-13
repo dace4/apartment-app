@@ -17,6 +17,8 @@ import '../views/auth/login_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
 import '../views/favourites/favourites_view.dart';
+import '../views/documents/documents_view.dart';
+import '../views/documents/document_review_view.dart';
 import '../views/messages/contact_advertiser_view.dart';
 import '../views/profile/faq_view.dart';
 import '../views/profile/notifications_view.dart';
@@ -213,6 +215,19 @@ GoRouter createAppRouter({
                 builder: (context, state) =>
                     ProfileView(viewModel: authViewModel),
                 routes: [
+                  // US-11 inherits the existing verified-email redirect.
+                  GoRoute(
+                    path: 'documents',
+                    builder: (context, state) => const DocumentsView(),
+                    routes: [
+                      GoRoute(
+                        path: ':documentId',
+                        builder: (context, state) => DocumentReviewView(
+                          documentId: state.pathParameters['documentId']!,
+                        ),
+                      ),
+                    ],
+                  ),
                   GoRoute(
                     path: 'notifications',
                     builder: (context, state) => const NotificationsView(),

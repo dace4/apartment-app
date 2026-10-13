@@ -25,6 +25,15 @@ class ProfileView extends StatelessWidget {
               // Signed-out users are redirected to the login page by the router.
               if (user != null) _SignedInCard(viewModel: viewModel),
               const SizedBox(height: 16),
+              // US-11: entry point for document review and e-signatures.
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('My documents'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go(AppRoutes.documents),
+                ),
+              ),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.notifications_outlined),
