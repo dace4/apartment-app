@@ -39,7 +39,11 @@ class _ApartmentsViewState extends State<ApartmentsView> {
   @override
   void initState() {
     super.initState();
-    viewModel.fetchApartments();
+    // The ViewModel can be shared with other screens that listen to it.
+    // Loading after the first frame avoids notifying them during this build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) viewModel.fetchApartments();
+    });
   }
 
   void _toggleCompare(Apartment apartment) {
