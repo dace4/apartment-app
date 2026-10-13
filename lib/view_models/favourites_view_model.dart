@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-
 import '../models/apartment.dart';
 import '../services/favourite_service.dart';
 import '../services/auth_service.dart';
@@ -9,9 +7,11 @@ import 'apartments_view_model.dart';
 
 /// US 22: the apartment list constrained to the current user's favourites.
 class FavouritesViewModel extends ApartmentsViewModel {
-  FavouritesViewModel({FavouriteService? favouriteService, AuthService? authService})
-      : _favourites = favouriteService ?? FavouriteService(),
-        _auth = authService ?? AuthService() {
+  FavouritesViewModel({
+    FavouriteService? favouriteService,
+    AuthService? authService,
+  }) : _favourites = favouriteService ?? FavouriteService(),
+       _auth = authService ?? AuthService() {
     _authSubscription = _auth.userChanges().listen((user) {
       _subscription?.cancel();
       _subscription = null;
