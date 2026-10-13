@@ -66,6 +66,9 @@ class Apartment {
   /// Controls the Apply button; opening the form does not reserve the apartment.
   bool get canApply => availability == ApartmentAvailability.available;
 
+  /// US 13: price divided by surface, in CHF (per month for a rent).
+  int get pricePerSquareMetre => surface == 0 ? 0 : (price / surface).round();
+
   /// Returns a new listing with changed availability and all other fields kept.
   Apartment copyWith({ApartmentAvailability? availability}) => Apartment(
     id: id,

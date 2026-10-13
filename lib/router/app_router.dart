@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../view_models/auth_view_model.dart';
+import '../view_models/compare_view_model.dart';
 
 import '../view_models/apartments_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
@@ -52,6 +53,7 @@ String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
 GoRouter createAppRouter({
   required AuthViewModel authViewModel,
   required ApartmentsViewModel apartmentsViewModel,
+  required CompareViewModel compareViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -82,8 +84,10 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.apartments,
-                builder: (context, state) =>
-                    ApartmentsView(viewModel: apartmentsViewModel),
+                builder: (context, state) => ApartmentsView(
+                  viewModel: apartmentsViewModel,
+                  compareViewModel: compareViewModel,
+                ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
                   GoRoute(
@@ -93,12 +97,14 @@ GoRouter createAppRouter({
                   ),
                   GoRoute(
                     path: 'compare',
-                    builder: (context, state) => const CompareView(),
+                    builder: (context, state) =>
+                        CompareView(viewModel: compareViewModel),
                   ),
                   GoRoute(
                     path: ':id',
                     builder: (context, state) => ApartmentDetailView(
                       apartmentId: state.pathParameters['id']!,
+                      compareViewModel: compareViewModel,
                     ),
                     routes: [
                       GoRoute(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'router/app_router.dart';
 import 'view_models/apartments_view_model.dart';
 import 'view_models/auth_view_model.dart';
+import 'view_models/compare_view_model.dart';
 
 class HomeFlowApp extends StatefulWidget {
   const HomeFlowApp({super.key});
@@ -17,10 +18,12 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
   // (see ARCHITECTURE.md §4).
   final _authViewModel = AuthViewModel();
   final _apartmentsViewModel = ApartmentsViewModel();
+  final _compareViewModel = CompareViewModel();
 
   late final GoRouter _router = createAppRouter(
     authViewModel: _authViewModel,
     apartmentsViewModel: _apartmentsViewModel,
+    compareViewModel: _compareViewModel,
   );
 
   @override
@@ -28,6 +31,7 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
     _router.dispose();
     _authViewModel.dispose();
     _apartmentsViewModel.dispose();
+    _compareViewModel.dispose();
     super.dispose();
   }
 

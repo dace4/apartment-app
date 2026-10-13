@@ -6,13 +6,21 @@ import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apartment_detail_view_model.dart';
+import '../../view_models/compare_view_model.dart';
 import 'widgets/apartment_image.dart';
 import 'widgets/availability_badge.dart';
 
 class ApartmentDetailView extends StatefulWidget {
-  const ApartmentDetailView({super.key, required this.apartmentId});
+  const ApartmentDetailView({
+    super.key,
+    required this.apartmentId,
+    required this.compareViewModel,
+  });
 
   final String apartmentId;
+
+  /// US 13: shared with the apartment list and the Compare page.
+  final CompareViewModel compareViewModel;
 
   @override
   State<ApartmentDetailView> createState() => _ApartmentDetailViewState();
@@ -88,16 +96,32 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
     // 4. Data
     return RefreshIndicator(
       onRefresh: _refresh,
-      child: _ApartmentDetails(apartment: apartment),
+      child: _ApartmentDetails(
+        apartment: apartment,
+        compareViewModel: widget.compareViewModel,
+      ),
     );
   }
 }
 
 /// Content of the page once the apartment is loaded.
 class _ApartmentDetails extends StatelessWidget {
-  const _ApartmentDetails({required this.apartment});
+  const _ApartmentDetails({
+    required this.apartment,
+    required this.compareViewModel,
+  });
 
   final Apartment apartment;
+  final CompareViewModel compareViewModel;
+
+  void _toggleCompare(BuildContext context) {
+    final done = compareViewModel.toggle(apartment);
+    if (!done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can compare up to two apartments.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +202,41 @@ class _ApartmentDetails extends StatelessWidget {
                     context.go(AppRoutes.contactAdvertiser(apartment.id)),
                 icon: const Icon(Icons.mail_outline),
                 label: const Text('Contact advertiser'),
+              ),
+              const SizedBox(height: 8),
+              // US 13: rebuilds only these buttons when the selection changes.
+              ListenableBuilder(
+                listenable: compareViewModel,
+                builder: (context, _) {
+                  final selected = compareViewModel.isSelected(apartment);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _toggleCompare(context),
+                        icon: Icon(
+                          selected
+                              ? Icons.remove_circle_outline
+                              : Icons.compare_arrows,
+                        ),
+                        label: Text(
+                          selected
+                              ? 'Remove from comparison'
+                              : 'Add to comparison',
+                        ),
+                      ),
+                      if (compareViewModel.selected.isNotEmpty)
+                        TextButton(
+                          onPressed: () => context.go(AppRoutes.compare),
+                          child: Text(
+                            'Open comparison '
+                            '(${compareViewModel.selected.length}/'
+                            '${CompareViewModel.maxApartments})',
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               if (!isForRent) ...[
                 const SizedBox(height: 8),

@@ -8,12 +8,22 @@ import 'availability_badge.dart';
 
 //Summury of an apartment : photo, price, title, location and size
 class ApartmentCard extends StatelessWidget {
-  const ApartmentCard({super.key, required this.apartment, this.onTap});
+  const ApartmentCard({
+    super.key,
+    required this.apartment,
+    this.onTap,
+    this.isSelectedForCompare = false,
+    this.onCompare,
+  });
 
   final Apartment apartment;
 
   //Called when the cared is tapped, the card itself don't navigate so we can reused on any page
   final VoidCallback? onTap;
+
+  /// US 13: the Compare chip is shown only when [onCompare] is given.
+  final bool isSelectedForCompare;
+  final VoidCallback? onCompare;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +77,17 @@ class ApartmentCard extends StatelessWidget {
                   Text(
                     '${formatRooms(apartment.rooms)} · ${apartment.surface} m²',
                   ),
+                  if (onCompare != null) ...[
+                    const SizedBox(height: 8),
+                    FilterChip(
+                      avatar: isSelectedForCompare
+                          ? null
+                          : const Icon(Icons.compare_arrows, size: 18),
+                      label: const Text('Compare'),
+                      selected: isSelectedForCompare,
+                      onSelected: (_) => onCompare!(),
+                    ),
+                  ],
                 ],
               ),
             ),

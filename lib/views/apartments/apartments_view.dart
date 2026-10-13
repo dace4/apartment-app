@@ -5,13 +5,21 @@ import '../../models/apartment.dart';
 import '../../router/app_routes.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apartments_view_model.dart';
+import '../../view_models/compare_view_model.dart';
 import 'widgets/apartment_card.dart';
 
 class ApartmentsView extends StatefulWidget {
-  const ApartmentsView({super.key, required this.viewModel});
+  const ApartmentsView({
+    super.key,
+    required this.viewModel,
+    required this.compareViewModel,
+  });
 
   /// Shared with the Filters page.
   final ApartmentsViewModel viewModel;
+
+  /// US 13: shared with the apartment details and the Compare page.
+  final CompareViewModel compareViewModel;
 
   @override
   State<ApartmentsView> createState() => _ApartmentsViewState();
@@ -19,6 +27,7 @@ class ApartmentsView extends StatefulWidget {
 
 class _ApartmentsViewState extends State<ApartmentsView> {
   ApartmentsViewModel get viewModel => widget.viewModel;
+  CompareViewModel get compareViewModel => widget.compareViewModel;
 
   @override
   void initState() {
@@ -26,10 +35,20 @@ class _ApartmentsViewState extends State<ApartmentsView> {
     viewModel.fetchApartments();
   }
 
+  void _toggleCompare(Apartment apartment) {
+    final done = compareViewModel.toggle(apartment);
+    if (!done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can compare up to two apartments.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: viewModel,
+      // Rebuilds when the apartments or the comparison selection change.
+      listenable: Listenable.merge([viewModel, compareViewModel]),
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
@@ -53,7 +72,12 @@ class _ApartmentsViewState extends State<ApartmentsView> {
                 onPressed: () => context.go(AppRoutes.filters),
               ),
               IconButton(
-                icon: const Icon(Icons.compare_arrows),
+                // US 13: the badge shows how many apartments are selected.
+                icon: Badge(
+                  isLabelVisible: compareViewModel.selected.isNotEmpty,
+                  label: Text('${compareViewModel.selected.length}'),
+                  child: const Icon(Icons.compare_arrows),
+                ),
                 tooltip: 'Compare',
                 onPressed: () => context.go(AppRoutes.compare),
               ),
@@ -113,6 +137,8 @@ class _ApartmentsViewState extends State<ApartmentsView> {
           return ApartmentCard(
             apartment: apartment,
             onTap: () => context.go(AppRoutes.apartmentDetail(apartment.id)),
+            isSelectedForCompare: compareViewModel.isSelected(apartment),
+            onCompare: () => _toggleCompare(apartment),
           );
         },
       ),
