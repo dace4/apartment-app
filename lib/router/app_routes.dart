@@ -15,6 +15,7 @@ abstract final class AppRoutes {
 
   // Tab 2: Favourites
   static const favourites = '/favourites';
+  static const favouriteFilters = '/favourites/filters';
 
   // Tab 3: Applications
   static const applications = '/applications';

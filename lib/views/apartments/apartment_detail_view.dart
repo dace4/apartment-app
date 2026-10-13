@@ -7,6 +7,7 @@ import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apartment_detail_view_model.dart';
 import '../../view_models/compare_view_model.dart';
+import '../../view_models/favourites_view_model.dart';
 import 'widgets/apartment_image.dart';
 import 'widgets/availability_badge.dart';
 
@@ -15,9 +16,11 @@ class ApartmentDetailView extends StatefulWidget {
     super.key,
     required this.apartmentId,
     required this.compareViewModel,
+    required this.favouritesViewModel,
   });
 
   final String apartmentId;
+  final FavouritesViewModel? favouritesViewModel;
 
   /// US 13: shared with the apartment list and the Compare page.
   final CompareViewModel compareViewModel;
@@ -57,6 +60,22 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
                 tooltip: 'Refresh',
                 onPressed: viewModel.isLoading ? null : _refresh,
               ),
+              if (viewModel.apartment != null &&
+                  widget.favouritesViewModel != null)
+                IconButton(
+                  tooltip:
+                      widget.favouritesViewModel!.isFavorite(widget.apartmentId)
+                      ? 'Remove from favourites'
+                      : 'Save to favourites',
+                  icon: Icon(
+                    widget.favouritesViewModel!.isFavorite(widget.apartmentId)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                  ),
+                  onPressed: () => widget.favouritesViewModel!.toggleFavorite(
+                    viewModel.apartment!,
+                  ),
+                ),
             ],
           ),
           body: _buildBody(),

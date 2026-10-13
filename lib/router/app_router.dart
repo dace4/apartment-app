@@ -4,6 +4,7 @@ import '../view_models/auth_view_model.dart';
 import '../view_models/compare_view_model.dart';
 
 import '../view_models/apartments_view_model.dart';
+import '../view_models/favourites_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
@@ -54,6 +55,7 @@ GoRouter createAppRouter({
   required AuthViewModel authViewModel,
   required ApartmentsViewModel apartmentsViewModel,
   required CompareViewModel compareViewModel,
+  required FavouritesViewModel favouritesViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -87,6 +89,7 @@ GoRouter createAppRouter({
                 builder: (context, state) => ApartmentsView(
                   viewModel: apartmentsViewModel,
                   compareViewModel: compareViewModel,
+                  favouritesViewModel: favouritesViewModel,
                 ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
@@ -105,6 +108,7 @@ GoRouter createAppRouter({
                     builder: (context, state) => ApartmentDetailView(
                       apartmentId: state.pathParameters['id']!,
                       compareViewModel: compareViewModel,
+                      favouritesViewModel: favouritesViewModel,
                     ),
                     routes: [
                       GoRoute(
@@ -128,7 +132,18 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.favourites,
-                builder: (context, state) => const FavouritesView(),
+                builder: (context, state) =>
+                    FavouritesView(
+                      viewModel: favouritesViewModel,
+                      compareViewModel: compareViewModel,
+                    ),
+                routes: [
+                  GoRoute(
+                    path: 'filters',
+                    builder: (context, state) =>
+                        FiltersView(viewModel: favouritesViewModel),
+                  ),
+                ],
               ),
             ],
           ),

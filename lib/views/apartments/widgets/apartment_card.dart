@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../utils/formatters.dart';
 import '../../../models/apartment.dart';
+import '../../../view_models/favourites_view_model.dart';
 
 import 'apartment_image.dart';
 import 'availability_badge.dart';
@@ -14,12 +15,14 @@ class ApartmentCard extends StatelessWidget {
     this.onTap,
     this.isSelectedForCompare = false,
     this.onCompare,
+    this.favouritesViewModel,
   });
 
   final Apartment apartment;
 
   //Called when the cared is tapped, the card itself don't navigate so we can reused on any page
   final VoidCallback? onTap;
+  final FavouritesViewModel? favouritesViewModel;
 
   /// US 13: the Compare chip is shown only when [onCompare] is given.
   final bool isSelectedForCompare;
@@ -45,12 +48,31 @@ class ApartmentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AvailabilityBadge(apartment: apartment),
-                  Text(
-                    price,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          price,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (favouritesViewModel != null)
+                        IconButton(
+                          tooltip: favouritesViewModel!.isFavorite(apartment.id)
+                              ? 'Remove from favourites'
+                              : 'Save to favourites',
+                          icon: Icon(
+                            favouritesViewModel!.isFavorite(apartment.id)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                          ),
+                          onPressed: () =>
+                              favouritesViewModel!.toggleFavorite(apartment),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
