@@ -6,6 +6,7 @@ import '../../router/app_routes.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apartments_view_model.dart';
 import '../../view_models/compare_view_model.dart';
+import '../../view_models/favourites_view_model.dart';
 import 'widgets/apartment_card.dart';
 
 class ApartmentsView extends StatefulWidget {
@@ -13,10 +14,12 @@ class ApartmentsView extends StatefulWidget {
     super.key,
     required this.viewModel,
     required this.compareViewModel,
+    required this.favouritesViewModel,
   });
 
   /// Shared with the Filters page.
   final ApartmentsViewModel viewModel;
+  final FavouritesViewModel favouritesViewModel;
 
   /// US 13: shared with the apartment details and the Compare page.
   final CompareViewModel compareViewModel;
@@ -48,7 +51,11 @@ class _ApartmentsViewState extends State<ApartmentsView> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       // Rebuilds when the apartments or the comparison selection change.
-      listenable: Listenable.merge([viewModel, compareViewModel]),
+      listenable: Listenable.merge([
+        viewModel,
+        compareViewModel,
+        widget.favouritesViewModel,
+      ]),
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
@@ -136,6 +143,7 @@ class _ApartmentsViewState extends State<ApartmentsView> {
           final apartment = apartments[index];
           return ApartmentCard(
             apartment: apartment,
+            favouritesViewModel: widget.favouritesViewModel,
             onTap: () => context.go(AppRoutes.apartmentDetail(apartment.id)),
             isSelectedForCompare: compareViewModel.isSelected(apartment),
             onCompare: () => _toggleCompare(apartment),
