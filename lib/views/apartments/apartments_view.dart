@@ -15,11 +15,15 @@ class ApartmentsView extends StatefulWidget {
     required this.viewModel,
     required this.compareViewModel,
     required this.favouritesViewModel,
+    this.title = 'Apartments',
+    this.emptyMessage = 'No apartments available right now.',
   });
 
   /// Shared with the Filters page.
   final ApartmentsViewModel viewModel;
   final FavouritesViewModel favouritesViewModel;
+  final String title;
+  final String emptyMessage;
 
   /// US 13: shared with the apartment details and the Compare page.
   final CompareViewModel compareViewModel;
@@ -59,7 +63,7 @@ class _ApartmentsViewState extends State<ApartmentsView> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Apartments'),
+            title: Text(widget.title),
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
@@ -127,10 +131,7 @@ class _ApartmentsViewState extends State<ApartmentsView> {
               actionLabel: 'Clear filters',
               onAction: viewModel.clearFilters,
             )
-          : const MessageView(
-              icon: Icons.search_off,
-              message: 'No apartments available right now.',
-            );
+          : MessageView(icon: Icons.search_off, message: widget.emptyMessage);
     }
 
     // 4. Data
