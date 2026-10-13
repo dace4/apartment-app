@@ -24,6 +24,8 @@ abstract final class AppRoutes {
   // Tab 4: Services
   static const services = '/services';
   static const mortgage = '/services/mortgage';
+  // US-09: opens the calculator with the apartment's price filled in.
+  static String mortgageForPrice(int price) => '$mortgage?price=$price';
   static const maintenance = '/services/maintenance';
   static const insurance = '/services/insurance';
   static const contractors = '/services/contractors';
