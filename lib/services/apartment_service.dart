@@ -2,8 +2,7 @@ import '../models/apartment.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Apartments are not in Firebase yet: this service returns the sample
-/// listings, with a short delay to behave like a real request.
+/// Reads apartment listings from the Firestore apartments collection.
 class ApartmentService {
   final _collection = FirebaseFirestore.instance.collection('apartments');
 

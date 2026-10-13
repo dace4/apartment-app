@@ -61,6 +61,27 @@ service cloud.firestore {
           data.consented == true && data.signedAt == request.time;
       }
     }
+    // Favourites: each user manages only their own saved apartments.
+    match /favourites/{favouriteId} {
+      // Queries must constrain userId to the signed-in user.
+      allow list: if verified() &&
+        resource.data.userId == request.auth.uid;
+      allow get: if verified() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if verified() && validFavourite();
+      allow delete: if verified() &&
+        resource.data.userId == request.auth.uid;
+      allow update: if false;
+      function validFavourite() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['apartmentId', 'userId', 'createdAt']) &&
+          data.keys().hasOnly(['apartmentId', 'userId', 'createdAt']) &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.userId == request.auth.uid &&
+          data.createdAt == request.time &&
+          exists(/databases/$(database)/documents/apartments/$(data.apartmentId));
+      }
+    }
     // US 12 only. Keep other stories' deployed matches when integrating this file.
     match /advertiserContacts/{apartmentId} {
       allow read: if verified();

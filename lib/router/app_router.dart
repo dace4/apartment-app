@@ -1,8 +1,10 @@
 import 'package:go_router/go_router.dart';
 
 import '../view_models/auth_view_model.dart';
+import '../view_models/compare_view_model.dart';
 
 import '../view_models/apartments_view_model.dart';
+import '../view_models/favourites_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
@@ -54,6 +56,8 @@ String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
 GoRouter createAppRouter({
   required AuthViewModel authViewModel,
   required ApartmentsViewModel apartmentsViewModel,
+  required CompareViewModel compareViewModel,
+  required FavouritesViewModel favouritesViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -84,8 +88,11 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.apartments,
-                builder: (context, state) =>
-                    ApartmentsView(viewModel: apartmentsViewModel),
+                builder: (context, state) => ApartmentsView(
+                  viewModel: apartmentsViewModel,
+                  compareViewModel: compareViewModel,
+                  favouritesViewModel: favouritesViewModel,
+                ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
                   GoRoute(
@@ -95,12 +102,15 @@ GoRouter createAppRouter({
                   ),
                   GoRoute(
                     path: 'compare',
-                    builder: (context, state) => const CompareView(),
+                    builder: (context, state) =>
+                        CompareView(viewModel: compareViewModel),
                   ),
                   GoRoute(
                     path: ':id',
                     builder: (context, state) => ApartmentDetailView(
                       apartmentId: state.pathParameters['id']!,
+                      compareViewModel: compareViewModel,
+                      favouritesViewModel: favouritesViewModel,
                     ),
                     routes: [
                       GoRoute(
@@ -124,7 +134,18 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.favourites,
-                builder: (context, state) => const FavouritesView(),
+                builder: (context, state) =>
+                    FavouritesView(
+                      viewModel: favouritesViewModel,
+                      compareViewModel: compareViewModel,
+                    ),
+                routes: [
+                  GoRoute(
+                    path: 'filters',
+                    builder: (context, state) =>
+                        FiltersView(viewModel: favouritesViewModel),
+                  ),
+                ],
               ),
             ],
           ),
@@ -160,7 +181,12 @@ GoRouter createAppRouter({
                 routes: [
                   GoRoute(
                     path: 'mortgage',
-                    builder: (context, state) => const MortgageCalculatorView(),
+                    // ?price= comes from an apartment for sale (US-09).
+                    builder: (context, state) => MortgageCalculatorView(
+                      initialPrice: int.tryParse(
+                        state.uri.queryParameters['price'] ?? '',
+                      ),
+                    ),
                   ),
                   GoRoute(
                     path: 'maintenance',
