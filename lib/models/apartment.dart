@@ -81,4 +81,44 @@ class Apartment {
     amenities: amenities,
     availability: availability ?? this.availability,
   );
+
+  factory Apartment.fromMap(String id, Map<String, dynamic> map) {
+    return Apartment(
+      id: id,
+      title: map['title'] as String,
+      address: map['address'] as String,
+      city: map['city'] as String,
+      // Enums are stored by name, e.g. "rent" or "available".
+      listingType: ListingType.values.byName(map['listingType'] as String),
+      price: map['price'] as int,
+      // Firestore stores 3 as an int and 3.5 as a double: accept both.
+      rooms: (map['rooms'] as num).toDouble(),
+      surface: map['surface'] as int,
+      imageUrl: map['imageUrl'] as String,
+      description: map['description'] as String,
+      availability: ApartmentAvailability.values.byName(
+        map['availability'] as String,
+      ),
+      amenities: (map['amenities'] as List)
+          .map((name) => Amenity.values.byName(name as String))
+          .toSet(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'address': address,
+      'city': city,
+      'listingType': listingType.name,
+      'price': price,
+      'rooms': rooms,
+      'surface': surface,
+      'imageUrl': imageUrl,
+      'description': description,
+      'availability': availability.name,
+      // Firestore has no Set: store a list of names.
+      'amenities': amenities.map((amenity) => amenity.name).toList(),
+    };
+  }
 }
