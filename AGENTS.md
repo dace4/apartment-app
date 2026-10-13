@@ -1,9 +1,10 @@
 # Apartment App agent instructions
 
-These instructions apply to the entire Apartment App repository (Flutter and
-Firebase, Group 2, FIG 2026, HES-SO Valais-Wallis).
+These instructions apply to all agents working in this Flutter and Firebase
+repository. This file contains the project rules and complete version control
+strategy; no external version control document is required to use them.
 
-## Required sources and architecture
+## Architecture and task requirements
 
 - **Use `architecture.md` at all times.** The tracked document in this repository
   is [ARCHITECTURE.md](ARCHITECTURE.md); use that exact filename on case-sensitive
@@ -16,26 +17,17 @@ Firebase, Group 2, FIG 2026, HES-SO Valais-Wallis).
   making architecture-dependent implementation decisions. Do not invent a
   replacement architecture or silently treat the README as its substitute.
   Independent documentation and read-only investigation may continue.
-- Read the complete version control plan and all sheets of the sprint workbook
-  supplied for the task. Use the workbook for actual story IDs, ownership,
-  acceptance criteria, sprint tasks, and the Definition of Done.
-- Source plan: `Version Control Plan - Apartment App`, dated October 1, 2026,
-  by @Vuk, seven pages. The supplied filename uses an en dash:
-  `Version Control Plan – Apartment App.pdf`. Known local locations are
-  `../Version Control Plan – Apartment App.pdf` and
-  `C:/Users/Jeremy C/Downloads/Version Control Plan – Apartment App.pdf`.
-- Current workbook:
-  `C:/Users/Jeremy C/Downloads/ProductBacklog_FIG_2026_Apartment.xlsx`.
-  These machine-specific locations identify the supplied sources; if unavailable,
-  request the current source location rather than assuming stale requirements.
+- Read the current shared backlog and sprint requirements for the assigned task.
+  If a sprint workbook is supplied, read all its sheets. Use the actual story IDs,
+  ownership, acceptance criteria, sprint tasks, and Definition of Done. If those
+  requirements are unavailable, request access or clarification before making
+  decisions that depend on them.
 - Explicit current user instructions take precedence over project documents.
-  The strategy below incorporates the user's story-number override and clearly
-  distinguishes historical PDF examples from current story assignments.
 
 ## Scope, preservation, and operating restrictions
 
 - Implement only assigned stories and their necessary integration points.
-  Preserve other students' work and unrelated local changes. Inspect `git status`
+  Preserve teammates' work and unrelated local changes. Inspect `git status`
   before editing, switching branches, staging, or committing. Use an isolated
   worktree when needed; do not reset, discard, or automatically stash others' work.
 - Preserve the verified-email login gate implemented for actual US 6/7. Changes
@@ -58,9 +50,7 @@ Firebase, Group 2, FIG 2026, HES-SO Valais-Wallis).
 ### Purpose and goals
 
 Every backlog item is developed on its own branch, enters `develop` through a
-reviewed pull request, and reaches `main` only as a tested release. The plan applies
-to `dace4/apartment-app` and fulfills the Sprint 0 task to formulate and document
-the Git branching strategy.
+reviewed pull request, and reaches `main` only as a tested release.
 
 - `main` must always build and be suitable for the Google Play closed beta.
 - `develop` must contain the latest integrated sprint work and build without errors.
@@ -85,9 +75,9 @@ back into `develop` so version changes and release fixes are retained.
 ### Branch naming and story identity
 
 Use `<type>/US-<id>-<short-description>` for story features and fixes. Pad the
-**actual `US Nr.` value** to two digits; use lowercase description words joined
-by hyphens. This is the user's explicit override of the PDF's Priority-column ID
-rule. For example, advertiser contact is `feature/US-12-contact-advertisers`,
+**actual user story number** to two digits; use lowercase description words joined
+by hyphens. Never use the story's priority rank as its ID.
+For example, advertiser contact is `feature/US-12-contact-advertisers`,
 even though its priority is 9.
 
 Examples:
@@ -98,14 +88,10 @@ Examples:
 - Release: `release/v0.1.0`.
 - Hotfix: `hotfix/v0.1.1-login-crash`.
 
-The PDF's historical Sprint 1 map listed browsing as US-04 (5 SP), filtering as
-US-06 (5 SP), account creation as US-07 (8 SP), and login as US-08 (5 SP). Its
-authentication dependency required account creation to merge before login, with
-the login branch rebased onto the updated `develop` afterward. These are historical
-labels and estimates, not current assignments. In the supplied workbook the
-corresponding actual story IDs are US-04, US-05, US-06, and US-07; US-08 is apartment
-availability. Apply the same dependency principle to actual US-06/US-07, and do
-not overwrite current workbook values with the PDF's historical map.
+Integrate prerequisite stories before dependent ones. For authentication, account
+creation (US-06) precedes login (US-07); update the dependent branch from `develop`
+after its prerequisite merges. Rebase only a personally owned branch; merge into
+a shared branch instead. Use current backlog estimates and assignments.
 
 ### Feature workflow
 
@@ -127,8 +113,8 @@ One developer owns a feature branch from creation through merge and deletion.
    ```
 
 4. Commit small, working steps using Conventional Commits. Inspect and stage only
-   the task's intended files; the PDF's `git add .` example must not include
-   unrelated student work. In the normal authorized team workflow, push early:
+   the task's intended files and exclude unrelated team work. In the normal
+   authorized team workflow, push early:
 
    ```sh
    git commit -m "feat(US-04): add apartment list screen"
@@ -200,7 +186,7 @@ Before merging into `develop`, require:
 Use **Squash and merge** so each story becomes one commit on `develop`, with its
 actual story ID in the commit title.
 
-The workbook additionally requires a user guide, a technical guide, code committed
+The Definition of Done also requires a user guide, a technical guide, code committed
 to Git, completed code review, and passed acceptance criteria. Maintain or provide
 both guides for implemented stories. Product Owner acceptance ("done done") is a
 separate check; do not claim it from automated tests or self-review. Report local
@@ -261,15 +247,15 @@ integrate `main` back into `develop`. Follow the protected branch review rules.
 
 Resolve conflicts on your own feature branch, never directly on `develop` or
 `main`. If the conflict affects someone else's code, coordinate with its owner;
-do not silently choose one student's implementation over another. For dependency
+do not silently choose one teammate's implementation over another. For dependency
 conflicts, preserve both intended sets of changes in `pubspec.yaml`, then run
 `flutter pub get` to regenerate `pubspec.lock` rather than hand-editing the lock
 file. Run `flutter analyze` and `flutter test` again after every conflict resolution.
 
 ### GitHub repository setup
 
-The PDF's initial premise that only `main` existed is historical; inspect the
-repository before attempting setup, and do not recreate an existing `develop`.
+Inspect the repository before attempting setup, and do not recreate an existing
+`develop`.
 When initial setup is needed and authorized:
 
 1. Create `develop` from `main` and push it:
