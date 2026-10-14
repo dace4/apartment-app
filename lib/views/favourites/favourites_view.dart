@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../router/app_routes.dart';
 import '../../view_models/favourites_view_model.dart';
 import '../../view_models/compare_view_model.dart';
 import '../apartments/apartments_view.dart';
