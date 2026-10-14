@@ -5,6 +5,7 @@ import '../view_models/compare_view_model.dart';
 
 import '../view_models/apartments_view_model.dart';
 import '../view_models/favourites_view_model.dart';
+import '../view_models/maintenance_reminders_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
@@ -25,6 +26,8 @@ import '../views/profile/notifications_view.dart';
 import '../views/profile/profile_view.dart';
 import '../views/services/contractors_view.dart';
 import '../views/services/insurance_view.dart';
+import '../views/services/maintenance_booking_view.dart';
+import '../views/services/maintenance_detail_view.dart';
 import '../views/services/maintenance_view.dart';
 import '../views/services/market_trends_view.dart';
 import '../views/services/mortgage_calculator_view.dart';
@@ -58,6 +61,7 @@ GoRouter createAppRouter({
   required ApartmentsViewModel apartmentsViewModel,
   required CompareViewModel compareViewModel,
   required FavouritesViewModel favouritesViewModel,
+  required MaintenanceRemindersViewModel maintenanceRemindersViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -81,8 +85,10 @@ GoRouter createAppRouter({
 
       // One branch per bottom-navigation tab, in the same order as the tabs.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            ScaffoldWithNavBar(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => ScaffoldWithNavBar(
+          navigationShell: navigationShell,
+          remindersViewModel: maintenanceRemindersViewModel,
+        ),
         branches: [
           StatefulShellBranch(
             routes: [
@@ -191,6 +197,28 @@ GoRouter createAppRouter({
                   GoRoute(
                     path: 'maintenance',
                     builder: (context, state) => const MaintenanceView(),
+                    routes: [
+                      // US-17. 'new' must come before ':id' to be matched.
+                      GoRoute(
+                        path: 'new',
+                        builder: (context, state) =>
+                            const MaintenanceBookingView(),
+                      ),
+                      GoRoute(
+                        path: ':id',
+                        builder: (context, state) => MaintenanceDetailView(
+                          requestId: state.pathParameters['id']!,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: 'reschedule',
+                            builder: (context, state) => MaintenanceBookingView(
+                              rescheduleId: state.pathParameters['id']!,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'insurance',

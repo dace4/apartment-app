@@ -28,6 +28,11 @@ abstract final class AppRoutes {
   // US-09: opens the calculator with the apartment's price filled in.
   static String mortgageForPrice(int price) => '$mortgage?price=$price';
   static const maintenance = '/services/maintenance';
+  // US-17: book, view and reschedule repair and maintenance services.
+  static const maintenanceNew = '$maintenance/new';
+  static String maintenanceDetail(String id) => '$maintenance/$id';
+  static String maintenanceReschedule(String id) =>
+      '$maintenance/$id/reschedule';
   static const insurance = '/services/insurance';
   static const contractors = '/services/contractors';
   static const marketTrends = '/services/market-trends';
