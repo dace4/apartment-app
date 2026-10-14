@@ -248,5 +248,49 @@ service cloud.firestore {
           data.status == 'cancelled' && data.updatedAt == request.time;
       }
     }
+    // US-18: each user only sees their own notifications and can only mark
+    // them as read. New listings and announcements are added from the console.
+    match /notifications/{notificationId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Queries must filter on userId == the current UID.
+      allow list: if verified() && owner();
+      allow get: if verified() && owner();
+      allow create: if verified() && validNotification();
+      allow update: if verified() && owner() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isRead']) &&
+        request.resource.data.isRead == true;
+      allow delete: if false;
+
+      // The app may only create application updates for its own user, so a
+      // user cannot fake an announcement.
+      function validNotification() {
+        let data = request.resource.data;
+        let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.userId == request.auth.uid &&
+          data.type == 'applicationStatus' &&
+          data.title is string && data.title.size() > 0 &&
+          data.title.size() <= 120 &&
+          data.body is string && data.body.size() <= 500 &&
+          data.createdAt is timestamp && data.isRead == false;
+      }
+    }
+    // US-18: opt-in / opt-out switches, one document per user ID.
+    match /notificationPreferences/{userId} {
+      allow read: if verified() && request.auth.uid == userId;
+      allow write: if verified() && request.auth.uid == userId &&
+        validPreferences();
+
+      function validPreferences() {
+        let data = request.resource.data;
+        let fields = ['newListing', 'applicationStatus', 'announcement'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.newListing is bool && data.applicationStatus is bool &&
+          data.announcement is bool;
+      }
+    }     
   }
 }
