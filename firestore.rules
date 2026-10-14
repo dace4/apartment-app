@@ -183,5 +183,70 @@ service cloud.firestore {
           data.status == 'withdrawn' && data.updatedAt == request.time;
       }
     }
+    // US-17: each property manager only sees and changes their own
+    // repair and maintenance services.
+    match /maintenanceRequests/{requestId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Rescheduling and cancelling are possible until the service starts.
+      function changeable() {
+        return resource.data.status == 'scheduled' &&
+          request.time < resource.data.slotStart;
+      }
+      // The app also enforces weekdays, fixed slots and 24 h notice; the
+      // server checks that the slot is in the future and within 60 days.
+      function validSlot(data) {
+        return data.slotStart is timestamp &&
+          data.slotStart > request.time &&
+          data.slotStart < request.time + duration.value(61, 'd');
+      }
+      function validReminders(data) {
+        return data.reminders is list && data.reminders.size() >= 1 &&
+          data.reminders.size() <= 3 &&
+          data.reminders.hasOnly(['oneDay', 'oneHour', 'fiveMinutes']);
+      }
+
+      // A missing document carries no private data.
+      allow get: if verified() && (resource == null || owner());
+      // Queries must filter on userId == the current UID.
+      allow list: if verified() && owner();
+      allow create: if verified() && validNewRequest();
+      allow update: if verified() && owner() && changeable() &&
+        (validReschedule() || validCancel());
+      allow delete: if false;
+
+      function validNewRequest() {
+        let data = request.resource.data;
+        let fields = ['userId', 'apartmentId', 'apartmentTitle', 'category',
+          'description', 'slotStart', 'reminders', 'status', 'createdAt',
+          'updatedAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.userId == request.auth.uid &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          data.category in ['plumbing', 'electrical', 'heating', 'appliances',
+            'other'] &&
+          data.description is string && data.description.size() >= 5 &&
+          data.description.size() <= 500 &&
+          validSlot(data) && validReminders(data) &&
+          data.status == 'scheduled' &&
+          data.createdAt == request.time && data.updatedAt == request.time;
+      }
+      function validReschedule() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['slotStart', 'reminders', 'updatedAt']) &&
+          validSlot(data) && validReminders(data) &&
+          data.updatedAt == request.time;
+      }
+      function validCancel() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'cancelled' && data.updatedAt == request.time;
+      }
+    }
   }
 }
