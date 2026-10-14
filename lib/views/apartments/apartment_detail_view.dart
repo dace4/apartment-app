@@ -49,7 +49,7 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: viewModel,
+      listenable: Listenable.merge([viewModel, widget.favouritesViewModel]),
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
