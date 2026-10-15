@@ -6,6 +6,7 @@ import '../models/rental_application.dart';
 import '../models/app_user.dart';
 import '../models/document_upload.dart';
 import 'document_exception.dart';
+import 'reservation_exceptions.dart';
 
 /// US 16: applications are stored in the Firestore collection `applications`.
 /// firestore.rules only lets users read and change their own applications,
@@ -73,6 +74,21 @@ class ApplicationService {
     return RentalApplication.fromMap(doc.id, doc.data()!);
   }
 
+  DocumentReference<Map<String, dynamic>> _apartmentRef(String apartmentId) =>
+      _db.collection('apartments').doc(apartmentId);
+
+  Map<String, Object> _reservationFields(String applicationId) => {
+    'availability': ApartmentAvailability.reserved.name,
+    'reservationApplicationId': applicationId,
+  };
+
+  void _ensureAvailable(DocumentSnapshot<Map<String, dynamic>> apartment) {
+    if (apartment.data()?['availability'] !=
+        ApartmentAvailability.available.name) {
+      throw const ApartmentUnavailableException();
+    }
+  }
+
   Future<void> submit(
     Apartment apartment,
     ApplicationDetails details, {
@@ -113,6 +129,7 @@ class ApplicationService {
         'apartmentId': apartment.id,
         'apartmentTitle': apartment.title,
         ...details.toMap(),
+        'applicationType': ApplicationType.normal.name,
         'status': ApplicationStatus.submitted.name,
         'submittedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -127,6 +144,52 @@ class ApplicationService {
   }
 
   String newSubmissionId() => _collection.doc().id;
+
+  /// Creates the application and reserves its apartment in one atomic
+  /// transaction. Throws [ApartmentUnavailableException] if it was just taken.
+  Future<void> submitImmediately(
+    Apartment apartment,
+    ApplicationDetails details,
+  ) async {
+    final application = _collection.doc();
+    final apartmentRef = _apartmentRef(apartment.id);
+
+    await _db.runTransaction((transaction) async {
+      // Transactions require all reads before any writes.
+      _ensureAvailable(await transaction.get(apartmentRef));
+
+      transaction.set(application, {
+        'userId': _userId,
+        'apartmentId': apartment.id,
+        'apartmentTitle': apartment.title,
+        ...details.toMap(),
+        'applicationType': ApplicationType.immediate.name,
+        'status': ApplicationStatus.reserved.name,
+        'submittedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.update(apartmentRef, _reservationFields(application.id));
+    });
+  }
+
+  /// Promotes the user's still-changeable normal application to a reservation.
+  /// Throws [ApartmentUnavailableException] if the apartment was just taken.
+  Future<void> reserveImmediately(RentalApplication application) async {
+    if (!application.status.isOpen) {
+      throw StateError('Only an open application can be promoted.');
+    }
+    final apartmentRef = _apartmentRef(application.apartmentId);
+
+    await _db.runTransaction((transaction) async {
+      _ensureAvailable(await transaction.get(apartmentRef));
+
+      transaction.update(_collection.doc(application.id), {
+        'status': ApplicationStatus.reserved.name,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.update(apartmentRef, _reservationFields(application.id));
+    });
+  }
 
   Future<void> update(String id, ApplicationDetails details) {
     return _collection.doc(id).update({

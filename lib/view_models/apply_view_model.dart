@@ -7,6 +7,7 @@ import '../services/application_service.dart';
 import '../services/document_service.dart';
 import '../services/document_exception.dart';
 import '../models/uploaded_document.dart';
+import '../services/reservation_exceptions.dart';
 
 /// US 16: the application form for one apartment.
 class ApplyViewModel extends ChangeNotifier {
@@ -98,5 +99,40 @@ class ApplyViewModel extends ChangeNotifier {
       actionError = null;
     }
     notifyListeners();
+  }
+
+  /// Returns true once the application and apartment reservation commit.
+  Future<bool> submitImmediately(ApplicationDetails details) async {
+    final target = apartment;
+    if (target == null || isSaving) return false; // also blocks double taps
+
+    isSaving = true;
+    actionError = null;
+    notifyListeners();
+
+    try {
+      // An existing normal application can be promoted from its detail page.
+      // Do not create a second open application for the same renter/listing.
+      final myApplications = await applicationService.getMyApplications();
+      final alreadyApplied = myApplications.any(
+        (application) =>
+            application.apartmentId == target.id && application.status.isOpen,
+      );
+      if (alreadyApplied) {
+        actionError =
+            'You already have an open application for this apartment. '
+            'Open it to apply immediately.';
+        return false;
+      }
+
+      await applicationService.submitImmediately(target, details);
+      return true;
+    } catch (error) {
+      actionError = reservationErrorMessage(error);
+      return false;
+    } finally {
+      isSaving = false;
+      notifyListeners();
+    }
   }
 }

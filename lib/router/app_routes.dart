@@ -11,6 +11,7 @@ abstract final class AppRoutes {
   static const compare = '/apartments/compare';
   static String apartmentDetail(String id) => '/apartments/$id';
   static String apply(String id) => '/apartments/$id/apply';
+  static String applyImmediately(String id) => '/apartments/$id/apply-immediately';
   static String contactAdvertiser(String id) => '/apartments/$id/contact';
 
   // Tab 2: Favourites

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum ApplicationStatus {
   submitted('Submitted'),
   underReview('Under review'),
+  reserved('Reserved'),
   accepted('Accepted'),
   rejected('Rejected'),
   withdrawn('Withdrawn');
@@ -22,6 +23,18 @@ enum ApplicationStatus {
   bool get isOpen =>
       this == ApplicationStatus.submitted ||
       this == ApplicationStatus.underReview;
+}
+
+/// Whether this was a regular application or an immediate reservation.
+/// Older regular applications did not store this field, so they are normal.
+enum ApplicationType {
+  normal,
+  immediate;
+
+  static ApplicationType fromName(Object? name) => values.firstWhere(
+    (type) => type.name == name,
+    orElse: () => ApplicationType.normal,
+  );
 }
 
 /// The fields the applicant fills in, both when applying and when editing.
@@ -75,6 +88,7 @@ class RentalApplication {
     required this.apartmentTitle,
     required this.details,
     required this.status,
+    required this.type,
     required this.submittedAt,
     this.documentIds = const [],
   });
@@ -91,6 +105,7 @@ class RentalApplication {
   final String apartmentTitle;
   final ApplicationDetails details;
   final ApplicationStatus status;
+  final ApplicationType type;
   final DateTime submittedAt;
 
   /// US-15: reusable file IDs selected at submission; empty for older records.
@@ -113,6 +128,7 @@ class RentalApplication {
       documentIds: List<String>.unmodifiable(
         (map['documentIds'] as List? ?? []).cast<String>(),
       ),
+      type: ApplicationType.fromName(map['applicationType']),
       // null for a moment after submitting, until the server sets the time.
       submittedAt:
           (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
