@@ -220,11 +220,13 @@ class SavedSearchesViewModel extends ChangeNotifier {
   }
 
   AppNotification _alertFor(SavedSearch search, Apartment apartment) {
+    final title = 'New offer: ${apartment.title}';
     return AppNotification(
       // One id per search and offer (the service adds the user id).
       id: '${search.id}_${apartment.id}',
       type: NotificationType.newListing,
-      title: 'New offer: ${apartment.title}',
+      // firestore.rules accept titles of at most 120 characters.
+      title: title.length <= 120 ? title : '${title.substring(0, 119)}…',
       body:
           '${search.name} · ${apartment.city} · '
           '${formatApartmentPrice(apartment)}',

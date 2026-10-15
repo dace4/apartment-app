@@ -102,6 +102,35 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/apartments/$(data.apartmentId));
       }
     }
+    // US-23: saved searches. Each user only sees and changes their own;
+    // after saving, only the alert switch and the seen offers can change.
+    match /savedSearches/{searchId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      function validSearch(data) {
+        let fields = ['userId', 'name', 'filter', 'alertsEnabled',
+          'seenApartmentIds', 'createdAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.name is string && data.name.size() > 0 &&
+          data.name.size() <= 40 &&
+          data.filter is map &&
+          data.alertsEnabled is bool &&
+          data.seenApartmentIds is list &&
+          data.seenApartmentIds.size() <= 1000;
+      }
+
+      // Queries must constrain userId to the signed-in user.
+      allow list, get: if verified() && owner();
+      allow create: if verified() && validSearch(request.resource.data) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update: if verified() && owner() &&
+        validSearch(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['alertsEnabled', 'seenApartmentIds']);
+      allow delete: if verified() && owner();
+    }
     // US 12 only. Keep other stories' deployed matches when integrating this file.
     match /advertiserContacts/{apartmentId} {
       allow read: if verified();
@@ -290,9 +319,17 @@ service cloud.firestore {
       function validNotification() {
         let data = request.resource.data;
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
-        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+        return data.keys().hasAll(fields) &&
+          data.keys().hasOnly(fields.concat(['apartmentId'])) &&
           data.userId == request.auth.uid &&
-          data.type == 'applicationStatus' &&
+          (
+            (data.type == 'applicationStatus' &&
+              !data.keys().hasAny(['apartmentId'])) ||
+            // US-23: new-offer alerts a user creates for themselves, with the
+            // fixed id uid_search_apartment so an alert never exists twice.
+            (data.type == 'newListing' && data.apartmentId is string &&
+              notificationId.matches(request.auth.uid + '_.+'))
+          ) &&
           data.title is string && data.title.size() > 0 &&
           data.title.size() <= 120 &&
           data.body is string && data.body.size() <= 500 &&
