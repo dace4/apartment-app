@@ -194,8 +194,9 @@ service cloud.firestore {
         return resource.data.status == 'scheduled' &&
           request.time < resource.data.slotStart;
       }
-      // The app also enforces weekdays, fixed slots and 24 h notice; the
-      // server checks that the slot is in the future and within 60 days.
+      // The app also enforces weekdays, fixed slots and booking from the
+      // next day; the server checks that the slot is in the future and
+      // within 60 days.
       function validSlot(data) {
         return data.slotStart is timestamp &&
           data.slotStart > request.time &&
