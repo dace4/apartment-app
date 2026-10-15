@@ -5,7 +5,7 @@ import '../../router/app_routes.dart';
 import '../../view_models/documents_view_model.dart';
 import '../shared/widgets/message_view.dart';
 
-/// US-11: documents remain discoverable through Profile without another tab.
+/// US-15: multi-file upload queue and the user's saved JPEG/PDF library.
 class DocumentsView extends StatefulWidget {
   const DocumentsView({super.key, this.viewModel});
   final DocumentsViewModel? viewModel;
@@ -44,37 +44,105 @@ class _DocumentsViewState extends State<DocumentsView> {
             onAction: viewModel.listenToDocuments,
           );
         }
-        if (viewModel.documents.isEmpty) {
-          return const MessageView(
-            icon: Icons.description_outlined,
-            message: 'No documents assigned yet. Documents sent to you will appear here.',
-          );
-        }
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 640),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: viewModel.documents.length,
-              separatorBuilder: (_, _) => const Divider(),
-              itemBuilder: (context, index) {
-                final document = viewModel.documents[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 8,
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                const Text(
+                  'Upload JPEG or PDF files, then preview or attach them to an application.',
+                ),
+                const SizedBox(height: 8),
+                const Text('Up to 700 KiB per file · 10 files per selection'),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed:
+                      viewModel.isPicking || viewModel.uploadingIds.isNotEmpty
+                      ? null
+                      : viewModel.pickAndUpload,
+                  icon: viewModel.isPicking
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_file),
+                  label: Text(
+                    viewModel.isPicking
+                        ? 'Uploading files…'
+                        : 'Upload documents',
                   ),
-                  leading: const Icon(Icons.description_outlined),
-                  title: Text(document.title),
-                  subtitle: Text(
-                    'Version ${document.version} · ${viewModel.statusLabel(document)}',
+                ),
+                if (viewModel.actionError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      viewModel.actionError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () =>
-                      context.go(AppRoutes.documentReview(document.id)),
-                );
-              },
+                for (final upload in viewModel.uploads)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(upload.name),
+                    subtitle: Semantics(
+                      liveRegion: true,
+                      child: Text(viewModel.uploadLabel(upload)),
+                    ),
+                    trailing: viewModel.uploadErrors.containsKey(upload.id)
+                        ? Wrap(
+                            children: [
+                              IconButton(
+                                tooltip: 'Retry upload',
+                                icon: const Icon(Icons.refresh),
+                                onPressed: () => viewModel.retryUpload(upload),
+                              ),
+                              IconButton(
+                                tooltip: 'Dismiss failed upload',
+                                icon: const Icon(Icons.close),
+                                onPressed: () =>
+                                    viewModel.dismissUpload(upload),
+                              ),
+                            ],
+                          )
+                        : null,
+                  ),
+                const SizedBox(height: 24),
+                if (viewModel.documents.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text('No documents uploaded yet.'),
+                  ),
+                for (final document in viewModel.documents) ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: document.isPdf
+                        ? const Icon(Icons.picture_as_pdf_outlined)
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.memory(
+                              document.bytes,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.broken_image_outlined),
+                            ),
+                          ),
+                    title: Text(document.name),
+                    subtitle: Text(
+                      '${document.sizeLabel} · ${document.statusLabel}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        context.push(AppRoutes.documentReview(document.id)),
+                  ),
+                  const Divider(),
+                ],
+              ],
             ),
           ),
         );

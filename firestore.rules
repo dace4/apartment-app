@@ -18,48 +18,49 @@ service cloud.firestore {
       allow read: if verified();
       allow write: if false;
     }
-    // US-11: trusted staff provision assignments; clients cannot edit originals.
-    match /signingDocuments/{documentId} {
-      allow get: if verified() &&
-        (resource == null || resource.data.userId == request.auth.uid);
-      allow list: if verified() && resource.data.userId == request.auth.uid;
-      allow write: if false;
-    }
-    // US-11: deterministic ID enforces one signed record per assignment.
-    match /signedDocuments/{documentId} {
-      allow get: if verified() &&
-        (resource == null || resource.data.signerId == request.auth.uid);
-      allow list: if verified() && resource.data.signerId == request.auth.uid;
-      allow create: if verified() && validSignedRecord();
-      allow update, delete: if false;
-
-      function validSignedRecord() {
+    // US-15: originals never change; only first application use is recorded.
+    match /uploadedDocuments/{documentId} {
+      function owner() { return resource.data.userId == request.auth.uid; }
+      allow get: if verified() && (resource == null || owner());
+      allow list: if verified() && owner();
+      allow create: if verified() && validUpload();
+      allow update: if verified() && owner() && validFirstUse();
+      allow delete: if verified() && owner() &&
+        resource.data.status == 'unsigned' && resource.data.firstApplicationId == null;
+      function validUpload() {
         let data = request.resource.data;
-        let original = get(/databases/$(database)/documents/signingDocuments/$(documentId)).data;
-        let fields = ['document', 'signerId', 'signerEmail', 'signerName',
-          'signature', 'documentHash', 'recordHash', 'consentVersion',
-          'consentText', 'consented', 'signedAt'];
+        let fields = ['userId', 'name', 'mimeType', 'fileBytes', 'byteSize',
+          'createdAt', 'status', 'signatureId', 'signedAt', 'firstApplicationId'];
         return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
-          original.userId == request.auth.uid && original.state == 'ready' &&
-          original.keys().hasAll(['userId', 'title', 'body', 'version', 'issuedAt', 'state']) &&
-          original.keys().hasOnly(['userId', 'title', 'body', 'version', 'issuedAt', 'state']) &&
-          original.title is string && original.title.size() <= 200 &&
-          original.title.matches('[\\s\\S]*\\S[\\s\\S]*') &&
-          original.body is string && original.body.size() <= 100000 &&
-          original.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
-          original.version is int && original.version > 0 && original.issuedAt is timestamp &&
-          data.document == original &&
-          data.signerId == request.auth.uid &&
-          data.signerEmail == request.auth.token.email &&
-          data.signerName is string && data.signerName.size() <= 100 &&
-          data.signerName.matches('[\\s\\S]*\\S[\\s\\S]*') &&
-          data.signature is string && data.signature.size() >= 20 && data.signature.size() <= 100000 &&
-          data.documentHash is string && data.documentHash.matches('[0-9a-f]{64}') &&
-          data.recordHash is string && data.recordHash.matches('[0-9a-f]{64}') &&
-          data.consentVersion == 'US-11-v1' &&
-          data.consentText == 'I have reviewed this document and consent to sign it electronically. I understand that my signature and this document will be saved together and cannot be edited after signing.' &&
-          data.consented == true && data.signedAt == request.time;
+          data.userId == request.auth.uid &&
+          data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+          data.mimeType in ['image/jpeg', 'application/pdf'] &&
+          ((data.mimeType == 'image/jpeg' && data.name.matches('(?i).*[.](jpg|jpeg)')) ||
+           (data.mimeType == 'application/pdf' && data.name.matches('(?i).*[.]pdf'))) &&
+          data.fileBytes is bytes && data.byteSize is int &&
+          data.byteSize > 0 && data.byteSize <= 716800 && data.fileBytes.size() == data.byteSize &&
+          data.createdAt == request.time && data.status == 'unsigned' &&
+          data.signatureId == null && data.signedAt == null && data.firstApplicationId == null;
       }
+      function validFirstUse() {
+        let data = request.resource.data;
+        let application = getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data;
+        return data.diff(resource.data).affectedKeys().hasOnly(['firstApplicationId']) &&
+          resource.data.firstApplicationId == null && data.firstApplicationId is string &&
+          application.userId == request.auth.uid && application.documentIds.hasAny([documentId]);
+      }
+    }
+    function attachmentAllowed(ids, index) {
+      return ids.size() <= index ||
+        (ids[index] is string &&
+          getAfter(/databases/$(database)/documents/uploadedDocuments/$(ids[index])).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/uploadedDocuments/$(ids[index])).data.firstApplicationId != null);
+    }
+    function validAttachments(data) {
+      let ids = data.get('documentIds', []);
+      return ids is list && ids.size() <= 5 && ids.toSet().size() == ids.size() &&
+        attachmentAllowed(ids, 0) && attachmentAllowed(ids, 1) && attachmentAllowed(ids, 2) &&
+        attachmentAllowed(ids, 3) && attachmentAllowed(ids, 4);
     }
     // Favourites: each user manages only their own saved apartments.
     match /favourites/{favouriteId} {
@@ -158,8 +159,8 @@ service cloud.firestore {
         let fields = ['userId', 'apartmentId', 'apartmentTitle', 'fullName',
           'phone', 'moveInDate', 'occupants', 'message', 'status',
           'submittedAt', 'updatedAt'];
-        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
-          data.userId == request.auth.uid &&
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields.concat(['documentIds'])) &&
+          validAttachments(data) && data.userId == request.auth.uid &&
           data.apartmentId is string && data.apartmentId.size() > 0 &&
           data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
           data.apartmentTitle.size() <= 200 &&

@@ -76,6 +76,7 @@ class RentalApplication {
     required this.details,
     required this.status,
     required this.submittedAt,
+    this.documentIds = const [],
   });
 
   /// US 16 acceptance criterion: edit or withdraw within 5 days.
@@ -92,6 +93,9 @@ class RentalApplication {
   final ApplicationStatus status;
   final DateTime submittedAt;
 
+  /// US-15: reusable file IDs selected at submission; empty for older records.
+  final List<String> documentIds;
+
   DateTime get changeDeadline => submittedAt.add(changeWindow);
 
   /// Whether the applicant may still edit or withdraw it. The Firestore
@@ -106,6 +110,9 @@ class RentalApplication {
       apartmentTitle: map['apartmentTitle'] as String,
       details: ApplicationDetails.fromMap(map),
       status: ApplicationStatus.fromName(map['status']),
+      documentIds: List<String>.unmodifiable(
+        (map['documentIds'] as List? ?? []).cast<String>(),
+      ),
       // null for a moment after submitting, until the server sets the time.
       submittedAt:
           (map['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),

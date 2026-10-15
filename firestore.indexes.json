@@ -1,0 +1,6 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup": "uploadedDocuments", "fieldPath": "fileBytes", "indexes": []}
+  ]
+}
