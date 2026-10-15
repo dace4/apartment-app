@@ -96,4 +96,15 @@ abstract final class Validators {
     if (text.length > bodyLimit) return 'Use at most $bodyLimit characters.';
     return null;
   }
+
+  static const savedSearchNameLimit = 40;
+
+  static String? savedSearchName(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return 'Enter a name.';
+    if (name.length > savedSearchNameLimit) {
+      return 'Use at most $savedSearchNameLimit characters.';
+    }
+    return null;
+  }
 }

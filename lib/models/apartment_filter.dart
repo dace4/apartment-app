@@ -64,7 +64,7 @@ class ApartmentFilter {
     return apartment.amenities.containsAll(amenities);
   }
 
-  Map<String, dynamic> ToMap() {
+  Map<String, dynamic> toMap() {
     return {
       'location': location.trim(),
       'listingType': listingType?.name,
@@ -76,20 +76,22 @@ class ApartmentFilter {
     };
   }
 
-  factory ApartmentFilter.fromMap(Map<String, dynamic> map){
+  factory ApartmentFilter.fromMap(Map<String, dynamic> map) {
     final listingType = map['listingType'] as String?;
     return ApartmentFilter(
       location: map['location'] as String? ?? '',
       listingType: listingType == null
-        ? null
-        : ListingType.values.byName(listingType),
+          ? null
+          : ListingType.values.byName(listingType),
       minPrice: map['minPrice'] as int?,
       maxPrice: map['maxPrice'] as int?,
       minRooms: (map['minRooms'] as num?)?.toDouble(),
       minSurface: map['minSurface'] as int?,
-      amenities: (map['amenities'] as List<dynamic>?)
-        ?.map((e) => Amenity.values.byName(e as String))
-        .toSet() ?? {}
+      amenities:
+          (map['amenities'] as List<dynamic>?)
+              ?.map((e) => Amenity.values.byName(e as String))
+              .toSet() ??
+          {},
     );
   }
 }

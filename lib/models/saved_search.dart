@@ -25,25 +25,25 @@ class SavedSearch {
   final DateTime createdAt;
 
   static bool isOffer(ApartmentFilter filter, Apartment apartment) =>
-    apartment.availability == ApartmentAvailability.available &&
-    filter.matches(apartment);
+      apartment.availability == ApartmentAvailability.available &&
+      filter.matches(apartment);
 
-    bool isNewOffer(Apartment apartment) =>
+  bool isNewOffer(Apartment apartment) =>
       isOffer(filter, apartment) && !seenApartmentIds.contains(apartment.id);
 
-    List<Apartment> findNewOffers(List<Apartment> apartments) =>
+  List<Apartment> findNewOffers(List<Apartment> apartments) =>
       apartments.where(isNewOffer).toList();
 
-    factory SavedSearch.fromMap(String id, Map<String, dynamic> map){
-      return SavedSearch(
-        id: id,
-        name: map['name'] as String,
-        filter: ApartmentFilter.fromMap(map['filter'] as Map<String, dynamic>),
-        alertsEnabled: map['alertsEnabled'] as bool,
-        seenApartmentIds: (map['seenApartmentIds'] as List)
+  factory SavedSearch.fromMap(String id, Map<String, dynamic> map) {
+    return SavedSearch(
+      id: id,
+      name: map['name'] as String,
+      filter: ApartmentFilter.fromMap(map['filter'] as Map<String, dynamic>),
+      alertsEnabled: map['alertsEnabled'] as bool,
+      seenApartmentIds: (map['seenApartmentIds'] as List)
           .cast<String>()
           .toSet(),
-        createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      );
-    }
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
 }

@@ -19,6 +19,7 @@ class AppNotification {
     required this.body,
     required this.createdAt,
     this.isRead = false,
+    this.apartmentId,
   });
 
   final String id;
@@ -28,6 +29,8 @@ class AppNotification {
   final DateTime createdAt;
   final bool isRead;
 
+  final String? apartmentId;
+
   factory AppNotification.fromMap(String id, Map<String, dynamic> map) {
     return AppNotification(
       id: id,
@@ -36,6 +39,7 @@ class AppNotification {
       body: map['body'] as String,
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       isRead: map['isRead'] as bool? ?? false,
+      apartmentId: map['apartmentId'] as String?,
     );
   }
 
@@ -46,6 +50,7 @@ class AppNotification {
       'body': body,
       'createdAt': Timestamp.fromDate(createdAt),
       'isRead': isRead,
+      if (apartmentId != null) 'apartmentId': apartmentId,
     };
   }
 }
