@@ -51,6 +51,15 @@ class ProfileView extends StatelessWidget {
                   onTap: () => context.go(AppRoutes.notifications),
                 ),
               ),
+              // US-23: saved searches and their new-offer alerts.
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.bookmarks_outlined),
+                  title: const Text('Saved searches'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go(AppRoutes.savedSearches),
+                ),
+              ),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.help_outline),

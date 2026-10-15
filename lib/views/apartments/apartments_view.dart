@@ -3,11 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/apartment.dart';
 import '../../router/app_routes.dart';
+import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apartments_view_model.dart';
 import '../../view_models/compare_view_model.dart';
 import '../../view_models/favourites_view_model.dart';
+import '../../view_models/saved_searches_view_model.dart';
 import 'widgets/apartment_card.dart';
+import 'widgets/save_search_dialog.dart';
 
 class ApartmentsView extends StatefulWidget {
   const ApartmentsView({
@@ -15,9 +18,13 @@ class ApartmentsView extends StatefulWidget {
     required this.viewModel,
     required this.compareViewModel,
     required this.favouritesViewModel,
+    this.savedSearchesViewModel,
     this.title = 'Apartments',
     this.emptyMessage = 'No apartments available right now.',
   });
+
+  /// US 23: shows the "Save this search" button when given.
+  final SavedSearchesViewModel? savedSearchesViewModel;
 
   /// Shared with the Filters page.
   final ApartmentsViewModel viewModel;
@@ -55,6 +62,29 @@ class _ApartmentsViewState extends State<ApartmentsView> {
     }
   }
 
+  /// US 23.2: saves the active filters to be alerted of new offers.
+  Future<void> _saveSearch() async {
+    final savedSearches = widget.savedSearchesViewModel!;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          SaveSearchDialog(description: describeFilter(viewModel.filter)),
+    );
+    if (name == null || !mounted) return;
+
+    final saved = await savedSearches.save(name, viewModel.filter);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved
+              ? 'Search saved. New matching offers will alert you.'
+              : savedSearches.actionError!,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -86,6 +116,13 @@ class _ApartmentsViewState extends State<ApartmentsView> {
                 tooltip: 'Filters',
                 onPressed: () => context.go(AppRoutes.filters),
               ),
+              if (widget.savedSearchesViewModel != null)
+                IconButton(
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  tooltip: 'Save this search',
+                  // A search without any criterion would match every offer.
+                  onPressed: viewModel.filter.isEmpty ? null : _saveSearch,
+                ),
               IconButton(
                 // US 13: the badge shows how many apartments are selected.
                 icon: Badge(

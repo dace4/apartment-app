@@ -20,4 +20,12 @@ class ApartmentService {
     return Apartment.fromMap(doc.id, doc.data()!);
   }
 
+  /// US 23: live list, so new offers are noticed while the app is open.
+  Stream<List<Apartment>> watchApartments() {
+    return _collection.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map((doc) => Apartment.fromMap(doc.id, doc.data()))
+          .toList(),
+    );
+  }
 }

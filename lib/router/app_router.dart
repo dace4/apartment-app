@@ -6,6 +6,7 @@ import '../view_models/compare_view_model.dart';
 import '../view_models/apartments_view_model.dart';
 import '../view_models/favourites_view_model.dart';
 import '../view_models/maintenance_reminders_view_model.dart';
+import '../view_models/saved_searches_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
@@ -25,6 +26,7 @@ import '../views/messages/contact_advertiser_view.dart';
 import '../views/profile/faq_view.dart';
 import '../views/profile/notifications_view.dart';
 import '../views/profile/profile_view.dart';
+import '../views/profile/saved_searches_view.dart';
 import '../views/services/contractors_view.dart';
 import '../views/services/insurance_view.dart';
 import '../views/services/maintenance_booking_view.dart';
@@ -63,6 +65,7 @@ GoRouter createAppRouter({
   required CompareViewModel compareViewModel,
   required FavouritesViewModel favouritesViewModel,
   required MaintenanceRemindersViewModel maintenanceRemindersViewModel,
+  required SavedSearchesViewModel savedSearchesViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -99,6 +102,7 @@ GoRouter createAppRouter({
                   viewModel: apartmentsViewModel,
                   compareViewModel: compareViewModel,
                   favouritesViewModel: favouritesViewModel,
+                  savedSearchesViewModel: savedSearchesViewModel,
                 ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
@@ -263,6 +267,13 @@ GoRouter createAppRouter({
                   GoRoute(
                     path: 'notifications',
                     builder: (context, state) => const NotificationsView(),
+                  ),
+                  GoRoute(
+                    path: 'saved-searches',
+                    builder: (context, state) => SavedSearchesView(
+                      viewModel: savedSearchesViewModel,
+                      apartmentsViewModel: apartmentsViewModel,
+                    ),
                   ),
                   GoRoute(
                     path: 'faq',

@@ -1,3 +1,5 @@
+import '../models/apartment_filter.dart';
+
 import '../models/apartment.dart';
 
 //Format an amoubt in Swiss francs with ' exemple => 1850 ; 1'850
@@ -49,3 +51,18 @@ String formatApartmentPrice(Apartment apartment) =>
       ListingType.rent => '${formatChf(apartment.price)} / month',
       ListingType.sale => formatChf(apartment.price),
     };
+
+/// US 23: a short summary of the criteria, e.g. "Sion · Rent · up to CHF 2'000".
+String describeFilter(ApartmentFilter filter) {
+  final parts = [
+    if (filter.location.trim().isNotEmpty) filter.location.trim(),
+    if (filter.listingType == ListingType.rent) 'Rent',
+    if (filter.listingType == ListingType.sale) 'Buy',
+    if (filter.minPrice != null) 'from ${formatChf(filter.minPrice!)}',
+    if (filter.maxPrice != null) 'up to ${formatChf(filter.maxPrice!)}',
+    if (filter.minRooms != null) '${filter.minRooms!.toInt()}+ rooms',
+    if (filter.minSurface != null) '${filter.minSurface} m²+',
+    for (final amenity in filter.amenities) amenity.label,
+  ];
+  return parts.isEmpty ? 'All apartments' : parts.join(' · ');
+}

@@ -7,6 +7,7 @@ import 'view_models/auth_view_model.dart';
 import 'view_models/compare_view_model.dart';
 import 'view_models/favourites_view_model.dart';
 import 'view_models/maintenance_reminders_view_model.dart';
+import 'view_models/saved_searches_view_model.dart';
 
 class HomeFlowApp extends StatefulWidget {
   const HomeFlowApp({super.key});
@@ -24,6 +25,8 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
   final _favouritesViewModel = FavouritesViewModel();
   // US-17: the in-app maintenance reminder shown on every tab.
   final _maintenanceRemindersViewModel = MaintenanceRemindersViewModel();
+  // US-23: saved searches, and alerts for new matching offers on every tab.
+  final _savedSearchesViewModel = SavedSearchesViewModel();
 
   late final GoRouter _router = createAppRouter(
     authViewModel: _authViewModel,
@@ -31,6 +34,7 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
     compareViewModel: _compareViewModel,
     favouritesViewModel: _favouritesViewModel,
     maintenanceRemindersViewModel: _maintenanceRemindersViewModel,
+    savedSearchesViewModel: _savedSearchesViewModel,
   );
 
   @override
@@ -41,6 +45,7 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
     _compareViewModel.dispose();
     _favouritesViewModel.dispose();
     _maintenanceRemindersViewModel.dispose();
+    _savedSearchesViewModel.dispose();
     super.dispose();
   }
 
