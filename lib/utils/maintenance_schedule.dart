@@ -3,11 +3,11 @@ import '../models/maintenance_request.dart';
 /// US-17: when a repair or maintenance service can be booked.
 /// - Monday to Friday, consecutive slots of [MaintenanceRequest.slotLength]
 ///   (30 minutes) from 08:00 to 12:00 and from 13:00 to 17:00.
-/// - From 24 hours ahead up to 60 days ahead.
+/// - From tomorrow up to 60 days ahead. On a day after today, every slot
+///   from 08:00 to 17:00 can be booked.
 abstract final class MaintenanceSchedule {
   /// Working hours as (start hour, end hour); 12:00–13:00 is the lunch break.
   static const workingHours = [(8, 12), (13, 17)];
-  static const minLeadTime = Duration(hours: 24);
   static const maxDaysAhead = 60;
 
   static DateTime dateOnly(DateTime date) =>
@@ -31,16 +31,17 @@ abstract final class MaintenanceSchedule {
     return slots;
   }
 
-  /// The first day that can hold a bookable slot.
-  static DateTime firstDate(DateTime now) => dateOnly(now.add(minLeadTime));
+  /// The first day that can be booked: tomorrow.
+  static DateTime firstDate(DateTime now) =>
+      DateTime(now.year, now.month, now.day + 1);
 
   /// The last day that can be booked.
   static DateTime lastDate(DateTime now) =>
       DateTime(now.year, now.month, now.day + maxDaysAhead);
 
-  /// Whether a slot is at least 24 hours away and within 60 days.
+  /// Whether a slot is on a day from tomorrow up to 60 days ahead.
   static bool isBookable(DateTime slot, DateTime now) =>
-      !slot.isBefore(now.add(minLeadTime)) &&
+      !dateOnly(slot).isBefore(firstDate(now)) &&
       !dateOnly(slot).isAfter(lastDate(now));
 
   /// Whether the date picker lets the user choose this day.

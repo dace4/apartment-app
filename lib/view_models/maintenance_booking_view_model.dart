@@ -16,7 +16,7 @@ enum SlotState {
   /// The service being rescheduled is in this slot.
   current,
 
-  /// In the past, less than 24 hours away, or more than 60 days away.
+  /// Today or earlier, or more than 60 days away.
   unavailable,
 }
 
@@ -201,8 +201,8 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // The slot may have been taken meanwhile (on another phone) or may
-      // now be less than 24 hours away.
+      // The slot may have been taken meanwhile (on another phone) or its
+      // day may have become today (form left open past midnight).
       _scheduled = _onlyScheduled(await service.getMyRequests());
       if (slotState(slot!) != SlotState.free) {
         actionError =

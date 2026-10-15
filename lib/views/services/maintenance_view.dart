@@ -60,11 +60,10 @@ class _MaintenanceViewState extends State<MaintenanceView> {
 
           // 3. Empty
           if (viewModel.requests.isEmpty) {
-            return MessageView(
+            // The floating button is the only way to schedule a service.
+            return const MessageView(
               icon: Icons.home_repair_service_outlined,
               message: 'No maintenance scheduled yet.',
-              actionLabel: 'Schedule service',
-              onAction: () => context.go(AppRoutes.maintenanceNew),
             );
           }
 
