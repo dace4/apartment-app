@@ -45,5 +45,7 @@ abstract final class AppRoutes {
   static String documentReview(String id) =>
       '$documents/${Uri.encodeComponent(id)}';
   static const notifications = '/profile/notifications';
+  // US-23: saved searches and their new-offer alerts.
+  static const savedSearches = '/profile/saved-searches';
   static const faq = '/profile/faq';
 }

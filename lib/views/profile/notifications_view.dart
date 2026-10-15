@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/app_notification.dart';
+import '../../router/app_routes.dart';
 import '../../view_models/notifications_view_model.dart';
 
 /// US 18: opt-in / opt-out switches and the list of notifications.
@@ -95,7 +97,14 @@ class _NotificationsViewState extends State<NotificationsView> {
                 for (final notification in notifications)
                   _NotificationTile(
                     notification: notification,
-                    onTap: () => viewModel.markAsRead(notification),
+                    onTap: () {
+                      viewModel.markAsRead(notification);
+                      // US 23: a new-offer alert opens its apartment.
+                      final apartmentId = notification.apartmentId;
+                      if (apartmentId != null) {
+                        context.go(AppRoutes.apartmentDetail(apartmentId));
+                      }
+                    },
                   ),
             ],
           );
