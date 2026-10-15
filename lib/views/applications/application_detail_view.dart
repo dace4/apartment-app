@@ -127,6 +127,20 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
               _Row('Move-in date', formatDate(details.moveInDate)),
               _Row('Occupants', '${details.occupants}'),
               if (details.message.isNotEmpty) _Row('Message', details.message),
+              if (application.documentIds.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text('Attachments', style: theme.textTheme.titleMedium),
+                for (var i = 0; i < application.documentIds.length; i++)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.attach_file),
+                    title: Text('Document ${i + 1}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(
+                      AppRoutes.documentReview(application.documentIds[i]),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 16),
               Text(
                 _changeInfo(application, canChange),

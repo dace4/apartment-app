@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pdfrx/pdfrx.dart';
 
-import '../../models/signing_consent.dart';
 import '../../view_models/document_review_view_model.dart';
+import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
-import 'widgets/signature_pad.dart';
 
-/// US-11: full text precedes review acknowledgement, signature, and consent.
+/// US-15: view original file bytes; the viewer never rewrites the document.
 class DocumentReviewView extends StatefulWidget {
   const DocumentReviewView({
     super.key,
@@ -21,8 +22,6 @@ class DocumentReviewView extends StatefulWidget {
 
 class _DocumentReviewViewState extends State<DocumentReviewView> {
   late final viewModel = widget.viewModel ?? DocumentReviewViewModel();
-  final _nameController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -31,29 +30,76 @@ class _DocumentReviewViewState extends State<DocumentReviewView> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     if (widget.viewModel == null) viewModel.dispose();
     super.dispose();
   }
 
-  void _reload() {
-    _nameController.clear();
-    viewModel.load(widget.documentId);
+  Future<void> _manageSignature() async {
+    await context.push(AppRoutes.signature);
+    if (mounted) await viewModel.load(widget.documentId);
+  }
+
+  Future<void> _bind() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bind your signature?'),
+        scrollable: true,
+        content: Text(
+          'I confirm that I reviewed "${viewModel.document!.name}" and agree to bind '
+          'my saved signature to this document electronically. The original file will not change.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm and sign'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await viewModel.bind();
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove document?'),
+        content: const Text('This permanently removes this unused document.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && await viewModel.delete() && mounted) {
+      context.go(AppRoutes.documents);
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Review document'),
+      title: const Text('Document'),
       actions: [
         ListenableBuilder(
           listenable: viewModel,
           builder: (context, _) => IconButton(
             tooltip: 'Reload document',
+            icon: const Icon(Icons.refresh),
             onPressed: viewModel.isSaving || viewModel.isLoading
                 ? null
-                : _reload,
-            icon: const Icon(Icons.refresh),
+                : () => viewModel.load(widget.documentId),
           ),
         ),
       ],
@@ -69,7 +115,7 @@ class _DocumentReviewViewState extends State<DocumentReviewView> {
             icon: Icons.cloud_off,
             message: viewModel.errorMessage!,
             actionLabel: 'Retry',
-            onAction: _reload,
+            onAction: () => viewModel.load(widget.documentId),
           );
         }
         final document = viewModel.document;
@@ -79,150 +125,122 @@ class _DocumentReviewViewState extends State<DocumentReviewView> {
             message: 'This document is no longer available.',
           );
         }
-        final theme = Theme.of(context);
-        final record = viewModel.signedRecord;
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(document.title, style: theme.textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Version ${document.version} · ${viewModel.statusLabel}',
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 24),
-                  SelectableText(
-                    document.body,
-                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  if (record != null) ...[
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        'Signed and saved',
-                        style: theme.textTheme.titleLarge,
+        return LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        document.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        semanticsLabel: document.name,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Signed by ${record.signerName} (${record.signerEmail})',
-                    ),
-                    Text('Signed on ${formatSigningTime(record.signedAt!)}'),
-                    const SizedBox(height: 16),
-                    SignaturePad(drawing: record.signature, enabled: false),
-                    const SizedBox(height: 16),
-                    Text(record.consentText),
-                    const SizedBox(height: 8),
-                    Text('Record ID: ${record.id}'),
-                    const SizedBox(height: 8),
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: const Text('Record details'),
-                      children: [
-                        SelectableText(
-                          'Document SHA-256: ${record.documentHash}\n'
-                          'Signed record SHA-256: ${record.recordHash}\n'
-                          'Consent version: ${record.consentVersion}',
+                      Text('${document.sizeLabel} · ${document.statusLabel}'),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: (constraints.maxHeight - 320).clamp(240.0, 900.0),
+                  child: document.isPdf
+                      ? PdfViewer.data(
+                          document.bytes,
+                          sourceName: document.id,
+                          params: const PdfViewerParams(
+                            textSelectionParams: PdfTextSelectionParams(
+                              enabled: false,
+                            ),
+                          ),
+                        )
+                      : InteractiveViewer(
+                          minScale: .5,
+                          maxScale: 5,
+                          child: Center(
+                            child: Image.memory(
+                              document.bytes,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) =>
+                                  const Text('This image cannot be displayed.'),
+                            ),
+                          ),
                         ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (viewModel.actionError != null)
+                          Text(
+                            viewModel.actionError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        if (document.isSigned) ...[
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              'Signed',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          if (document.signedAt != null)
+                            Text(
+                              'Signature bound on ${formatSigningTime(document.signedAt!)}',
+                            ),
+                          const SizedBox(height: 8),
+                        ] else ...[
+                          if (viewModel.signatureError != null)
+                            Text(viewModel.signatureError!),
+                          if (!viewModel.hasSignature)
+                            TextButton(
+                              onPressed: viewModel.isSaving
+                                  ? null
+                                  : _manageSignature,
+                              child: const Text(
+                                'Set up My Signature before signing',
+                              ),
+                            ),
+                          FilledButton.icon(
+                            onPressed: viewModel.canBind ? _bind : null,
+                            icon: viewModel.isSaving
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.draw_outlined),
+                            label: Text(
+                              viewModel.isSaving ? 'Saving…' : 'Bind signature',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (document.canDelete)
+                          OutlinedButton.icon(
+                            onPressed: viewModel.isSaving ? null : _delete,
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Remove document'),
+                          )
+                        else
+                          const Text(
+                            'Signed documents and application attachments cannot be removed.',
+                          ),
                       ],
                     ),
-                  ] else if (viewModel.canSign || viewModel.isSaving) ...[
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text(
-                        'I have reviewed the full document above.',
-                      ),
-                      value: viewModel.reviewed,
-                      onChanged: viewModel.isSaving
-                          ? null
-                          : (value) => viewModel.setReviewed(value ?? false),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _nameController,
-                      maxLength: 100,
-                      enabled: !viewModel.isSaving,
-                      decoration: const InputDecoration(
-                        labelText: 'Your full name',
-                        border: OutlineInputBorder(),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: viewModel.setSignerName,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Draw your signature',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Use your finger or stylus in the box below.'),
-                    const SizedBox(height: 12),
-                    SignaturePad(
-                      drawing: viewModel.signature,
-                      enabled: !viewModel.isSaving,
-                      onStart: viewModel.startStroke,
-                      onUpdate: viewModel.addPoint,
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: viewModel.isSaving
-                            ? null
-                            : viewModel.clearSignature,
-                        icon: const Icon(Icons.clear),
-                        label: const Text('Clear signature'),
-                      ),
-                    ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text(SigningConsent.text),
-                      value: viewModel.consented,
-                      onChanged: viewModel.isSaving || !viewModel.reviewed
-                          ? null
-                          : (value) => viewModel.setConsented(value ?? false),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: viewModel.canSubmit ? viewModel.sign : null,
-                      icon: viewModel.isSaving
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.draw_outlined),
-                      label: Text(
-                        viewModel.isSaving
-                            ? 'Saving signature…'
-                            : 'Sign and save',
-                      ),
-                    ),
-                    if (viewModel.actionError != null) ...[
-                      const SizedBox(height: 12),
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          viewModel.actionError!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ),
-                    ],
-                  ] else
-                    const Text(
-                      'This document is unavailable for signing. Contact the sender.',
-                    ),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         );

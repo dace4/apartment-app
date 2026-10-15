@@ -99,6 +99,42 @@ class _ApplyViewState extends State<ApplyView> {
                       style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 24),
+                    // US-15: optional reusable documents; no signing prerequisite.
+                    Text(
+                      'Attachments (optional, up to 5)',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    if (viewModel.attachmentError != null) ...[
+                      Text(viewModel.attachmentError!),
+                      TextButton(
+                        onPressed: viewModel.isSaving
+                            ? null
+                            : () =>
+                                  viewModel.fetchApartment(widget.apartmentId),
+                        child: const Text('Retry attachments'),
+                      ),
+                    ],
+                    if (viewModel.documents.isEmpty &&
+                        viewModel.attachmentError == null)
+                      const Text(
+                        'Upload files in Profile → My documents to attach them here.',
+                      ),
+                    for (final document in viewModel.documents)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(document.name),
+                        subtitle: Text(document.statusLabel),
+                        value: viewModel.selectedDocumentIds.contains(
+                          document.id,
+                        ),
+                        onChanged: viewModel.isSaving
+                            ? null
+                            : (selected) => viewModel.selectDocument(
+                                document.id,
+                                selected ?? false,
+                              ),
+                      ),
+                    const SizedBox(height: 24),
                     ApplicationForm(
                       submitLabel: 'Submit application',
                       isSaving: viewModel.isSaving,

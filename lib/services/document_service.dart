@@ -1,29 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as image;
+import 'package:pdfrx/pdfrx.dart';
 
 import '../models/app_user.dart';
+import '../models/document_upload.dart';
+import '../models/uploaded_document.dart';
 import '../models/signature_drawing.dart';
-import '../models/signed_document.dart';
-import '../models/signing_consent.dart';
-import '../models/signing_document.dart';
-import '../utils/document_integrity.dart';
 import 'document_exception.dart';
 
-/// US-11: all Firebase access for assigned documents and signed records.
+/// US-15: private, bounded file storage in Firestore (no Storage bucket).
 class DocumentService {
   DocumentService({
     FirebaseFirestore? firestore,
     AppUser? Function()? currentUser,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+  }) : _db = firestore ?? FirebaseFirestore.instance,
        _currentUser = currentUser ?? _firebaseUser;
-
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore _db;
   final AppUser? Function() _currentUser;
-  CollectionReference<Map<String, dynamic>> get _documents =>
-      _firestore.collection('signingDocuments');
-  CollectionReference<Map<String, dynamic>> get _records =>
-      _firestore.collection('signedDocuments');
-
+  CollectionReference<Map<String, dynamic>> get _files =>
+      _db.collection('uploadedDocuments');
   static AppUser? _firebaseUser() {
     final user = FirebaseAuth.instance.currentUser;
     return user == null
@@ -35,146 +32,214 @@ class DocumentService {
           );
   }
 
-  AppUser _requireUser() {
+  String get userId {
     final user = _currentUser();
-    if (user == null || !user.emailVerified || user.email.isEmpty) {
+    if (user == null || !user.emailVerified) {
       throw const DocumentException(
-        'Log in with a verified email to sign documents.',
+        'Log in with a verified email to manage documents.',
       );
     }
-    return user;
+    return user.id;
   }
 
-  Stream<List<SigningDocument>> watchMyDocuments() {
-    final user = _requireUser();
-    return _documents
-        .where('userId', isEqualTo: user.id)
+  String newDocumentId() => _files.doc().id;
+  UploadedDocument _decode(String id, Map<String, dynamic> map) =>
+      UploadedDocument.fromMap(id, {
+        ...map,
+        'fileBytes': (map['fileBytes'] as Blob).bytes,
+      });
+  Stream<List<UploadedDocument>> watchMyDocuments() {
+    final uid = userId;
+    return _files
+        .where('userId', isEqualTo: uid)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map((doc) => SigningDocument.fromMap(doc.id, doc.data()))
+                  .where((doc) => !doc.metadata.hasPendingWrites)
+                  .map((doc) => _decode(doc.id, doc.data()))
                   .toList()
-                ..sort((a, b) => b.issuedAt.compareTo(a.issuedAt)),
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
         );
   }
 
-  Stream<Set<String>> watchMySignedIds() {
-    final user = _requireUser();
-    return _records
-        .where('signerId', isEqualTo: user.id)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toSet());
-  }
-
-  /// Server reads prevent offline cache from presenting a signing success.
-  Future<SigningDocument?> getDocument(String id) async {
-    final user = _requireUser();
-    final snapshot = await _documents
+  Future<UploadedDocument?> getDocument(String id) async {
+    final uid = userId;
+    final doc = await _files
         .doc(id)
         .get(const GetOptions(source: Source.server));
-    if (!snapshot.exists) return null;
-    final document = SigningDocument.fromMap(id, snapshot.data()!);
-    if (document.userId != user.id || !document.isValid) {
+    if (!doc.exists) return null;
+    final file = _decode(doc.id, doc.data()!);
+    if (file.userId != uid) {
+      throw const DocumentException('This document is unavailable.');
+    }
+    return file;
+  }
+
+  Future<List<UploadedDocument>> getMyDocuments() async {
+    final uid = userId;
+    final docs = await _files
+        .where('userId', isEqualTo: uid)
+        .get(const GetOptions(source: Source.server));
+    return docs.docs.map((doc) => _decode(doc.id, doc.data())).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  Future<void> validate(DocumentUpload upload) async {
+    if (upload.selectionError != null) {
+      throw DocumentException(upload.selectionError!);
+    }
+    if (upload.name.trim().isEmpty ||
+        upload.name.length > 200 ||
+        upload.name.contains('/') ||
+        upload.name.contains('\\')) {
       throw const DocumentException(
-        'This document is unavailable. Contact the sender.',
+        'Choose a file with a name of 1–200 characters.',
       );
     }
-    return document;
-  }
-
-  Future<SignedDocument?> getSignedRecord(String id) async {
-    final user = _requireUser();
-    final snapshot = await _records
-        .doc(id)
-        .get(const GetOptions(source: Source.server));
-    if (!snapshot.exists) return null;
-    try {
-      final record = SignedDocument.fromMap(id, snapshot.data()!);
-      if (record.signerId != user.id ||
-          !hasRecordIntegrity(record) ||
-          record.signedAt == null ||
-          snapshot.data()!['consented'] != true) {
-        throw const FormatException('Invalid record.');
+    if (upload.bytes.isEmpty || upload.bytes.length > DocumentUpload.maxBytes) {
+      throw const DocumentException(
+        'Choose a nonempty file no larger than 700 KiB.',
+      );
+    }
+    if (upload.mimeType == 'image/jpeg') {
+      if (!await compute(_readableJpeg, upload.bytes)) {
+        throw const DocumentException(
+          'This JPEG is corrupt, too large to preview, or is not a JPEG image.',
+        );
       }
-      return record;
-    } catch (_) {
+    } else if (upload.mimeType == 'application/pdf') {
+      if (upload.bytes.length < 5 ||
+          String.fromCharCodes(upload.bytes.take(5)) != '%PDF-') {
+        throw const DocumentException('This file is not a readable PDF.');
+      }
+      PdfDocument? pdf;
+      try {
+        pdf = await PdfDocument.openData(
+          upload.bytes,
+          passwordProvider: () async => null,
+        );
+        if (pdf.isEncrypted || pdf.pages.isEmpty) throw const FormatException();
+        final preview = await pdf.pages.first.render(width: 32, height: 32);
+        if (preview == null) throw const FormatException();
+        preview.dispose();
+      } catch (_) {
+        throw const DocumentException(
+          'Choose a readable PDF without password protection.',
+        );
+      } finally {
+        await pdf?.dispose();
+      }
+    } else {
       throw const DocumentException(
-        'This signed record failed its integrity check. Contact the sender.',
+        'Only JPEG (.jpg/.jpeg) and PDF files are supported.',
       );
     }
   }
 
-  Future<void> sign({
-    required SigningDocument reviewedDocument,
-    required SignatureDrawing signature,
-    required String signerName,
-    required bool consented,
-  }) async {
-    final user = _requireUser();
-    if (!consented ||
-        !signature.hasInk ||
-        signerName.trim().isEmpty ||
-        signerName.trim().length > 100 ||
-        !reviewedDocument.isValid ||
-        reviewedDocument.userId != user.id ||
-        !reviewedDocument.isReady) {
+  Future<void> upload(DocumentUpload upload) async {
+    final uid = userId;
+    if (upload.userId != uid) {
       throw const DocumentException(
-        'Review the document, enter your name, draw your signature, and give consent.',
+        'Your account changed. Select the file again.',
       );
     }
-    final recordRef = _records.doc(reviewedDocument.id);
-    final hash = documentFingerprint(reviewedDocument);
-    await _firestore.runTransaction((transaction) async {
-      // Deterministic ID: an acknowledged or uncertain retry never overwrites.
-      final existing = await transaction.get(recordRef);
+    await validate(upload);
+    final ref = _files.doc(upload.id);
+    await _db.runTransaction((tx) async {
+      final existing = await tx.get(ref);
       if (existing.exists) {
-        final record = SignedDocument.fromMap(existing.id, existing.data()!);
-        if (record.signerId != user.id || !hasRecordIntegrity(record)) {
+        final data = existing.data()!;
+        if (data['userId'] != uid ||
+            data['name'] != upload.name ||
+            data['mimeType'] != upload.mimeType ||
+            !listEquals((data['fileBytes'] as Blob).bytes, upload.bytes)) {
           throw const DocumentException(
-            'This signed record failed its integrity check. Contact the sender.',
+            'This upload ID is already in use. Select the file again.',
           );
         }
         return;
       }
-      final source = await transaction.get(_documents.doc(reviewedDocument.id));
-      if (!source.exists) {
+      tx.set(ref, {
+        'userId': uid,
+        'name': upload.name,
+        'mimeType': upload.mimeType,
+        'fileBytes': Blob(upload.bytes),
+        'byteSize': upload.bytes.length,
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'unsigned',
+        'signatureId': null,
+        'signedAt': null,
+        'firstApplicationId': null,
+      });
+    }, timeout: const Duration(seconds: 20));
+  }
+
+  /// US-11: bind an existing signature ID only; original file bytes never change.
+  Future<UploadedDocument> bindSignature(String id) async {
+    final uid = userId;
+    await _db.runTransaction((tx) async {
+      final file = await tx.get(_files.doc(id));
+      if (!file.exists || file.data()!['userId'] != uid) {
         throw const DocumentException('This document is no longer available.');
       }
-      final current = SigningDocument.fromMap(source.id, source.data()!);
-      if (current.userId != user.id ||
-          !current.isReady ||
-          documentFingerprint(current) != hash) {
+      if (file.data()!['status'] == 'signed') return;
+      final signature = await tx.get(_db.collection('userSignatures').doc(uid));
+      if (!signature.exists) {
         throw const DocumentException(
-          'This document changed or was withdrawn. Reload and review it before signing.',
+          'Save a signature in My Signature before binding it.',
         );
       }
-      final name = signerName.trim();
-      final record = SignedDocument(
-        id: current.id,
-        document: current,
-        signerId: user.id,
-        signerEmail: user.email,
-        signerName: name,
-        signature: signature,
-        documentHash: hash,
-        recordHash: signedRecordFingerprint(
-          documentHash: hash,
-          signerId: user.id,
-          signerEmail: user.email,
-          signerName: name,
-          signature: signature.encode(),
-          consentVersion: SigningConsent.version,
-          consentText: SigningConsent.text,
-        ),
-        consentVersion: SigningConsent.version,
-        consentText: SigningConsent.text,
-        signedAt: null,
-      );
-      transaction.set(recordRef, {
-        ...record.toMap(),
+      try {
+        SignatureDrawing.decode(signature.data()!['drawing'] as String);
+      } catch (_) {
+        throw const DocumentException(
+          'Save a valid signature in My Signature before binding it.',
+        );
+      }
+      tx.update(file.reference, {
+        'status': 'signed',
+        'signatureId': uid,
         'signedAt': FieldValue.serverTimestamp(),
       });
     }, timeout: const Duration(seconds: 20));
+    final saved = await getDocument(id);
+    if (saved == null || !saved.isSigned) {
+      throw const DocumentException(
+        'The binding could not be confirmed. Retry.',
+      );
+    }
+    return saved;
+  }
+
+  Future<void> delete(String id) async {
+    final uid = userId;
+    await _db.runTransaction((tx) async {
+      final doc = await tx.get(_files.doc(id));
+      if (!doc.exists) return;
+      final file = _decode(doc.id, doc.data()!);
+      if (file.userId != uid || !file.canDelete) {
+        throw const DocumentException(
+          'Signed documents and application attachments cannot be deleted.',
+        );
+      }
+      tx.delete(doc.reference);
+    });
+  }
+}
+
+bool _readableJpeg(Uint8List bytes) {
+  try {
+    final decoder = image.JpegDecoder();
+    final info = decoder.startDecode(bytes);
+    if (info == null ||
+        info.width <= 0 ||
+        info.height <= 0 ||
+        info.width * info.height > 20000000) {
+      return false;
+    }
+    return decoder.decodeFrame(0) != null;
+  } catch (_) {
+    return false;
   }
 }

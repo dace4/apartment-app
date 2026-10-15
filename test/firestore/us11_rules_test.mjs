@@ -1,138 +1,112 @@
-// US-11: actual security rules on a local demo emulator, no npm dependencies.
+// US-11: real rules, local demo project only, no npm dependencies.
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
-import { createHash } from 'node:crypto';
-
+import {test} from 'node:test';
 const host = process.env.FIRESTORE_EMULATOR_HOST;
-if (!host || !/^(127\.0\.0\.1|localhost):\d+$/.test(host)) {
-  throw new Error('Set FIRESTORE_EMULATOR_HOST to a local emulator, e.g. 127.0.0.1:8187.');
-}
-const project = 'demo-homeflow-us11';
-const base = `http://${host}/v1/projects/${project}/databases/(default)/documents`;
-const consent = 'I have reviewed this document and consent to sign it electronically. I understand that my signature and this document will be saved together and cannot be edited after signing.';
-const signature = JSON.stringify([[[.1, .2], [.5, .6], [.9, .3]]]);
-const runId = `us11-${Date.now()}`;
-const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+if (!host || !/^(127\.0\.0\.1|localhost):\d+$/.test(host)) throw Error('Set a local FIRESTORE_EMULATOR_HOST.');
+const project = process.env.US_DOCUMENTS_DEMO_PROJECT ?? 'demo-homeflow-us15';
+if (!['demo-homeflow-us15', 'demo-homeflow-us11'].includes(project)) throw Error('Only US-15/11 demo projects are allowed.');
+const database = `projects/${project}/databases/(default)`;
+const base = `http://${host}/v1/${database}/documents`;
+const prefix = `test-${Date.now()}`;
 function token(uid = 'tenant', verified = true) {
+  const encode = data => Buffer.from(JSON.stringify(data)).toString('base64url');
   const now = Math.floor(Date.now() / 1000);
-  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${encode({alg: 'none', typ: 'JWT'})}.${encode({
-    iss: `https://securetoken.google.com/${project}`, aud: project, sub: uid,
-    user_id: uid, email: `${uid}@example.test`, email_verified: verified,
-    auth_time: now, iat: now, exp: now + 3600,
-    firebase: {sign_in_provider: 'custom'},
-  })}.`;
+  return `${encode({alg:'none',typ:'JWT'})}.${encode({aud:project,iss:`https://securetoken.google.com/${project}`,
+    sub:uid,user_id:uid,email:`${uid}@example.test`,email_verified:verified,iat:now,auth_time:now,exp:now+3600,
+    firebase:{sign_in_provider:'custom'}})}.`;
 }
-function field(value) {
-  if (value && typeof value === 'object' && '$time' in value) return {timestampValue: value.$time};
-  if (typeof value === 'string') return {stringValue: value};
-  if (typeof value === 'boolean') return {booleanValue: value};
-  if (Number.isInteger(value)) return {integerValue: String(value)};
-  return {mapValue: {fields: fields(value)}};
+function value(data) {
+  if (data === null) return {nullValue:null};
+  if (Buffer.isBuffer(data)) return {bytesValue:data.toString('base64')};
+  if (Array.isArray(data)) return {arrayValue:{values:data.map(value)}};
+  if (typeof data === 'object' && '$time' in data) return {timestampValue:data.$time};
+  if (typeof data === 'string') return {stringValue:data};
+  if (typeof data === 'boolean') return {booleanValue:data};
+  return {integerValue:String(data)};
 }
-const fields = value => Object.fromEntries(Object.entries(value).map(([k, v]) => [k, field(v)]));
-async function request(path, auth, method = 'GET', body) {
-  return fetch(`${base}${path}`, {method, headers: {
-    'Content-Type': 'application/json', ...(auth ? {Authorization: `Bearer ${auth}`} : {}),
-  }, ...(body ? {body: JSON.stringify(body)} : {})});
+function write(collection, id, data, times = [], mask) {
+  return {update:{name:`${database}/documents/${collection}/${id}`,
+    fields:Object.fromEntries(Object.entries(data).map(([k,v])=>[k,value(v)]))},
+    ...(times.length ? {updateTransforms:times.map(fieldPath=>({fieldPath,setToServerValue:'REQUEST_TIME'}))} : {}),
+    ...(mask ? {updateMask:{fieldPaths:mask}} : {})};
 }
-async function expectStatus(response, status) {
-  const text = await response.text();
-  assert.equal(response.status, status, text);
+async function request(path, auth, method='GET', body) {
+  return fetch(base+path,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},
+    ...(body?{body:JSON.stringify(body)}:{})});
 }
-function source(overrides = {}) {
-  return {userId: 'tenant', title: 'Test rental agreement', body: 'These are the exact reviewed terms.',
-    version: 1, issuedAt: {$time: '2026-10-13T10:00:00.123456789Z'}, state: 'ready', ...overrides};
+async function status(response, expected) {
+  const text = await response.text(); assert.equal(response.status,expected,text);
 }
-function signed(id, original) {
-  const documentHash = hash(['US-11-document-v1', id, original.userId,
-    original.title, original.body, original.version, 1791885600, 123456789, original.state]);
-  return {document: original, signerId: 'tenant', signerEmail: 'tenant@example.test',
-    signerName: 'Tenant Name', signature, documentHash,
-    recordHash: hash(['US-11-record-v1', documentHash, 'tenant', 'tenant@example.test',
-      'Tenant Name', signature, 'US-11-v1', consent]),
-    consentVersion: 'US-11-v1', consentText: consent, consented: true};
+const commit = (writes, auth=token()) => request(':commit',auth,'POST',{writes});
+function file(overrides={}) {
+  return {userId:'tenant',name:'photo.jpg',mimeType:'image/jpeg',fileBytes:Buffer.from([255,216,255,217]),
+    byteSize:4,status:'unsigned',signatureId:null,signedAt:null,firstApplicationId:null,...overrides};
 }
-async function assign(id, original = source()) {
-  await expectStatus(await request(`/signingDocuments/${id}`, 'owner', 'PATCH',
-    {fields: fields(original)}), 200);
-  return original;
+const upload = (id, data=file(), auth=token()) => commit([write('uploadedDocuments',id,data,['createdAt'])],auth);
+function application(ids=[]) {
+  return {userId:'tenant',apartmentId:'apt',apartmentTitle:'Test apartment',fullName:'Tenant',phone:'123456789',
+    moveInDate:{$time:new Date(Date.now()+86400000*30).toISOString()},occupants:1,message:'',status:'submitted',documentIds:ids};
 }
-async function commit(id, record, auth = token(), serverTime = true) {
-  return request(':commit', auth, 'POST', {writes: [{
-    update: {name: `projects/${project}/databases/(default)/documents/signedDocuments/${id}`,
-      fields: fields(serverTime ? record : {...record, signedAt: {$time: '2026-01-01T00:00:00Z'}})},
-    ...(serverTime ? {updateTransforms: [{fieldPath: 'signedAt', setToServerValue: 'REQUEST_TIME'}]} : {}),
-  }]});
-}
+const appWrite = (id, ids) => write('applications',id,application(ids),['submittedAt','updatedAt']);
+const firstUse = (id, appId) => write('uploadedDocuments',id,{firstApplicationId:appId},[],['firstApplicationId']);
 
-test('US-11 actual Firestore rules', async t => {
-  await t.test('verified assignee can read and sign; snapshot and server time persist', async () => {
-    const id = `${runId}-valid`; const original = await assign(id);
-    await expectStatus(await request(`/signingDocuments/${id}`, token()), 200);
-    await expectStatus(await commit(id, signed(id, original)), 200);
-    const response = await request(`/signedDocuments/${id}`, token());
-    assert.equal(response.status, 200);
-    const record = await response.json();
-    assert.equal(record.fields.document.mapValue.fields.body.stringValue, original.body);
-    assert.ok(record.fields.signedAt.timestampValue);
-    await expectStatus(await commit(id, signed(id, original)), 403);
-    await expectStatus(await request(`/signedDocuments/${id}`, token(), 'DELETE'), 403);
+
+const signature='[[[0.1,0.2],[0.7,0.6],[0.8,0.3]]]';
+const saveSignature=(uid='tenant', drawing=signature, auth=token(uid)) =>
+  commit([write('userSignatures',uid,{drawing},['updatedAt'])],auth);
+const bind=(id,uid='tenant',auth=token(uid)) => commit([write('uploadedDocuments',id,
+  {status:'signed',signatureId:uid},['signedAt'],['status','signatureId'])],auth);
+test('US-11 reusable signature rules',async t=>{
+  await status(await request('/uploadedDocuments','owner'),200);
+  await t.test('one private signature can be created and replaced under the same UID',async()=>{
+    await status(await saveSignature(),200);
+    const original=await (await request('/userSignatures/tenant',token())).json();
+    await status(await saveSignature('tenant','[[[0.2,0.3],[0.5,0.7],[0.9,0.4]]]'),200);
+    const replacement=await (await request('/userSignatures/tenant',token())).json();
+    assert.equal(original.name,replacement.name);
+    assert.notEqual(original.fields.drawing.stringValue,replacement.fields.drawing.stringValue);
+    await status(await request('/userSignatures/tenant',token('other')),403);
+    await status(await request('/userSignatures/tenant',token(),'DELETE'),403);
+    await status(await saveSignature('other',signature,token()),403);
+    await status(await saveSignature('tenant','[]'),403);
+    await status(await saveSignature('tenant',signature,token('tenant',false)),403);
   });
-  await t.test('signed-out, unverified and other users cannot read or sign', async () => {
-    const id = `${runId}-auth`; const original = await assign(id);
-    for (const auth of [null, token('tenant', false), token('other')]) {
-      await expectStatus(await request(`/signingDocuments/${id}`, auth), 403);
-      await expectStatus(await commit(id, signed(id, original), auth), 403);
-    }
-    await expectStatus(await commit(id, signed(id, original)), 200);
-    for (const auth of [null, token('tenant', false), token('other')]) {
-      await expectStatus(await request(`/signedDocuments/${id}`, auth), 403);
-    }
+  await t.test('a saved signature is required; signed bytes and first signing time are immutable',async()=>{
+    const missing=prefix+'-no-signature';
+    await status(await upload(missing,file({userId:'nosig'}),token('nosig')),200);
+    await status(await bind(missing,'nosig'),403);
+    const id=prefix+'-signed'; await status(await upload(id),200);
+    const original=await (await request('/uploadedDocuments/'+id,token())).json();
+    await status(await bind(id),200);
+    const signed=await (await request('/uploadedDocuments/'+id,token())).json();
+    assert.equal(signed.fields.fileBytes.bytesValue,original.fields.fileBytes.bytesValue);
+    assert.equal(signed.fields.signatureId.stringValue,'tenant');
+    assert.ok(signed.fields.signedAt.timestampValue);
+    assert.equal(Object.keys(signed.fields).length,Object.keys(original.fields).length);
+    await status(await bind(id),403);
+    await status(await request('/uploadedDocuments/'+id,token(),'DELETE'),403);
+    await status(await commit([write('uploadedDocuments',id,{status:'unsigned',signatureId:null,signedAt:null},
+      [],['status','signatureId','signedAt'])]),403);
+    await status(await saveSignature(),200);
+    assert.deepEqual(await (await request('/uploadedDocuments/'+id,token())).json(),signed);
   });
-  await t.test('clients cannot provision, edit or delete assignments', async () => {
-    const id = `${runId}-source`; await assign(id);
-    await expectStatus(await request(`/signingDocuments/${id}`, token(), 'PATCH',
-      {fields: fields(source({body: 'Client changes'}))}), 403);
-    await expectStatus(await request(`/signingDocuments/${id}`, token(), 'DELETE'), 403);
-    await expectStatus(await request(`/signingDocuments/${id}-new`, token(), 'PATCH',
-      {fields: fields(source())}), 403);
+  await t.test('signature identity, source bytes and server timestamp cannot be forged',async()=>{
+    const id=prefix+'-forgery'; await status(await upload(id),200);
+    await status(await bind(id,'other',token()),403);
+    await status(await commit([write('uploadedDocuments',id,{status:'signed',signatureId:'tenant',
+      signedAt:{$time:'2026-01-01T00:00:00Z'}},[],['status','signatureId','signedAt'])]),403);
+    await status(await commit([write('uploadedDocuments',id,{status:'signed',signatureId:'tenant',fileBytes:Buffer.from([0])},
+      ['signedAt'],['status','signatureId','fileBytes'])]),403);
+    await status(await bind(id,'tenant',null),403);
+    await status(await bind(id,'tenant',token('tenant',false)),403);
   });
-  await t.test('consent, identity, signature bounds and audit schema are enforced', async () => {
-    const changes = [{consented: false}, {consentText: 'Different wording'},
-      {consentVersion: 'v0'}, {signerId: 'other'}, {signerEmail: 'other@example.test'},
-      {signerName: '   '}, {signature: '[]'}, {signature: 'x'.repeat(100001)},
-      {documentHash: 'invalid'}, {recordHash: 'invalid'}, {extraField: true}];
-    for (const [index, change] of changes.entries()) {
-      const id = `${runId}-audit-${index}`; const original = await assign(id);
-      await expectStatus(await commit(id, {...signed(id, original), ...change}), 403);
-    }
-    const id = `${runId}-timestamp`; const original = await assign(id);
-    await expectStatus(await commit(id, signed(id, original), token(), false), 403);
-  });
-  await t.test('changed content, version, timestamp and wrong assignment cannot be bound', async () => {
-    const id = `${runId}-integrity`; const original = await assign(id);
-    for (const change of [{body: 'Other terms'}, {version: 2},
-      {issuedAt: {$time: '2026-10-13T10:00:00Z'}}, {userId: 'other'}]) {
-      await expectStatus(await commit(id, signed(id, {...original, ...change})), 403);
-    }
-    await expectStatus(await commit(`${runId}-missing`, signed(id, original)), 403);
-  });
-  await t.test('withdrawn documents cannot be signed', async () => {
-    const id = `${runId}-withdrawn`; const original = await assign(id, source({state: 'withdrawn'}));
-    await expectStatus(await commit(id, signed(id, original)), 403);
-  });
-  await t.test('queries require owner filters; unrelated collections stay denied', async () => {
-    for (const [collection, ownerField] of [['signingDocuments', 'userId'], ['signedDocuments', 'signerId']]) {
-      const structuredQuery = {from: [{collectionId: collection}], where: {fieldFilter: {
-        field: {fieldPath: ownerField}, op: 'EQUAL', value: {stringValue: 'tenant'},
-      }}};
-      await expectStatus(await request(':runQuery', token(), 'POST', {structuredQuery}), 200);
-      await expectStatus(await request(':runQuery', token(), 'POST', {
-        structuredQuery: {from: [{collectionId: collection}]},
-      }), 403);
-    }
-    await expectStatus(await request(`/unrelated/${runId}`, token(), 'PATCH',
-      {fields: fields({value: 'test'})}), 403);
+  await t.test('signed files can still be attached and reused without altering the binding',async()=>{
+    const id=prefix+'-signed-attach', app=prefix+'-app'; await status(await upload(id),200);
+    await status(await bind(id),200);
+    const original=await (await request('/uploadedDocuments/'+id,token())).json();
+    await status(await commit([appWrite(app,[id]),firstUse(id,app)]),200);
+    const linked=await (await request('/uploadedDocuments/'+id,token())).json();
+    assert.deepEqual(linked.fields.signedAt,original.fields.signedAt);
+    assert.deepEqual(linked.fields.signatureId,original.fields.signatureId);
   });
 });

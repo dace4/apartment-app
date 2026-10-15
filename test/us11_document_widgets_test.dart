@@ -1,38 +1,65 @@
-import 'dart:io';
-import 'dart:ui' as ui;
-
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:appartment_app_group_2/models/app_user.dart';
-import 'package:appartment_app_group_2/models/signing_document.dart';
+import 'package:appartment_app_group_2/services/signature_service.dart';
 import 'package:appartment_app_group_2/services/document_service.dart';
+import 'package:appartment_app_group_2/view_models/signature_view_model.dart';
 import 'package:appartment_app_group_2/view_models/document_review_view_model.dart';
+import 'package:appartment_app_group_2/views/signatures/signature_view.dart';
+import 'package:appartment_app_group_2/views/signatures/widgets/signature_pad.dart';
 import 'package:appartment_app_group_2/views/documents/document_review_view.dart';
-import 'package:appartment_app_group_2/views/documents/widgets/signature_pad.dart';
+
+import 'us15_documents_test.dart' as fixtures;
+import 'us11_signing_test.dart' show drawing;
 
 void main() {
-  setUpAll(() async {
-    // Optional local captures use actual SDK fonts, never Flutter's Ahem test font.
-    const fonts = String.fromEnvironment('US11_FONT_DIR');
-    if (!const bool.fromEnvironment('US11_CAPTURE') || fonts.isEmpty) return;
-    for (final entry in {
-      'Roboto': 'roboto-regular.ttf',
-      'MaterialIcons': 'materialicons-regular.otf',
-    }.entries) {
-      final loader = FontLoader(entry.key)
-        ..addFont(
-          File('$fonts/${entry.value}')
-              .readAsBytes()
-              .then((bytes) => ByteData.sublistView(bytes)),
-        );
-      await loader.load();
-    }
+  testWidgets('US-11 long filename and actions fit compact enlarged text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(640, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final db = FakeFirebaseFirestore();
+    final service = DocumentService(
+      firestore: db,
+      currentUser: () => fixtures.tenant,
+    );
+    await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
+    final name = '${'a' * 196}.jpg';
+    await db.collection('uploadedDocuments').doc('photo').update({
+      'name': name,
+    });
+    final vm = DocumentReviewViewModel(
+      service: service,
+      signatureService: SignatureService(
+        firestore: db,
+        currentUser: () => fixtures.tenant,
+      ),
+    );
+    addTearDown(vm.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.3)),
+          child: child!,
+        ),
+        home: DocumentReviewView(documentId: 'photo', viewModel: vm),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text(name)).maxLines, 2);
+    await tester.ensureVisible(find.text('Remove document'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove document'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove document?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
   for (final width in [360.0, 800.0]) {
-    testWidgets('US-11 review and drawn signing at width $width', (
+    testWidgets('US-11 draw, save and replace under the same ID at $width', (
       tester,
     ) async {
       tester.view.physicalSize = Size(width, 1000);
@@ -40,130 +67,117 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final db = FakeFirebaseFirestore();
-      final document = SigningDocument(
-        id: 'lease',
-        userId: 'tenant',
-        title: 'Rental agreement',
-        body:
-            'Apartment: 24 Garden Street\n\n'
-            'Monthly rent: CHF 1,800\n\n'
-            'The tenant confirms receipt of the rental terms and the apartment inventory. '
-            'This is a sample document used only for local US-11 tests.',
-        version: 1,
-        issuedAt: DateTime.utc(2026, 10, 13),
+      final service = SignatureService(
+        firestore: db,
+        currentUser: () => fixtures.tenant,
       );
-      await db
-          .collection('signingDocuments')
-          .doc('lease')
-          .set(document.toMap());
-      final vm = DocumentReviewViewModel(
-        service: DocumentService(
-          firestore: db,
-          currentUser: () => const AppUser(
-            id: 'tenant',
-            email: 'tenant@example.test',
-            emailVerified: true,
-          ),
-        ),
-      );
+      final vm = SignatureViewModel(service: service);
       addTearDown(vm.dispose);
-      final boundaryKey = GlobalKey();
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: boundaryKey,
-          child: MaterialApp(
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-            ),
-            home: DocumentReviewView(documentId: 'lease', viewModel: vm),
-          ),
-        ),
-      );
+      await tester.pumpWidget(MaterialApp(home: SignatureView(viewModel: vm)));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('Apartment: 24 Garden Street'),
-        findsOneWidget,
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Save signature'),
+            )
+            .onPressed,
+        isNull,
       );
-      final submit = find.widgetWithText(FilledButton, 'Sign and save');
-      expect(tester.widget<FilledButton>(submit).onPressed, isNull);
-
-      Future<void> capture(String suffix) async {
-        if (!const bool.fromEnvironment('US11_CAPTURE')) return;
-        await tester.runAsync(() async {
-          final boundary =
-              boundaryKey.currentContext!.findRenderObject()!
-                  as RenderRepaintBoundary;
-          final image = await boundary.toImage(pixelRatio: 1);
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          final file = File(
-            '.dart_tool/us11-review/${width.toInt()}-$suffix.png',
-          );
-          await file.parent.create(recursive: true);
-          await file.writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
-
-      await capture('review');
-      final review = find.byType(CheckboxListTile).first;
-      await tester.ensureVisible(review);
-      await tester.tap(review);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byType(TextField));
-      await tester.enterText(find.byType(TextField), 'Taylor Tenant');
       final pad = find.byType(SignaturePad);
-      await tester.ensureVisible(pad);
+      await tester.drag(pad, const Offset(100, 30));
       await tester.pumpAndSettle();
-      final bounds = tester.getRect(pad);
-      final gesture = await tester.startGesture(
-        Offset(bounds.left + 30, bounds.top + 40),
-      );
-      await gesture.moveBy(const Offset(60, 40));
-      await gesture.moveBy(const Offset(60, -25));
-      await gesture.up();
+      expect(vm.canSave, isTrue);
+      await tester.tap(find.text('Save signature'));
       await tester.pumpAndSettle();
-      expect(vm.signature.hasInk, isTrue);
-      final consent = find.byType(CheckboxListTile).last;
-      await tester.ensureVisible(consent);
-      await tester.tap(consent);
+      expect(find.text('Signature saved.'), findsOneWidget);
+      final id = vm.savedSignature!.id;
+      await tester.tap(find.text('Clear drawing'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(submit);
+      await tester.drag(pad, const Offset(80, -40));
       await tester.pumpAndSettle();
-      expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
-      await capture('capture');
-      await tester.tap(submit);
+      await tester.tap(find.text('Replace signature'));
       await tester.pumpAndSettle();
-      expect(find.text('Signed and saved'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-      expect((await db.collection('signedDocuments').get()).docs, hasLength(1));
+      expect(vm.savedSignature!.id, id);
+      expect((await db.collection('userSignatures').get()).docs, hasLength(1));
       expect(tester.takeException(), isNull);
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, 1800),
-      );
-      await tester.pumpAndSettle();
-      await capture('signed');
-      // Large text must stay readable without horizontal overflow.
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: boundaryKey,
-          child: MaterialApp(
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-            ),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context)
-                  .copyWith(textScaler: const TextScaler.linear(2)),
-              child: child!,
-            ),
-            home: DocumentReviewView(documentId: 'lease', viewModel: vm),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      await capture('large-text');
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+  testWidgets(
+    'US-11 confirmation cancels without changes; confirm hides Bind and removal',
+    (tester) async {
+      final db = FakeFirebaseFirestore();
+      final service = DocumentService(
+        firestore: db,
+        currentUser: () => fixtures.tenant,
+      );
+      final signatures = SignatureService(
+        firestore: db,
+        currentUser: () => fixtures.tenant,
+      );
+      await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
+      await signatures.save(drawing());
+      final vm = DocumentReviewViewModel(
+        service: service,
+        signatureService: signatures,
+      );
+      addTearDown(vm.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DocumentReviewView(documentId: 'photo', viewModel: vm),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bind signature'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('photo.jpg'), findsNWidgets(2));
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect((await service.getDocument('photo'))!.isSigned, isFalse);
+      await tester.tap(find.text('Bind signature'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm and sign'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bind signature'), findsNothing);
+      expect(find.text('Remove document'), findsNothing);
+      expect(find.text('Signed'), findsOneWidget);
+      expect(find.byType(SignaturePad), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets('US-11 no saved signature disables Bind with setup guidance', (
+    tester,
+  ) async {
+    final db = FakeFirebaseFirestore();
+    final service = DocumentService(
+      firestore: db,
+      currentUser: () => fixtures.tenant,
+    );
+    await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
+    final vm = DocumentReviewViewModel(
+      service: service,
+      signatureService: SignatureService(
+        firestore: db,
+        currentUser: () => fixtures.tenant,
+      ),
+    );
+    addTearDown(vm.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DocumentReviewView(documentId: 'photo', viewModel: vm),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Bind signature'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Set up My Signature before signing'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
