@@ -8,6 +8,8 @@ import '../services/document_service.dart';
 import '../services/document_exception.dart';
 import '../models/uploaded_document.dart';
 import '../services/reservation_exceptions.dart';
+import '../models/app_notification.dart';
+import '../services/notification_service.dart';
 
 /// US 16: the application form for one apartment.
 class ApplyViewModel extends ChangeNotifier {
@@ -18,6 +20,7 @@ class ApplyViewModel extends ChangeNotifier {
   final Set<String> selectedDocumentIds = {};
   String? attachmentError;
   String? _submissionId;
+  final NotificationService notificationService = NotificationService();
 
   /// null once loaded means the apartment does not exist.
   Apartment? apartment;
@@ -78,6 +81,7 @@ class ApplyViewModel extends ChangeNotifier {
         documentIds: selectedDocumentIds.toList(),
         submissionId: _submissionId,
       );
+      await _notify(ApplicationStatus.submitted);
       return true;
     } catch (e) {
       actionError = e is DocumentException
@@ -126,6 +130,7 @@ class ApplyViewModel extends ChangeNotifier {
       }
 
       await applicationService.submitImmediately(target, details);
+      await _notify(ApplicationStatus.reserved);
       return true;
     } catch (error) {
       actionError = reservationErrorMessage(error);
@@ -133,6 +138,20 @@ class ApplyViewModel extends ChangeNotifier {
     } finally {
       isSaving = false;
       notifyListeners();
+    }
+  }
+
+  // US 18: a failed notification must not undo a successful application.
+  Future<void> _notify(ApplicationStatus status) async {
+    try {
+      await notificationService.add(
+        AppNotification.applicationUpdate(
+          apartmentTitle: apartment!.title,
+          status: status,
+        ),
+      );
+    } catch (e) {
+      // Ignored: the application itself was saved.
     }
   }
 }

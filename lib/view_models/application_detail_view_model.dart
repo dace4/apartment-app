@@ -7,12 +7,16 @@ import '../models/rental_application.dart';
 import '../services/apartment_service.dart';
 import '../services/application_service.dart';
 import '../services/reservation_exceptions.dart';
+import '../models/app_notification.dart';
+import '../services/notification_service.dart';
 
 /// US 16: one application, updated live, that can be withdrawn within
 /// 5 days.
 class ApplicationDetailViewModel extends ChangeNotifier {
   final ApplicationService service = ApplicationService();
   final ApartmentService apartmentService = ApartmentService();
+  final NotificationService notificationService = NotificationService();
+
   StreamSubscription<RentalApplication?>? _subscription;
   bool _disposed = false;
 
@@ -88,6 +92,7 @@ class ApplicationDetailViewModel extends ChangeNotifier {
 
     try {
       await service.withdraw(application!.id);
+      await _notify(ApplicationStatus.withdrawn);
     } catch (e) {
       actionError = 'Could not withdraw the application. Please try again.';
     } finally {
@@ -105,6 +110,7 @@ class ApplicationDetailViewModel extends ChangeNotifier {
 
     try {
       await service.reserveImmediately(application!);
+      await _notify(ApplicationStatus.reserved);
       return true;
     } catch (error) {
       actionError = reservationErrorMessage(error);
@@ -112,6 +118,20 @@ class ApplicationDetailViewModel extends ChangeNotifier {
     } finally {
       isReserving = false;
       notifyListeners();
+    }
+  }
+
+  // US 18: a failed notification must not undo a successful change.
+  Future<void> _notify(ApplicationStatus status) async {
+    try {
+      await notificationService.add(
+        AppNotification.applicationUpdate(
+          apartmentTitle: application!.apartmentTitle,
+          status: status,
+        ),
+      );
+    } catch (e) {
+      // Ignored: the application change itself was saved.
     }
   }
 
