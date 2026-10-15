@@ -39,7 +39,8 @@ abstract final class AppRoutes {
 
   // Tab 5: Profile
   static const profile = '/profile';
-  // US-11: assigned documents and immutable signed records.
+  // US-15 library and US-11 reusable signature.
+  static const signature = '/profile/signature';
   static const documents = '/profile/documents';
   static String documentReview(String id) =>
       '$documents/${Uri.encodeComponent(id)}';

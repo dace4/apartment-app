@@ -18,13 +18,23 @@ service cloud.firestore {
       allow read: if verified();
       allow write: if false;
     }
-    // US-15: originals never change; only first application use is recorded.
+    // US-11: one drawing per account, replaceable under the same ID.
+    match /userSignatures/{userId} {
+      allow get: if verified() && request.auth.uid == userId;
+      allow create, update: if verified() && request.auth.uid == userId &&
+        request.resource.data.keys().hasAll(['drawing', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['drawing', 'updatedAt']) &&
+        request.resource.data.drawing is string && request.resource.data.drawing.size() >= 20 &&
+        request.resource.data.drawing.size() <= 100000 && request.resource.data.updatedAt == request.time;
+      allow list, delete: if false;
+    }
+    // US-15/11: immutable originals, one first-use marker, and one signing transition.
     match /uploadedDocuments/{documentId} {
       function owner() { return resource.data.userId == request.auth.uid; }
       allow get: if verified() && (resource == null || owner());
       allow list: if verified() && owner();
       allow create: if verified() && validUpload();
-      allow update: if verified() && owner() && validFirstUse();
+      allow update: if verified() && owner() && (validFirstUse() || validBinding());
       allow delete: if verified() && owner() &&
         resource.data.status == 'unsigned' && resource.data.firstApplicationId == null;
       function validUpload() {
@@ -44,10 +54,19 @@ service cloud.firestore {
       }
       function validFirstUse() {
         let data = request.resource.data;
-        let application = getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data;
         return data.diff(resource.data).affectedKeys().hasOnly(['firstApplicationId']) &&
           resource.data.firstApplicationId == null && data.firstApplicationId is string &&
-          application.userId == request.auth.uid && application.documentIds.hasAny([documentId]);
+          getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data.documentIds.hasAny([documentId]);
+      }
+      function validBinding() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys().hasOnly(['status', 'signatureId', 'signedAt']) &&
+          resource.data.status == 'unsigned' && resource.data.signatureId == null &&
+          data.status == 'signed' && data.signatureId == request.auth.uid && data.signedAt == request.time &&
+          exists(/databases/$(database)/documents/userSignatures/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/userSignatures/$(request.auth.uid)).data.drawing is string &&
+          get(/databases/$(database)/documents/userSignatures/$(request.auth.uid)).data.drawing.size() >= 20;
       }
     }
     function attachmentAllowed(ids, index) {

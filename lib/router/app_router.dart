@@ -20,6 +20,7 @@ import '../views/auth/verify_email_view.dart';
 import '../views/favourites/favourites_view.dart';
 import '../views/documents/documents_view.dart';
 import '../views/documents/document_review_view.dart';
+import '../views/signatures/signature_view.dart';
 import '../views/messages/contact_advertiser_view.dart';
 import '../views/profile/faq_view.dart';
 import '../views/profile/notifications_view.dart';
@@ -140,11 +141,10 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.favourites,
-                builder: (context, state) =>
-                    FavouritesView(
-                      viewModel: favouritesViewModel,
-                      compareViewModel: compareViewModel,
-                    ),
+                builder: (context, state) => FavouritesView(
+                  viewModel: favouritesViewModel,
+                  compareViewModel: compareViewModel,
+                ),
                 routes: [
                   GoRoute(
                     path: 'filters',
@@ -243,7 +243,11 @@ GoRouter createAppRouter({
                 builder: (context, state) =>
                     ProfileView(viewModel: authViewModel),
                 routes: [
-                  // US-11 inherits the existing verified-email redirect.
+                  GoRoute(
+                    path: 'signature',
+                    builder: (context, state) => const SignatureView(),
+                  ),
+                  // US-15/11 inherit the existing verified-email redirect.
                   GoRoute(
                     path: 'documents',
                     builder: (context, state) => const DocumentsView(),

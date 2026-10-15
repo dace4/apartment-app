@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../models/app_user.dart';
 import '../models/document_upload.dart';
 import '../models/uploaded_document.dart';
+import '../models/signature_drawing.dart';
 import 'document_exception.dart';
 
 /// US-15: private, bounded file storage in Firestore (no Storage bucket).
@@ -173,6 +173,43 @@ class DocumentService {
         'firstApplicationId': null,
       });
     }, timeout: const Duration(seconds: 20));
+  }
+
+  /// US-11: bind an existing signature ID only; original file bytes never change.
+  Future<UploadedDocument> bindSignature(String id) async {
+    final uid = userId;
+    await _db.runTransaction((tx) async {
+      final file = await tx.get(_files.doc(id));
+      if (!file.exists || file.data()!['userId'] != uid) {
+        throw const DocumentException('This document is no longer available.');
+      }
+      if (file.data()!['status'] == 'signed') return;
+      final signature = await tx.get(_db.collection('userSignatures').doc(uid));
+      if (!signature.exists) {
+        throw const DocumentException(
+          'Save a signature in My Signature before binding it.',
+        );
+      }
+      try {
+        SignatureDrawing.decode(signature.data()!['drawing'] as String);
+      } catch (_) {
+        throw const DocumentException(
+          'Save a valid signature in My Signature before binding it.',
+        );
+      }
+      tx.update(file.reference, {
+        'status': 'signed',
+        'signatureId': uid,
+        'signedAt': FieldValue.serverTimestamp(),
+      });
+    }, timeout: const Duration(seconds: 20));
+    final saved = await getDocument(id);
+    if (saved == null || !saved.isSigned) {
+      throw const DocumentException(
+        'The binding could not be confirmed. Retry.',
+      );
+    }
+    return saved;
   }
 
   Future<void> delete(String id) async {

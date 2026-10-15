@@ -3,12 +3,25 @@ import 'package:flutter/foundation.dart';
 import '../models/uploaded_document.dart';
 import '../services/document_service.dart';
 import '../services/document_exception.dart';
+import '../services/signature_service.dart';
 
 /// US-15: the saved file preview and removal state for one screen.
 class DocumentReviewViewModel extends ChangeNotifier {
-  DocumentReviewViewModel({DocumentService? service})
-    : service = service ?? DocumentService();
+  DocumentReviewViewModel({
+    DocumentService? service,
+    SignatureService? signatureService,
+  }) : service = service ?? DocumentService(),
+       signatureService = signatureService ?? SignatureService();
   final DocumentService service;
+  final SignatureService signatureService;
+  bool hasSignature = false;
+  String? signatureError;
+  bool get canBind =>
+      !isLoading &&
+      !isSaving &&
+      document != null &&
+      !document!.isSigned &&
+      hasSignature;
   UploadedDocument? document;
   bool isLoading = false;
   bool isSaving = false;
@@ -29,6 +42,19 @@ class DocumentReviewViewModel extends ChangeNotifier {
     try {
       final loaded = await service.getDocument(id);
       if (!_disposed && generation == _generation) document = loaded;
+      try {
+        final signature = await signatureService.getMySignature();
+        if (!_disposed && generation == _generation) {
+          hasSignature = signature != null;
+          signatureError = null;
+        }
+      } catch (_) {
+        if (!_disposed && generation == _generation) {
+          hasSignature = false;
+          signatureError =
+              'Could not load your signature. Reload the document to retry.';
+        }
+      }
     } catch (error) {
       if (generation == _generation) {
         errorMessage = error is DocumentException
@@ -40,6 +66,21 @@ class DocumentReviewViewModel extends ChangeNotifier {
         isLoading = false;
         _notify();
       }
+    }
+  }
+
+  Future<void> bind() async {
+    if (!canBind) return;
+    isSaving = true;
+    actionError = null;
+    _notify();
+    try {
+      document = await service.bindSignature(document!.id);
+    } catch (error) {
+      actionError = error is DocumentException ? error.message : 'The binding could not be confirmed. Check your connection and retry.';
+    } finally {
+      isSaving = false;
+      _notify();
     }
   }
 
