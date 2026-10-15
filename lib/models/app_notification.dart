@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'rental_application.dart';
+
 /// US 18: the three kinds of notification a user can receive.
 enum NotificationType {
   newListing('New listings'),
@@ -30,6 +32,22 @@ class AppNotification {
   final bool isRead;
 
   final String? apartmentId;
+
+  /// US 18 (task 18.3): the notification the app saves when the user's own
+  /// application changes. firestore.rules only lets the app create this type.
+  factory AppNotification.applicationUpdate({
+    required String apartmentTitle,
+    required ApplicationStatus status,
+    DateTime? createdAt,
+  }) {
+    return AppNotification(
+      id: '',
+      type: NotificationType.applicationStatus,
+      title: 'Application ${status.label.toLowerCase()}',
+      body: 'Your application for $apartmentTitle is now: ${status.label}.',
+      createdAt: createdAt ?? DateTime.now(),
+    );
+  }
 
   factory AppNotification.fromMap(String id, Map<String, dynamic> map) {
     return AppNotification(
