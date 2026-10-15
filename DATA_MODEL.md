@@ -13,7 +13,7 @@ Support** (`bierner.markdown-mermaid`) and open the Markdown preview
 
 `PK` is the document ID, `FK` a field that holds the ID of another document.
 `AUTH_USER` is the Firebase Authentication account, not a Firestore collection:
-every `userId`, `senderId`, `signerId` and `advertiserId` holds its `uid`.
+every `userId`, `senderId`, `signatureId` and `advertiserId` holds its `uid`.
 
 ```mermaid
 erDiagram
@@ -58,6 +58,7 @@ erDiagram
         string status "submitted | underReview | accepted | rejected | withdrawn"
         timestamp submittedAt "server time"
         timestamp updatedAt "server time"
+        array documentIds FK "0-5 uploadedDocuments IDs, set once; missing on older ones"
     }
 
     maintenanceRequests {
@@ -109,29 +110,24 @@ erDiagram
         bool announcement
     }
 
-    signingDocuments {
-        string id PK "auto ID"
-        string userId FK "the signer"
-        string title "max 200"
-        string body "max 100000"
-        int version "greater than 0"
-        timestamp issuedAt
-        string state "ready | withdrawn"
+    userSignatures {
+        string id PK, FK "= userId, one per user"
+        string drawing "JSON strokes of x, y points from 0 to 1"
+        timestamp updatedAt "server time"
     }
 
-    signedDocuments {
-        string id PK, FK "= signingDocuments ID"
-        map document "copy of the signingDocuments fields"
-        string signerId FK
-        string signerEmail "from the login token"
-        string signerName "max 100"
-        string signature "JSON strokes of x, y points from 0 to 1"
-        string documentHash "64 hex characters"
-        string recordHash "64 hex characters"
-        string consentVersion "US-11-v1"
-        string consentText "exact consent wording"
-        bool consented "always true"
-        timestamp signedAt "server time"
+    uploadedDocuments {
+        string id PK "auto ID"
+        string userId FK
+        string name "1-200, ends with .jpg, .jpeg or .pdf"
+        string mimeType "image/jpeg | application/pdf"
+        bytes fileBytes "the file itself, max 700 KiB, not indexed"
+        int byteSize "size of fileBytes"
+        timestamp createdAt "server time"
+        string status "unsigned | signed"
+        string signatureId FK "null until signed, then = userId"
+        timestamp signedAt "null until signed, then server time"
+        string firstApplicationId FK "null until attached to an application"
     }
 
     AUTH_USER ||--o{ favourites : saves
@@ -146,9 +142,11 @@ erDiagram
     advertiserContacts ||--o{ advertiserMessages : receives
     AUTH_USER ||--o{ notifications : receives
     AUTH_USER ||--o| notificationPreferences : chooses
-    AUTH_USER ||--o{ signingDocuments : "is assigned"
-    signingDocuments ||--o| signedDocuments : "signed as"
-    AUTH_USER ||--o{ signedDocuments : signs
+    AUTH_USER ||--o| userSignatures : draws
+    AUTH_USER ||--o{ uploadedDocuments : uploads
+    userSignatures |o--o{ uploadedDocuments : signs
+    applications }o--o{ uploadedDocuments : attaches
+    applications |o--o{ uploadedDocuments : "first used by"
 ```
 
 ## Collections
@@ -163,8 +161,8 @@ erDiagram
 | `advertiserMessages` | US 12 | App | Create; read by the sender and the advertiser only; no update or delete |
 | `notifications` | US 18 | App and Firebase console | Create `applicationStatus` only; set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
-| `signingDocuments` | US-11 | Firebase console (staff) | Read the user's own |
-| `signedDocuments` | US-11 | App | Create once per signing document; no update or delete |
+| `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |
+| `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |
 
 Every other path is closed: `firestore.rules` denies all reads and writes that
 no rule above allows.
@@ -174,11 +172,22 @@ no rule above allows.
 - **Enums are stored by name**, e.g. `"underReview"`, never by label or index.
   A set of enums (`amenities`, `reminders`) is stored as a list of names.
 - **Each user only sees their own documents.** Queries must filter on
-  `userId` (or `senderId`, `signerId`) equal to the signed-in user's `uid`,
-  otherwise the rules reject the whole query.
+  `userId` (or `senderId`) equal to the signed-in user's `uid`, otherwise the
+  rules reject the whole query.
 - **Server time:** `createdAt`, `updatedAt`, `submittedAt` and `signedAt` are
   written with `FieldValue.serverTimestamp()`; the rules check them against
-  `request.time`.
+  `request.time`. Only `notifications.createdAt` is set by the app's clock.
+- **Files are stored in Firestore, not Firebase Storage** (US-15): an uploaded
+  JPEG or PDF is kept in `uploadedDocuments.fileBytes`, so each file is limited
+  to 700 KiB (716,800 bytes). `firestore.indexes.json` turns off indexing for
+  `fileBytes`. The original file never changes; signing only sets `status`,
+  `signatureId` and `signedAt`.
+- **Signatures** (US-11): each user has one drawing in `userSignatures`, which
+  they can replace. Signing an uploaded document stores the user's `uid` in
+  `signatureId`; the drawing itself is not copied into the document.
+- **Attachments** (US-15): an application lists its files in `documentIds`,
+  fixed when it is submitted. The same transaction sets `firstApplicationId` on
+  each file that had none, which blocks deleting that file afterwards.
 - **Copied fields:** `apartmentTitle` is copied into `applications` and
   `maintenanceRequests` so their lists do not load every apartment. It is not
   updated if the apartment's title changes later.
