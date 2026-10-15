@@ -11,9 +11,14 @@ import 'widgets/application_form.dart';
 /// Application form for one apartment. After submitting, the application
 /// can be tracked on the My applications tab (US 16).
 class ApplyView extends StatefulWidget {
-  const ApplyView({super.key, required this.apartmentId});
+  const ApplyView({
+    super.key,
+    required this.apartmentId,
+    this.applyImmediately = false,
+  });
 
   final String apartmentId;
+  final bool applyImmediately;
 
   @override
   State<ApplyView> createState() => _ApplyViewState();
@@ -35,11 +40,19 @@ class _ApplyViewState extends State<ApplyView> {
   }
 
   Future<void> _submit(ApplicationDetails details) async {
-    final submitted = await viewModel.submit(details);
+    final submitted = widget.applyImmediately
+        ? await viewModel.submitImmediately(details)
+        : await viewModel.submit(details);
     if (submitted && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Application submitted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.applyImmediately
+                ? 'Apartment reserved.'
+                : 'Application submitted.',
+          ),
+        ),
+      );
       context.go(AppRoutes.applications);
     }
   }
@@ -47,7 +60,9 @@ class _ApplyViewState extends State<ApplyView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Apply')),
+      appBar: AppBar(
+        title: Text(widget.applyImmediately ? 'Apply immediately' : 'Apply'),
+      ),
       body: ListenableBuilder(
         listenable: viewModel,
         builder: (context, _) {
@@ -136,7 +151,9 @@ class _ApplyViewState extends State<ApplyView> {
                       ),
                     const SizedBox(height: 24),
                     ApplicationForm(
-                      submitLabel: 'Submit application',
+                      submitLabel: widget.applyImmediately
+                          ? 'Apply immediately'
+                          : 'Submit application',
                       isSaving: viewModel.isSaving,
                       errorMessage: viewModel.actionError,
                       onSubmit: _submit,

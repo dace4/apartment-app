@@ -130,6 +130,13 @@ GoRouter createAppRouter({
                             ApplyView(apartmentId: state.pathParameters['id']!),
                       ),
                       GoRoute(
+                        path: 'apply-immediately',
+                        builder: (context, state) => ApplyView(
+                          apartmentId: state.pathParameters['id']!,
+                          applyImmediately: true,
+                        ),
+                      ),
+                      GoRoute(
                         path: 'contact',
                         builder: (context, state) => ContactAdvertiserView(
                           apartmentId: state.pathParameters['id']!,

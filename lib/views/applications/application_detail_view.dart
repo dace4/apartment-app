@@ -58,6 +58,15 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
     if (confirmed == true) viewModel.withdraw();
   }
 
+  Future<void> _applyImmediately() async {
+    final reserved = await viewModel.applyImmediately();
+    if (reserved && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Apartment reserved.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,6 +167,20 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
                   label: const Text('Edit'),
                 ),
                 const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: viewModel.canApplyImmediately &&
+                          !viewModel.isReserving
+                      ? _applyImmediately
+                      : null,
+                  icon: viewModel.isReserving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.bolt),
+                  label: const Text('Apply immediately'),
+                ),
+                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: viewModel.isWithdrawing ? null : _withdraw,
                   icon: viewModel.isWithdrawing
@@ -196,6 +219,7 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
           '${formatDate(application.changeDeadline)}.';
     }
     return switch (application.status) {
+      ApplicationStatus.reserved => 'This apartment is reserved for you.',
       ApplicationStatus.withdrawn => 'You withdrew this application.',
       ApplicationStatus.accepted => 'Your application was accepted.',
       ApplicationStatus.rejected => 'Your application was not accepted.',

@@ -22,6 +22,11 @@ class ApplicationStatusChip extends StatelessWidget {
         colors.tertiaryContainer,
         colors.onTertiaryContainer,
       ),
+      ApplicationStatus.reserved => (
+        Icons.key_outlined,
+        colors.primaryContainer,
+        colors.onPrimaryContainer,
+      ),
       ApplicationStatus.accepted => (
         Icons.check_circle_outline,
         colors.primaryContainer,
