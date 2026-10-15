@@ -1,6 +1,6 @@
 # Apartment Platform (FIG 2026)
 
-A cross-platform mobile application developed with **Flutter** and **Firebase**, designed to assist users in searching, evaluating, and applying for rental and purchase properties, while managing mortgage simulations and document submissions.
+A andorid-platform mobile application developed with **Flutter** and **Firebase**, designed to assist users in searching, evaluating, and applying for rental and purchase properties, while managing mortgage simulations and document submissions.
 
 ---
 
@@ -9,7 +9,6 @@ A cross-platform mobile application developed with **Flutter** and **Firebase**,
 - [Target User Personas](#target-user-personas)
 - [Core Features & Epics](#core-features--epics)
 - [Tech Stack & Architecture](#tech-stack--architecture)
-- [Sprint 0 Requirements & Checklist](#sprint-0-requirements--checklist)
 - [Getting Started](#getting-started)
 - [Git Workflow & Branching Strategy](#git-workflow--branching-strategy)
 - [Team & Course Contacts](#team--course-contacts)
@@ -77,18 +76,6 @@ Derived from the Product Backlog (`ProductBacklog_FIG_2026_Apartment`):
 
 ---
 
-## 📌 Sprint 0 Requirements & Checklist
-
-- [x] Complete the individual Flutter Lab.
-- [x] Create project repository and link to GitHub.
-- [x] Add course instructor (`@Gianou` / `david.gianadda@hevs.ch`) as collaborator.
-- [ ] Ensure all team members have cloned and successfully executed `flutter run`.
-- [ ] Formulate and document git branching strategy.
-- [ ] Scaffold folder architecture with placeholder screens using `go_router`.
-- [ ] Configure Android build settings for deployment on Google Play Console (Closed Beta).
-
----
-
 ## 💻 Getting Started
 
 ### Prerequisites
@@ -142,5 +129,6 @@ To keep development organized and maintain clean releases, follow the **Feature 
 ## 👥 Course & Team Information
 
 - **Course:** Mobile Application Development (FIG 2026) — HES-SO Valais-Wallis (HEVS)
+- **Module responsible:** Alexandre Cotting
 - **Instructor:** David Gianadda ([@Gianou](https://github.com/Gianou) / `david.gianadda@hevs.ch`)
 - **Group:** Group 2
