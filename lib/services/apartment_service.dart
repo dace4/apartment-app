@@ -20,6 +20,14 @@ class ApartmentService {
     return Apartment.fromMap(doc.id, doc.data()!);
   }
 
+  /// One apartment, updated live. Emits null when it no longer exists.
+  Stream<Apartment?> watchApartment(String id) {
+    return _collection.doc(id).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return Apartment.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   /// US 23: live list, so new offers are noticed while the app is open.
   Stream<List<Apartment>> watchApartments() {
     return _collection.snapshots().map(
