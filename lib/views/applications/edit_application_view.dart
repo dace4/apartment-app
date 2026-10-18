@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,7 +11,12 @@ import 'widgets/application_form.dart';
 
 /// US 16: edit an application within 5 days of submitting it.
 class EditApplicationView extends StatefulWidget {
-  const EditApplicationView({super.key, required this.applicationId});
+  final AuthViewModel? authViewModel;
+  const EditApplicationView({
+    this.authViewModel,
+    super.key,
+    required this.applicationId,
+  });
 
   final String applicationId;
 
@@ -18,7 +25,10 @@ class EditApplicationView extends StatefulWidget {
 }
 
 class _EditApplicationViewState extends State<EditApplicationView> {
-  final viewModel = EditApplicationViewModel();
+  late final viewModel = EditApplicationViewModel(
+    canAccess: () =>
+        widget.authViewModel?.canAccess(AppRoutes.applications) == true,
+  );
 
   @override
   void initState() {

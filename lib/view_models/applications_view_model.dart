@@ -9,6 +9,15 @@ import '../services/application_service.dart';
 /// US 16: the user's applications, updated live so a new, edited or
 /// withdrawn application appears without reloading.
 class ApplicationsViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  ApplicationsViewModel({this._canAccess});
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final ApplicationService service = ApplicationService();
   final ApartmentService apartmentService = ApartmentService();
   StreamSubscription<List<RentalApplication>>? _subscription;
@@ -23,6 +32,11 @@ class ApplicationsViewModel extends ChangeNotifier {
       application.canChange(DateTime.now());
 
   void listenToApplications() {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -67,7 +81,7 @@ class ApplicationsViewModel extends ChangeNotifier {
                 application.apartmentId,
                 application.id,
               );
-          if (reservedByAnother) {
+          if (hasAccess && reservedByAnother) {
             await service.withdraw(application.id);
           }
         } catch (_) {
@@ -81,6 +95,7 @@ class ApplicationsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _subscription?.cancel();
     super.dispose();
   }

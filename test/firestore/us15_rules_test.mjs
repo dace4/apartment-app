@@ -45,7 +45,7 @@ function file(overrides={}) {
 const upload = (id, data=file(), auth=token()) => commit([write('uploadedDocuments',id,data,['createdAt'])],auth);
 function application(ids=[]) {
   return {userId:'tenant',apartmentId:'apt',apartmentTitle:'Test apartment',fullName:'Tenant',phone:'123456789',
-    moveInDate:{$time:new Date(Date.now()+86400000*30).toISOString()},occupants:1,message:'',status:'submitted',documentIds:ids};
+    moveInDate:{$time:new Date(Date.now()+86400000*30).toISOString()},occupants:1,message:'',status:'submitted',applicationType:'normal',documentIds:ids};
 }
 const appWrite = (id, ids) => write('applications',id,application(ids),['submittedAt','updatedAt']);
 const firstUse = (id, appId) => write('uploadedDocuments',id,{firstApplicationId:appId},[],['firstApplicationId']);
@@ -53,6 +53,7 @@ const firstUse = (id, appId) => write('uploadedDocuments',id,{firstApplicationId
 test('US-15 Firestore rules',async t=>{
   // Fail once with a useful connection error if the emulator has not started.
   await status(await request('/uploadedDocuments','owner'),200);
+  await status(await commit([write('users','tenant',{roles:['renter']}),write('apartments','apt',{availability:'available'})],'owner'),200);
   await t.test('verified owners upload, read and delete unused files',async()=>{
     const id=`${prefix}-valid`;
     await status(await upload(id),200);

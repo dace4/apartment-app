@@ -17,11 +17,47 @@ class HomeFlowApp extends StatefulWidget {
 }
 
 class _HomeFlowAppState extends State<HomeFlowApp> {
+  final auth = AuthViewModel();
+  @override
+  void dispose() {
+    auth.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: auth,
+    builder: (context, _) {
+      final user = auth.user;
+      final roles = user?.roles.map((role) => role.name).toList() ?? [];
+      roles.sort();
+      // US-07: dispose retained routes, listeners and private data on changes.
+      return _SessionApp(
+        key: ValueKey(
+          '${user?.id}:${user?.emailVerified}:${user?.rolesLoaded}:${user?.profileError}:$roles',
+        ),
+        authViewModel: auth,
+      );
+    },
+  );
+}
+
+class _SessionApp extends StatefulWidget {
+  const _SessionApp({super.key, required this.authViewModel});
+  final AuthViewModel authViewModel;
+  @override
+  State<_SessionApp> createState() => _SessionAppState();
+}
+
+class _SessionAppState extends State<_SessionApp> {
   // ViewModels shared by several screens are created once, here
   // (see ARCHITECTURE.md §4).
-  final _authViewModel = AuthViewModel();
+  AuthViewModel get _authViewModel => widget.authViewModel;
   final _apartmentsViewModel = ApartmentsViewModel();
-  final _compareViewModel = CompareViewModel();
+  late final _compareViewModel = CompareViewModel(
+    allowed:
+        _authViewModel.user?.isReady == true && _authViewModel.user!.isConsumer,
+  );
   final _favouritesViewModel = FavouritesViewModel();
   // US-17: the in-app maintenance reminder shown on every tab.
   final _maintenanceRemindersViewModel = MaintenanceRemindersViewModel();
@@ -40,7 +76,7 @@ class _HomeFlowAppState extends State<HomeFlowApp> {
   @override
   void dispose() {
     _router.dispose();
-    _authViewModel.dispose();
+
     _apartmentsViewModel.dispose();
     _compareViewModel.dispose();
     _favouritesViewModel.dispose();

@@ -8,6 +8,12 @@ import '../services/maintenance_service.dart';
 /// US-17: one maintenance request, updated live, that can be cancelled
 /// until the service starts.
 class MaintenanceDetailViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   final MaintenanceService service = MaintenanceService();
   StreamSubscription<MaintenanceRequest?>? _subscription;
 
@@ -63,6 +69,7 @@ class MaintenanceDetailViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _subscription?.cancel();
     super.dispose();
   }

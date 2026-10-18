@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -9,7 +11,9 @@ import '../shared/widgets/message_view.dart';
 
 /// US-15: view original file bytes; the viewer never rewrites the document.
 class DocumentReviewView extends StatefulWidget {
+  final AuthViewModel? authViewModel;
   const DocumentReviewView({
+    this.authViewModel,
     super.key,
     required this.documentId,
     this.viewModel,
@@ -21,7 +25,12 @@ class DocumentReviewView extends StatefulWidget {
 }
 
 class _DocumentReviewViewState extends State<DocumentReviewView> {
-  late final viewModel = widget.viewModel ?? DocumentReviewViewModel();
+  late final viewModel =
+      widget.viewModel ??
+      DocumentReviewViewModel(
+        canAccess: () =>
+            widget.authViewModel?.canAccess(AppRoutes.documents) == true,
+      );
   @override
   void initState() {
     super.initState();

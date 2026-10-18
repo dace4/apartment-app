@@ -39,10 +39,15 @@ class Apartment {
     required this.description,
     this.availability = ApartmentAvailability.unavailable,
     this.amenities = const {},
+    this.ownerId,
+    this.managerIds = const {},
   });
 
   final String id;
   final String title;
+  // US-07: assigned by trusted admins, never by role selection.
+  final String? ownerId;
+  final Set<String> managerIds;
 
   final String address;
   final String city;
@@ -82,6 +87,8 @@ class Apartment {
     imageUrl: imageUrl,
     description: description,
     amenities: amenities,
+    ownerId: ownerId,
+    managerIds: managerIds,
     availability: availability ?? this.availability,
   );
 
@@ -89,6 +96,10 @@ class Apartment {
     return Apartment(
       id: id,
       title: map['title'] as String,
+      ownerId: map['ownerId'] is String ? map['ownerId'] as String : null,
+      managerIds: map['managerIds'] is List
+          ? Set.unmodifiable((map['managerIds'] as List).whereType<String>())
+          : const {},
       address: map['address'] as String,
       city: map['city'] as String,
       // Enums are stored by name, e.g. "rent" or "available".

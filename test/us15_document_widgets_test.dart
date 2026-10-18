@@ -29,6 +29,7 @@ void main() {
       currentUser: () => fixtures.tenant,
     );
     final vm = DocumentsViewModel(
+      canAccess: () => true,
       service: service,
       picker: fixtures.FixedPicker([fixtures.jpegUpload('photo')]),
     );
@@ -64,7 +65,10 @@ void main() {
         currentUser: () => fixtures.tenant,
       );
       await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
-      final vm = DocumentReviewViewModel(service: service);
+      final vm = DocumentReviewViewModel(
+        canAccess: () => true,
+        service: service,
+      );
       addTearDown(vm.dispose);
       await tester.pumpWidget(
         MaterialApp(

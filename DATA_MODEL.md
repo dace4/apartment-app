@@ -20,12 +20,19 @@ erDiagram
     AUTH_USER {
         string uid PK "Firebase Authentication, not Firestore"
         string email
-        bool emailVerified "must be true to read or write any data"
+        bool emailVerified "required except for own role profile"
+    }
+
+    users {
+        string uid PK, FK
+        array roles "buyer | renter | homeowner | propertyManager"
     }
 
     apartments {
         string id PK "auto ID"
         string title
+        string ownerId FK "admin-managed; optional for legacy listings"
+        array managerIds FK "admin-managed assigned UIDs"
         string address
         string city
         string listingType "rent | sale"
@@ -130,6 +137,7 @@ erDiagram
         string firstApplicationId FK "null until attached to an application"
     }
 
+    AUTH_USER ||--o| users : "selects roles"
     AUTH_USER ||--o{ favourites : saves
     apartments ||--o{ favourites : "saved as"
     AUTH_USER ||--o{ applications : submits
@@ -153,6 +161,7 @@ erDiagram
 
 | Collection | Story | Written by | What the app may do |
 | --- | --- | --- | --- |
+| `users` | US-06/07 | App | Get and replace own role profile; no list or delete |
 | `apartments` | US 4, 5, 8 | Firebase console | Read |
 | `favourites` | US 22 | App | Create and delete the user's own; no update |
 | `applications` | US 16 | App | Create; edit or withdraw within 5 days while `submitted` or `underReview`; no delete |
@@ -202,3 +211,17 @@ no rule above allows.
 `users/{uid}` stores only `roles`: one or more unique names from `buyer`, `renter`,
 `homeowner`, `propertyManager`. Missing or invalid profiles require role selection.
 Only that account may read or replace its profile, including before verification.
+
+## US-07 access and property assignment
+
+All protected collection operations require verified email and a valid role profile.
+Consumer collections (favourites, applications, saved searches, contacts, documents,
+signatures) additionally require Buyer or Renter. Immediate reservation requires Renter.
+Notifications and preferences remain available to any completed, verified account.
+
+`apartments.ownerId` is a Firebase Auth UID. `managerIds` is an array of assigned UIDs.
+Only trusted console/admin operations manage these fields. Client model serialization
+omits both fields; copyWith preserves them in memory. Missing assignments grant no
+maintenance permissions. Maintenance requires Homeowner + matching ownerId, or
+Property Manager + membership of managerIds, in addition to existing request-creator
+restrictions. See docs/US-07-access-technical-guide.md for queries and validation.

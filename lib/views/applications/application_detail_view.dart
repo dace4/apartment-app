@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +13,12 @@ import 'widgets/application_status_chip.dart';
 /// US 16: shows one application and lets the user edit or withdraw it
 /// within 5 days of submitting.
 class ApplicationDetailView extends StatefulWidget {
-  const ApplicationDetailView({super.key, required this.applicationId});
+  final AuthViewModel? authViewModel;
+  const ApplicationDetailView({
+    this.authViewModel,
+    super.key,
+    required this.applicationId,
+  });
 
   final String applicationId;
 
@@ -20,7 +27,15 @@ class ApplicationDetailView extends StatefulWidget {
 }
 
 class _ApplicationDetailViewState extends State<ApplicationDetailView> {
-  final viewModel = ApplicationDetailViewModel();
+  late final viewModel = ApplicationDetailViewModel(
+    canApplyImmediately: () =>
+        widget.authViewModel?.canAccess(
+          AppRoutes.applyImmediately(widget.applicationId),
+        ) ==
+        true,
+    canAccess: () =>
+        widget.authViewModel?.canAccess(AppRoutes.applications) == true,
+  );
 
   @override
   void initState() {
@@ -61,9 +76,8 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
   Future<void> _applyImmediately() async {
     final reserved = await viewModel.applyImmediately();
     if (reserved && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Apartment reserved.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Apartment reserved.')));
     }
   }
 
@@ -168,8 +182,8 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
                 ),
                 const SizedBox(height: 8),
                 FilledButton.icon(
-                  onPressed: viewModel.canApplyImmediately &&
-                          !viewModel.isReserving
+                  onPressed:
+                      viewModel.canApplyImmediately && !viewModel.isReserving
                       ? _applyImmediately
                       : null,
                   icon: viewModel.isReserving

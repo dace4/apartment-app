@@ -18,5 +18,13 @@ class AppUser {
   final bool rolesLoaded;
   final String? profileError;
 
+  bool get isBuyer => roles.contains(UserRole.buyer);
+  bool get isRenter => roles.contains(UserRole.renter);
+  bool get isConsumer => isBuyer || isRenter;
+  bool get isHomeowner => roles.contains(UserRole.homeowner);
+  bool get isPropertyManager => roles.contains(UserRole.propertyManager);
+  bool get hasManagementRole => isHomeowner || isPropertyManager;
+  bool get isReady => emailVerified && hasRoles;
+
   bool get hasRoles => rolesLoaded && profileError == null && roles.isNotEmpty;
 }

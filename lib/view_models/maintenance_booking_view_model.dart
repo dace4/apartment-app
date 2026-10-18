@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/apartment.dart';
 import '../models/maintenance_request.dart';
-import '../services/apartment_service.dart';
+import '../services/auth_service.dart';
 import '../services/maintenance_service.dart';
 import '../utils/maintenance_schedule.dart';
 
@@ -22,7 +22,12 @@ enum SlotState {
 
 /// US-17: book a new repair or maintenance service, or reschedule one.
 class MaintenanceBookingViewModel extends ChangeNotifier {
-  final ApartmentService apartmentService = ApartmentService();
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   final MaintenanceService service = MaintenanceService();
 
   /// The service being rescheduled, or null when booking a new one.
@@ -63,7 +68,7 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     try {
       _scheduled = _onlyScheduled(await service.getMyRequests());
       if (rescheduleId == null) {
-        apartments = await apartmentService.getApartments()
+        apartments = await service.getManageableApartments()
           ..sort((a, b) => a.title.compareTo(b.title));
       } else {
         existing = await service.getRequest(rescheduleId);
@@ -95,9 +100,9 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
   /// Booked, current and too-soon slots are left out.
   List<DateTime> get availableSlots => date == null
       ? const []
-      : MaintenanceSchedule.slotsFor(
-          date!,
-        ).where((slot) => slotState(slot) == SlotState.free).toList();
+      : MaintenanceSchedule.slotsFor(date!)
+            .where((slot) => slotState(slot) == SlotState.free)
+            .toList();
 
   SlotState slotState(DateTime slot) {
     if (existing != null && slot == existing!.slotStart) {
@@ -201,6 +206,17 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final account = await AuthService().loadUser();
+      final managed = await service.getManageableApartments();
+      final propertyId = existing?.apartmentId ?? apartment?.id;
+      if (_disposed ||
+          account?.isReady != true ||
+          !managed.any((item) => item.id == propertyId)) {
+        actionError = 'You do not own or manage this property.';
+        notifyListeners();
+        return false;
+      }
+
       // The slot may have been taken meanwhile (on another phone) or its
       // day may have become today (form left open past midnight).
       _scheduled = _onlyScheduled(await service.getMyRequests());
@@ -223,4 +239,9 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
 
   List<MaintenanceRequest> _onlyScheduled(List<MaintenanceRequest> requests) =>
       requests.where((request) => !request.isCancelled).toList();
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }

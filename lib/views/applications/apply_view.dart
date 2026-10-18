@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +13,9 @@ import 'widgets/application_form.dart';
 /// Application form for one apartment. After submitting, the application
 /// can be tracked on the My applications tab (US 16).
 class ApplyView extends StatefulWidget {
+  final AuthViewModel? authViewModel;
   const ApplyView({
+    this.authViewModel,
     super.key,
     required this.apartmentId,
     this.applyImmediately = false,
@@ -25,7 +29,15 @@ class ApplyView extends StatefulWidget {
 }
 
 class _ApplyViewState extends State<ApplyView> {
-  final viewModel = ApplyViewModel();
+  late final viewModel = ApplyViewModel(
+    canApplyImmediately: () =>
+        widget.authViewModel?.canAccess(
+          AppRoutes.applyImmediately(widget.apartmentId),
+        ) ==
+        true,
+    canAccess: () =>
+        widget.authViewModel?.canAccess(AppRoutes.applications) == true,
+  );
 
   @override
   void initState() {
