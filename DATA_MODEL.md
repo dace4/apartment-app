@@ -196,3 +196,9 @@ no rule above allows.
   (`MortgageEstimate`, US-09).
 - **Defaults:** a user without a `notificationPreferences` document receives
   every kind of notification.
+
+## US-06 role profile
+
+`users/{uid}` stores only `roles`: one or more unique names from `buyer`, `renter`,
+`homeowner`, `propertyManager`. Missing or invalid profiles require role selection.
+Only that account may read or replace its profile, including before verification.

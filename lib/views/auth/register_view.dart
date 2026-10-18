@@ -5,6 +5,7 @@ import '../../router/app_routes.dart';
 import '../../utils/validators.dart';
 import '../../view_models/register_view_model.dart';
 import 'widgets/password_field.dart';
+import 'widgets/role_checkboxes.dart';
 
 /// US-06: create an account. Firebase sends the confirmation email and
 /// the router then shows the verify email page.
@@ -96,6 +97,12 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submit(),
+                      ),
+                      const SizedBox(height: 24),
+                      RoleCheckboxes(
+                        selected: viewModel.roles,
+                        enabled: !viewModel.isLoading,
+                        onChanged: viewModel.setRole,
                       ),
                       if (viewModel.errorMessage != null) ...[
                         const SizedBox(height: 16),
