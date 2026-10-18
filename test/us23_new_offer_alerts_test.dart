@@ -1,3 +1,5 @@
+import 'package:appartment_app_group_2/models/user_role.dart';
+
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -181,7 +183,12 @@ void main() {
       NotificationPreferences preferences = const NotificationPreferences(),
     }) async {
       auth.users.add(
-        const AppUser(id: 'u1', email: 'u1@example.ch', emailVerified: true),
+        const AppUser(
+          id: 'u1',
+          email: 'u1@example.ch',
+          emailVerified: true,
+          roles: {UserRole.renter},
+        ),
       );
       await _settle();
       searches.emit([search]);

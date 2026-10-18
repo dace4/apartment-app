@@ -11,6 +11,16 @@ import '../services/reservation_exceptions.dart';
 
 /// US 16: the application form for one apartment.
 class ApplyViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  ApplyViewModel({this._canAccess, this._canApplyImmediately});
+  final bool Function()? _canApplyImmediately;
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final ApartmentService apartmentService = ApartmentService();
   final ApplicationService applicationService = ApplicationService();
   final DocumentService documentService = DocumentService();
@@ -28,6 +38,11 @@ class ApplyViewModel extends ChangeNotifier {
   String? actionError;
 
   Future<void> fetchApartment(String id) async {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -51,6 +66,11 @@ class ApplyViewModel extends ChangeNotifier {
 
   /// Returns true when the application was submitted.
   Future<bool> submit(ApplicationDetails details) async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return false;
+    }
     if (isSaving) return false;
     isSaving = true;
     actionError = null;
@@ -103,6 +123,11 @@ class ApplyViewModel extends ChangeNotifier {
 
   /// Returns true once the application and apartment reservation commit.
   Future<bool> submitImmediately(ApplicationDetails details) async {
+    if (!hasAccess || _canApplyImmediately?.call() != true) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return false;
+    }
     final target = apartment;
     if (target == null || isSaving) return false; // also blocks double taps
 
@@ -134,5 +159,11 @@ class ApplyViewModel extends ChangeNotifier {
       isSaving = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

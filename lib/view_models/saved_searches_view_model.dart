@@ -19,6 +19,12 @@ import '../utils/formatters.dart';
 /// for new offers whatever the open tab while a verified user is signed in,
 /// so it is created once in app.dart (see ARCHITECTURE.md §4).
 class SavedSearchesViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   SavedSearchesViewModel({
     AuthService? authService,
     SavedSearchService? savedSearchService,
@@ -63,6 +69,11 @@ class SavedSearchesViewModel extends ChangeNotifier {
 
   Future<bool> save(String name, ApartmentFilter filter) async {
     actionError = null;
+    if (_userId == null) {
+      actionError = 'Choose Buyer or Renter to save searches.';
+      notifyListeners();
+      return false;
+    }
     if (isFull) {
       actionError =
           'You can save up to ${SavedSearch.maxPerUser} searches. Delete one first.';
@@ -94,6 +105,7 @@ class SavedSearchesViewModel extends ChangeNotifier {
   }
 
   Future<void> setAlertsEnabled(SavedSearch search, bool enabled) async {
+    if (_disposed || _userId == null) return;
     actionError = null;
     notifyListeners();
     try {
@@ -105,6 +117,7 @@ class SavedSearchesViewModel extends ChangeNotifier {
   }
 
   Future<void> delete(SavedSearch search) async {
+    if (_disposed || _userId == null) return;
     actionError = null;
     notifyListeners();
     try {
@@ -116,7 +129,7 @@ class SavedSearchesViewModel extends ChangeNotifier {
   }
 
   void _onUserChanged(AppUser? user) {
-    final userId = user != null && user.emailVerified ? user.id : null;
+    final userId = user?.isReady == true && user!.isConsumer ? user.id : null;
     if (userId == _userId) return;
     _userId = userId;
     _listen();
@@ -180,7 +193,12 @@ class SavedSearchesViewModel extends ChangeNotifier {
   /// and the "New listings" switch (US 18) are both on; otherwise the offers
   /// are only marked as seen, so switching back on brings no flood of alerts.
   Future<void> _checkNewOffers() async {
-    if (!_searchesLoaded || !_apartmentsLoaded || !_preferencesLoaded) return;
+    if (_userId == null ||
+        !_searchesLoaded ||
+        !_apartmentsLoaded ||
+        !_preferencesLoaded) {
+      return;
+    }
     if (_checkFailed) return;
     // Our own writes send new snapshots: check again afterwards, never twice
     // at the same time.
@@ -191,7 +209,9 @@ class SavedSearchesViewModel extends ChangeNotifier {
 
     _isChecking = true;
     try {
+      final account = _userId;
       for (final search in searches) {
+        if (_disposed || account == null || account != _userId) return;
         final newOffers = search.findNewOffers(_apartments);
         if (newOffers.isEmpty) continue;
 
@@ -237,6 +257,8 @@ class SavedSearchesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _userId = null;
+    _disposed = true;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }

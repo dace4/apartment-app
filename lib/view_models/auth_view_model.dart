@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../models/user_role.dart';
+import '../models/apartment.dart';
+import '../router/app_routes.dart';
 
 /// The signed-in user, shared by the whole app (see ARCHITECTURE.md §4).
 /// The router listens to it to redirect on log in, log out and email
@@ -80,6 +82,56 @@ class AuthViewModel extends ChangeNotifier {
   String? feedbackMessage;
 
   AppUser? get user => _user;
+
+  // US-07: one policy for route guards and visible navigation actions.
+  bool canAccess(String location) {
+    final account = user;
+    if (account == null || !account.isReady) return false;
+    bool under(String path) =>
+        location == path || location.startsWith('$path/');
+    if (location.endsWith('/apply-immediately')) return account.isRenter;
+    if (under(AppRoutes.applications) ||
+        under(AppRoutes.documents) ||
+        under(AppRoutes.signature) ||
+        under(AppRoutes.favourites) ||
+        under(AppRoutes.savedSearches) ||
+        location == AppRoutes.compare ||
+        location.endsWith('/apply') ||
+        location.endsWith('/contact')) {
+      return account.isConsumer;
+    }
+    if (under(AppRoutes.mortgage) || under(AppRoutes.marketTrends)) {
+      return account.isBuyer;
+    }
+    if (under(AppRoutes.insurance)) return account.isRenter;
+    if (under(AppRoutes.contractors)) return account.isHomeowner;
+    if (under(AppRoutes.maintenance)) return account.hasManagementRole;
+    return true;
+  }
+
+  bool canManage(Apartment apartment) =>
+      user?.isReady == true &&
+      ((user!.isHomeowner && apartment.ownerId == user!.id) ||
+          (user!.isPropertyManager && apartment.managerIds.contains(user!.id)));
+
+  String? redirectFor(String location) {
+    final onAuthPage =
+        location == AppRoutes.login || location == AppRoutes.register;
+    if (user == null) return onAuthPage ? null : AppRoutes.login;
+    if (!user!.emailVerified) {
+      return location == AppRoutes.verifyEmail ? null : AppRoutes.verifyEmail;
+    }
+    if (!user!.hasRoles) {
+      return location == AppRoutes.chooseRoles ? null : AppRoutes.chooseRoles;
+    }
+    if (onAuthPage ||
+        location == AppRoutes.verifyEmail ||
+        location == AppRoutes.chooseRoles ||
+        !canAccess(location)) {
+      return AppRoutes.apartments;
+    }
+    return null;
+  }
 
   Future<void> resendVerificationEmail() async {
     isLoading = true;

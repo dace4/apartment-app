@@ -59,7 +59,7 @@ class ApartmentCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (favouritesViewModel != null)
+                      if (favouritesViewModel?.canUseFavourites == true)
                         IconButton(
                           tooltip: favouritesViewModel!.isFavorite(apartment.id)
                               ? 'Remove from favourites'

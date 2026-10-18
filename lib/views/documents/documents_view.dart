@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,14 +9,20 @@ import '../shared/widgets/message_view.dart';
 
 /// US-15: multi-file upload queue and the user's saved JPEG/PDF library.
 class DocumentsView extends StatefulWidget {
-  const DocumentsView({super.key, this.viewModel});
+  final AuthViewModel? authViewModel;
+  const DocumentsView({this.authViewModel, super.key, this.viewModel});
   final DocumentsViewModel? viewModel;
   @override
   State<DocumentsView> createState() => _DocumentsViewState();
 }
 
 class _DocumentsViewState extends State<DocumentsView> {
-  late final viewModel = widget.viewModel ?? DocumentsViewModel();
+  late final viewModel =
+      widget.viewModel ??
+      DocumentsViewModel(
+        canAccess: () =>
+            widget.authViewModel?.canAccess(AppRoutes.documents) == true,
+      );
   @override
   void initState() {
     super.initState();

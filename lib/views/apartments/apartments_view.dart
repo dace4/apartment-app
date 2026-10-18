@@ -116,23 +116,25 @@ class _ApartmentsViewState extends State<ApartmentsView> {
                 tooltip: 'Filters',
                 onPressed: () => context.go(AppRoutes.filters),
               ),
-              if (widget.savedSearchesViewModel != null)
+              if (widget.savedSearchesViewModel != null &&
+                  compareViewModel.allowed)
                 IconButton(
                   icon: const Icon(Icons.bookmark_add_outlined),
                   tooltip: 'Save this search',
                   // A search without any criterion would match every offer.
                   onPressed: viewModel.filter.isEmpty ? null : _saveSearch,
                 ),
-              IconButton(
-                // US 13: the badge shows how many apartments are selected.
-                icon: Badge(
-                  isLabelVisible: compareViewModel.selected.isNotEmpty,
-                  label: Text('${compareViewModel.selected.length}'),
-                  child: const Icon(Icons.compare_arrows),
+              if (compareViewModel.allowed)
+                IconButton(
+                  // US 13: the badge shows how many apartments are selected.
+                  icon: Badge(
+                    isLabelVisible: compareViewModel.selected.isNotEmpty,
+                    label: Text('${compareViewModel.selected.length}'),
+                    child: const Icon(Icons.compare_arrows),
+                  ),
+                  tooltip: 'Compare',
+                  onPressed: () => context.go(AppRoutes.compare),
                 ),
-                tooltip: 'Compare',
-                onPressed: () => context.go(AppRoutes.compare),
-              ),
             ],
           ),
           body: Column(
@@ -188,7 +190,9 @@ class _ApartmentsViewState extends State<ApartmentsView> {
             favouritesViewModel: widget.favouritesViewModel,
             onTap: () => context.go(AppRoutes.apartmentDetail(apartment.id)),
             isSelectedForCompare: compareViewModel.isSelected(apartment),
-            onCompare: () => _toggleCompare(apartment),
+            onCompare: compareViewModel.allowed
+                ? () => _toggleCompare(apartment)
+                : null,
           );
         },
       ),

@@ -10,9 +10,14 @@ import '../services/file_picker_service.dart';
 
 /// US-15: the library and per-file upload queue with explicit retries.
 class DocumentsViewModel extends ChangeNotifier {
-  DocumentsViewModel({DocumentService? service, FilePickerService? picker})
-    : service = service ?? DocumentService(),
-      picker = picker ?? FilePickerService();
+  DocumentsViewModel({
+    this._canAccess,
+    DocumentService? service,
+    FilePickerService? picker,
+  }) : service = service ?? DocumentService(),
+       picker = picker ?? FilePickerService();
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final DocumentService service;
   final FilePickerService picker;
   List<UploadedDocument> documents = [];
@@ -31,6 +36,11 @@ class DocumentsViewModel extends ChangeNotifier {
   }
 
   void listenToDocuments() {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     _subscription?.cancel();
     isLoading = true;
     errorMessage = null;
@@ -59,6 +69,11 @@ class DocumentsViewModel extends ChangeNotifier {
   }
 
   Future<void> pickAndUpload() async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     if (isPicking || uploadingIds.isNotEmpty) return;
     isPicking = true;
     actionError = null;
@@ -84,6 +99,11 @@ class DocumentsViewModel extends ChangeNotifier {
   }
 
   Future<void> retryUpload(DocumentUpload upload) async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     if (uploadingIds.contains(upload.id) || savedIds.contains(upload.id)) {
       return;
     }

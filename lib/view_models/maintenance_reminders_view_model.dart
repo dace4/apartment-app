@@ -17,6 +17,12 @@ typedef DueReminder = ({
 /// service. Shared by every tab (ARCHITECTURE.md §4), so it is created once
 /// in app.dart and shown by the bottom navigation shell.
 class MaintenanceRemindersViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   MaintenanceRemindersViewModel() {
     _authSubscription = authService.userChanges().listen(_onUserChanged);
     // Re-checks every minute which reminders are due, and retries loading
@@ -63,7 +69,9 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
 
   /// Reads Firestore only for a verified user (firestore.rules require it).
   void _onUserChanged(AppUser? user) {
-    final userId = user != null && user.emailVerified ? user.id : null;
+    final userId = user?.isReady == true && user!.hasManagementRole
+        ? user.id
+        : null;
     // userChanges also fires on token refresh; nothing changed then.
     if (userId == _userId) return;
     _userId = userId;
@@ -95,6 +103,7 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _timer.cancel();
     _subscription?.cancel();
     _authSubscription?.cancel();

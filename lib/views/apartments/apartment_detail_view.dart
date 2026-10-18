@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/apartment.dart';
+import '../../view_models/auth_view_model.dart';
 import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
@@ -15,11 +16,13 @@ class ApartmentDetailView extends StatefulWidget {
   const ApartmentDetailView({
     super.key,
     required this.apartmentId,
+    required this.authViewModel,
     required this.compareViewModel,
     required this.favouritesViewModel,
   });
 
   final String apartmentId;
+  final AuthViewModel authViewModel;
   final FavouritesViewModel? favouritesViewModel;
 
   /// US 13: shared with the apartment list and the Compare page.
@@ -61,7 +64,7 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
                 onPressed: viewModel.isLoading ? null : _refresh,
               ),
               if (viewModel.apartment != null &&
-                  widget.favouritesViewModel != null)
+                  widget.favouritesViewModel?.canUseFavourites == true)
                 IconButton(
                   tooltip:
                       widget.favouritesViewModel!.isFavorite(widget.apartmentId)
@@ -117,6 +120,7 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
       onRefresh: _refresh,
       child: _ApartmentDetails(
         apartment: apartment,
+        authViewModel: widget.authViewModel,
         compareViewModel: widget.compareViewModel,
       ),
     );
@@ -127,10 +131,12 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
 class _ApartmentDetails extends StatelessWidget {
   const _ApartmentDetails({
     required this.apartment,
+    required this.authViewModel,
     required this.compareViewModel,
   });
 
   final Apartment apartment;
+  final AuthViewModel authViewModel;
   final CompareViewModel compareViewModel;
 
   void _toggleCompare(BuildContext context) {
@@ -207,65 +213,75 @@ class _ApartmentDetails extends StatelessWidget {
               Text(apartment.description, style: theme.textTheme.bodyLarge),
               const SizedBox(height: 24),
               // US 8: only Available listings can open Apply.
-              FilledButton.icon(
-                onPressed: apartment.canApply
-                    ? () => context.go(AppRoutes.apply(apartment.id))
-                    : null,
-                icon: const Icon(Icons.send),
-                label: const Text('Apply'),
-              ),
+              if (authViewModel.canAccess(AppRoutes.apply(apartment.id)))
+                FilledButton.icon(
+                  onPressed: apartment.canApply
+                      ? () => context.go(AppRoutes.apply(apartment.id))
+                      : null,
+                  icon: const Icon(Icons.send),
+                  label: const Text('Apply'),
+                ),
               const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: apartment.canApply
-                    ? () => context.go(AppRoutes.applyImmediately(apartment.id))
-                    : null,
-                icon: const Icon(Icons.bolt),
-                label: const Text('Apply immediately'),
-              ),
+              if (authViewModel.canAccess(
+                AppRoutes.applyImmediately(apartment.id),
+              ))
+                FilledButton.icon(
+                  onPressed: apartment.canApply
+                      ? () =>
+                            context.go(AppRoutes.applyImmediately(apartment.id))
+                      : null,
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Apply immediately'),
+                ),
               const SizedBox(height: 8),
               // Availability does not prevent asking the advertiser a question.
-              OutlinedButton.icon(
-                onPressed: () =>
-                    context.go(AppRoutes.contactAdvertiser(apartment.id)),
-                icon: const Icon(Icons.mail_outline),
-                label: const Text('Contact advertiser'),
-              ),
+              if (authViewModel.canAccess(
+                AppRoutes.contactAdvertiser(apartment.id),
+              ))
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      context.go(AppRoutes.contactAdvertiser(apartment.id)),
+                  icon: const Icon(Icons.mail_outline),
+                  label: const Text('Contact advertiser'),
+                ),
               const SizedBox(height: 8),
               // US 13: rebuilds only these buttons when the selection changes.
-              ListenableBuilder(
-                listenable: compareViewModel,
-                builder: (context, _) {
-                  final selected = compareViewModel.isSelected(apartment);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _toggleCompare(context),
-                        icon: Icon(
-                          selected
-                              ? Icons.remove_circle_outline
-                              : Icons.compare_arrows,
-                        ),
-                        label: Text(
-                          selected
-                              ? 'Remove from comparison'
-                              : 'Add to comparison',
-                        ),
-                      ),
-                      if (compareViewModel.selected.isNotEmpty)
-                        TextButton(
-                          onPressed: () => context.go(AppRoutes.compare),
-                          child: Text(
-                            'Open comparison '
-                            '(${compareViewModel.selected.length}/'
-                            '${CompareViewModel.maxApartments})',
+              if (compareViewModel.allowed)
+                ListenableBuilder(
+                  listenable: compareViewModel,
+                  builder: (context, _) {
+                    final selected = compareViewModel.isSelected(apartment);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _toggleCompare(context),
+                          icon: Icon(
+                            selected
+                                ? Icons.remove_circle_outline
+                                : Icons.compare_arrows,
+                          ),
+                          label: Text(
+                            selected
+                                ? 'Remove from comparison'
+                                : 'Add to comparison',
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-              if (!isForRent) ...[
+                        if (compareViewModel.selected.isNotEmpty)
+                          TextButton(
+                            onPressed: () => context.go(AppRoutes.compare),
+                            child: Text(
+                              'Open comparison '
+                              '(${compareViewModel.selected.length}/'
+                              '${CompareViewModel.maxApartments})',
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              if (!isForRent &&
+                  authViewModel.canAccess(AppRoutes.mortgage)) ...[
                 const SizedBox(height: 8),
                 TextButton.icon(
                   onPressed: () =>

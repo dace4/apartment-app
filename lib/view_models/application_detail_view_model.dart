@@ -11,6 +11,10 @@ import '../services/reservation_exceptions.dart';
 /// US 16: one application, updated live, that can be withdrawn within
 /// 5 days.
 class ApplicationDetailViewModel extends ChangeNotifier {
+  ApplicationDetailViewModel({this._canAccess, this._canApplyImmediately});
+  final bool Function()? _canApplyImmediately;
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final ApplicationService service = ApplicationService();
   final ApartmentService apartmentService = ApartmentService();
   StreamSubscription<RentalApplication?>? _subscription;
@@ -30,6 +34,8 @@ class ApplicationDetailViewModel extends ChangeNotifier {
   bool get canChange => application?.canChange(DateTime.now()) ?? false;
 
   bool get canApplyImmediately =>
+      hasAccess &&
+      _canApplyImmediately?.call() == true &&
       canChange &&
       application?.type == ApplicationType.normal &&
       apartment?.canApply == true;
@@ -42,6 +48,11 @@ class ApplicationDetailViewModel extends ChangeNotifier {
   }
 
   void listenToApplication(String id) {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -81,6 +92,11 @@ class ApplicationDetailViewModel extends ChangeNotifier {
 
   /// The new status arrives through the live update.
   Future<void> withdraw() async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     if (!canChange) return;
     isWithdrawing = true;
     actionError = null;
@@ -98,6 +114,11 @@ class ApplicationDetailViewModel extends ChangeNotifier {
 
   /// Returns true when the reservation was committed.
   Future<bool> applyImmediately() async {
+    if (!hasAccess || _canApplyImmediately?.call() != true) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return false;
+    }
     if (!canApplyImmediately || isReserving) return false;
     isReserving = true;
     actionError = null;

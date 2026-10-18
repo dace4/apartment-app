@@ -39,31 +39,6 @@ import '../views/services/services_view.dart';
 import '../views/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 
-/// The app is only usable after logging in with a verified email:
-/// - signed out: only Log in and Create account are reachable,
-/// - email not verified: only the Verify email page is reachable,
-/// - verified: every page except the auth pages.
-String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
-  final user = authViewModel.user;
-  final location = state.matchedLocation;
-  final onAuthPage =
-      location == AppRoutes.login || location == AppRoutes.register;
-  final onVerifyPage = location == AppRoutes.verifyEmail;
-
-  if (user == null) {
-    return onAuthPage ? null : AppRoutes.login;
-  }
-  if (!user.emailVerified) {
-    return onVerifyPage ? null : AppRoutes.verifyEmail;
-  }
-  if (!user.hasRoles) {
-    return location == AppRoutes.chooseRoles ? null : AppRoutes.chooseRoles;
-  }
-  if (location == AppRoutes.chooseRoles) return AppRoutes.apartments;
-  // US-07: a successful log in leads to the home page.
-  return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
-}
-
 GoRouter createAppRouter({
   required AuthViewModel authViewModel,
   required ApartmentsViewModel apartmentsViewModel,
@@ -76,7 +51,8 @@ GoRouter createAppRouter({
     initialLocation: AppRoutes.apartments,
     // Re-runs the redirect whenever the signed-in user changes.
     refreshListenable: authViewModel,
-    redirect: (context, state) => _authRedirect(authViewModel, state),
+    redirect: (context, state) =>
+        authViewModel.redirectFor(state.matchedLocation),
     routes: [
       GoRoute(
         path: AppRoutes.chooseRoles,
@@ -101,6 +77,7 @@ GoRouter createAppRouter({
         builder: (context, state, navigationShell) => ScaffoldWithNavBar(
           navigationShell: navigationShell,
           remindersViewModel: maintenanceRemindersViewModel,
+          authViewModel: authViewModel,
         ),
         branches: [
           StatefulShellBranch(
@@ -129,18 +106,22 @@ GoRouter createAppRouter({
                     path: ':id',
                     builder: (context, state) => ApartmentDetailView(
                       apartmentId: state.pathParameters['id']!,
+                      authViewModel: authViewModel,
                       compareViewModel: compareViewModel,
                       favouritesViewModel: favouritesViewModel,
                     ),
                     routes: [
                       GoRoute(
                         path: 'apply',
-                        builder: (context, state) =>
-                            ApplyView(apartmentId: state.pathParameters['id']!),
+                        builder: (context, state) => ApplyView(
+                          authViewModel: authViewModel,
+                          apartmentId: state.pathParameters['id']!,
+                        ),
                       ),
                       GoRoute(
                         path: 'apply-immediately',
                         builder: (context, state) => ApplyView(
+                          authViewModel: authViewModel,
                           apartmentId: state.pathParameters['id']!,
                           applyImmediately: true,
                         ),
@@ -148,6 +129,7 @@ GoRouter createAppRouter({
                       GoRoute(
                         path: 'contact',
                         builder: (context, state) => ContactAdvertiserView(
+                          authViewModel: authViewModel,
                           apartmentId: state.pathParameters['id']!,
                         ),
                       ),
@@ -179,17 +161,20 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.applications,
-                builder: (context, state) => const ApplicationsView(),
+                builder: (context, state) =>
+                    ApplicationsView(authViewModel: authViewModel),
                 routes: [
                   GoRoute(
                     path: ':id',
                     builder: (context, state) => ApplicationDetailView(
+                      authViewModel: authViewModel,
                       applicationId: state.pathParameters['id']!,
                     ),
                     routes: [
                       GoRoute(
                         path: 'edit',
                         builder: (context, state) => EditApplicationView(
+                          authViewModel: authViewModel,
                           applicationId: state.pathParameters['id']!,
                         ),
                       ),
@@ -203,7 +188,8 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.services,
-                builder: (context, state) => const ServicesView(),
+                builder: (context, state) =>
+                    ServicesView(viewModel: authViewModel),
                 routes: [
                   GoRoute(
                     path: 'mortgage',
@@ -265,16 +251,19 @@ GoRouter createAppRouter({
                 routes: [
                   GoRoute(
                     path: 'signature',
-                    builder: (context, state) => const SignatureView(),
+                    builder: (context, state) =>
+                        SignatureView(authViewModel: authViewModel),
                   ),
                   // US-15/11 inherit the existing verified-email redirect.
                   GoRoute(
                     path: 'documents',
-                    builder: (context, state) => const DocumentsView(),
+                    builder: (context, state) =>
+                        DocumentsView(authViewModel: authViewModel),
                     routes: [
                       GoRoute(
                         path: ':documentId',
                         builder: (context, state) => DocumentReviewView(
+                          authViewModel: authViewModel,
                           documentId: state.pathParameters['documentId']!,
                         ),
                       ),

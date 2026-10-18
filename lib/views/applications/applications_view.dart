@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,14 +12,18 @@ import 'widgets/application_status_chip.dart';
 
 /// US 16: lists the user's applications with their current status.
 class ApplicationsView extends StatefulWidget {
-  const ApplicationsView({super.key});
+  final AuthViewModel? authViewModel;
+  const ApplicationsView({this.authViewModel, super.key});
 
   @override
   State<ApplicationsView> createState() => _ApplicationsViewState();
 }
 
 class _ApplicationsViewState extends State<ApplicationsView> {
-  final viewModel = ApplicationsViewModel();
+  late final viewModel = ApplicationsViewModel(
+    canAccess: () =>
+        widget.authViewModel?.canAccess(AppRoutes.applications) == true,
+  );
 
   @override
   void initState() {

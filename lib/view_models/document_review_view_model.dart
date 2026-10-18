@@ -8,15 +8,19 @@ import '../services/signature_service.dart';
 /// US-15: the saved file preview and removal state for one screen.
 class DocumentReviewViewModel extends ChangeNotifier {
   DocumentReviewViewModel({
+    this._canAccess,
     DocumentService? service,
     SignatureService? signatureService,
   }) : service = service ?? DocumentService(),
        signatureService = signatureService ?? SignatureService();
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final DocumentService service;
   final SignatureService signatureService;
   bool hasSignature = false;
   String? signatureError;
   bool get canBind =>
+      hasAccess &&
       !isLoading &&
       !isSaving &&
       document != null &&
@@ -34,6 +38,11 @@ class DocumentReviewViewModel extends ChangeNotifier {
   }
 
   Future<void> load(String id) async {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     final generation = ++_generation;
     isLoading = true;
     errorMessage = null;
@@ -70,6 +79,11 @@ class DocumentReviewViewModel extends ChangeNotifier {
   }
 
   Future<void> bind() async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     if (!canBind) return;
     isSaving = true;
     actionError = null;
@@ -85,6 +99,11 @@ class DocumentReviewViewModel extends ChangeNotifier {
   }
 
   Future<bool> delete() async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return false;
+    }
     if (isSaving || document == null || !document!.canDelete) return false;
     isSaving = true;
     actionError = null;

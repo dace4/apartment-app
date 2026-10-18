@@ -7,6 +7,12 @@ import '../services/apartment_service.dart';
 /// Shared by the apartment list and the Filters page, so both see the same
 /// filter (see ARCHITECTURE.md §4).
 class ApartmentsViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   final ApartmentService service = ApartmentService();
 
   List<Apartment> apartments = [];
@@ -69,5 +75,11 @@ class ApartmentsViewModel extends ChangeNotifier {
       return 'Must be at least the minimum.';
     }
     return null;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

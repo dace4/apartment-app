@@ -31,6 +31,7 @@ void main() {
       'name': name,
     });
     final vm = DocumentReviewViewModel(
+      canAccess: () => true,
       service: service,
       signatureService: SignatureService(
         firestore: db,
@@ -71,7 +72,7 @@ void main() {
         firestore: db,
         currentUser: () => fixtures.tenant,
       );
-      final vm = SignatureViewModel(service: service);
+      final vm = SignatureViewModel(canAccess: () => true, service: service);
       addTearDown(vm.dispose);
       await tester.pumpWidget(MaterialApp(home: SignatureView(viewModel: vm)));
       await tester.pumpAndSettle();
@@ -118,6 +119,7 @@ void main() {
       await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
       await signatures.save(drawing());
       final vm = DocumentReviewViewModel(
+        canAccess: () => true,
         service: service,
         signatureService: signatures,
       );
@@ -156,6 +158,7 @@ void main() {
     );
     await tester.runAsync(() => service.upload(fixtures.jpegUpload('photo')));
     final vm = DocumentReviewViewModel(
+      canAccess: () => true,
       service: service,
       signatureService: SignatureService(
         firestore: db,

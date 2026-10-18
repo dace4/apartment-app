@@ -76,6 +76,20 @@ class AuthService {
     };
   });
 
+  Future<AppUser?> loadUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    final roles = await profiles.watchRoles(user.uid).first;
+    // Do not return a previous account after an asynchronous profile read.
+    if (_auth.currentUser?.uid != user.uid) return null;
+    return AppUser(
+      id: user.uid,
+      email: user.email ?? '',
+      emailVerified: user.emailVerified,
+      roles: roles,
+    );
+  }
+
   Future<void> saveRoles(Set<UserRole> roles) async {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('Log in to choose your roles.');

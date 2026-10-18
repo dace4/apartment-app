@@ -51,23 +51,25 @@ class ProfileView extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               // US-11: manage one reusable signature.
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.draw_outlined),
-                  title: const Text('My Signature'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.signature),
+              if (viewModel.canAccess(AppRoutes.signature))
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.draw_outlined),
+                    title: const Text('My Signature'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.signature),
+                  ),
                 ),
-              ),
               // US-15: uploaded document library.
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.description_outlined),
-                  title: const Text('My documents'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.go(AppRoutes.documents),
+              if (viewModel.canAccess(AppRoutes.documents))
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('My documents'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.go(AppRoutes.documents),
+                  ),
                 ),
-              ),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.notifications_outlined),
@@ -77,14 +79,15 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
               // US-23: saved searches and their new-offer alerts.
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.bookmarks_outlined),
-                  title: const Text('Saved searches'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.go(AppRoutes.savedSearches),
+              if (viewModel.canAccess(AppRoutes.savedSearches))
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.bookmarks_outlined),
+                    title: const Text('Saved searches'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.go(AppRoutes.savedSearches),
+                  ),
                 ),
-              ),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.help_outline),

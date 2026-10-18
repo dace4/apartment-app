@@ -253,6 +253,7 @@ void main() {
         bytes: Uint8List(0),
       );
       final vm = DocumentsViewModel(
+        canAccess: () => true,
         service: service,
         picker: FixedPicker([jpegUpload('one'), bad, jpegUpload('two')]),
       );
@@ -272,6 +273,7 @@ void main() {
     final interrupted = InterruptedUploadService(db);
     final upload = jpegUpload('uncertain');
     final vm = DocumentsViewModel(
+      canAccess: () => true,
       service: interrupted,
       picker: FixedPicker([upload]),
     );
@@ -285,11 +287,16 @@ void main() {
   test(
     'US-15 picker cancellation and selection limit do not write records',
     () async {
-      final vm = DocumentsViewModel(service: service, picker: FixedPicker([]));
+      final vm = DocumentsViewModel(
+        canAccess: () => true,
+        service: service,
+        picker: FixedPicker([]),
+      );
       await vm.pickAndUpload();
       expect(vm.actionError, isNull);
       vm.dispose();
       final tooMany = DocumentsViewModel(
+        canAccess: () => true,
         service: service,
         picker: FixedPicker(List.generate(11, (i) => jpegUpload('file-$i'))),
       );

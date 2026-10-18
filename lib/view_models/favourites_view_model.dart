@@ -16,11 +16,19 @@ class FavouritesViewModel extends ApartmentsViewModel {
       _subscription?.cancel();
       _subscription = null;
       _favouriteIds = {};
-      if (user != null) {
-        _subscription = _favourites.watchFavouriteIds().listen((ids) {
-          _favouriteIds = ids;
-          Future.microtask(notifyListeners);
-        });
+      apartments = [];
+      _allowed = user?.isReady == true && user!.isConsumer;
+      if (user?.isReady == true && user!.isConsumer) {
+        _subscription = _favourites.watchFavouriteIds().listen(
+          (ids) {
+            _favouriteIds = ids;
+            Future.microtask(notifyListeners);
+          },
+          onError: (Object error) {
+            _favouriteIds = {};
+            notifyListeners();
+          },
+        );
       }
       Future.microtask(notifyListeners);
     });
@@ -32,10 +40,14 @@ class FavouritesViewModel extends ApartmentsViewModel {
   StreamSubscription<dynamic>? _authSubscription;
   Set<String> _favouriteIds = {};
 
+  bool get canUseFavourites => _allowed;
+  bool _allowed = false;
+
   bool isFavorite(String apartmentId) => _favouriteIds.contains(apartmentId);
 
   @override
   Future<void> fetchApartments() async {
+    if (!_allowed) return;
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -65,6 +77,7 @@ class FavouritesViewModel extends ApartmentsViewModel {
       .toList();
 
   Future<void> toggleFavorite(Apartment apartment) async {
+    if (!_allowed) return;
     if (isFavorite(apartment.id)) {
       await _favourites.remove(apartment.id);
     } else {
@@ -74,6 +87,7 @@ class FavouritesViewModel extends ApartmentsViewModel {
 
   @override
   void dispose() {
+    _allowed = false;
     _subscription?.cancel();
     _authSubscription?.cancel();
     super.dispose();

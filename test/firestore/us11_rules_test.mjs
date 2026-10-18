@@ -45,7 +45,7 @@ function file(overrides={}) {
 const upload = (id, data=file(), auth=token()) => commit([write('uploadedDocuments',id,data,['createdAt'])],auth);
 function application(ids=[]) {
   return {userId:'tenant',apartmentId:'apt',apartmentTitle:'Test apartment',fullName:'Tenant',phone:'123456789',
-    moveInDate:{$time:new Date(Date.now()+86400000*30).toISOString()},occupants:1,message:'',status:'submitted',documentIds:ids};
+    moveInDate:{$time:new Date(Date.now()+86400000*30).toISOString()},occupants:1,message:'',status:'submitted',applicationType:'normal',documentIds:ids};
 }
 const appWrite = (id, ids) => write('applications',id,application(ids),['submittedAt','updatedAt']);
 const firstUse = (id, appId) => write('uploadedDocuments',id,{firstApplicationId:appId},[],['firstApplicationId']);
@@ -58,6 +58,7 @@ const bind=(id,uid='tenant',auth=token(uid)) => commit([write('uploadedDocuments
   {status:'signed',signatureId:uid},['signedAt'],['status','signatureId'])],auth);
 test('US-11 reusable signature rules',async t=>{
   await status(await request('/uploadedDocuments','owner'),200);
+  await status(await commit([write('users','tenant',{roles:['renter']}),write('apartments','apt',{availability:'available'})],'owner'),200);
   await t.test('one private signature can be created and replaced under the same UID',async()=>{
     await status(await saveSignature(),200);
     const original=await (await request('/userSignatures/tenant',token())).json();
@@ -73,6 +74,7 @@ test('US-11 reusable signature rules',async t=>{
   });
   await t.test('a saved signature is required; signed bytes and first signing time are immutable',async()=>{
     const missing=prefix+'-no-signature';
+    await status(await commit([write('users','nosig',{roles:['renter']})],'owner'),200);
     await status(await upload(missing,file({userId:'nosig'}),token('nosig')),200);
     await status(await bind(missing,'nosig'),403);
     const id=prefix+'-signed'; await status(await upload(id),200);

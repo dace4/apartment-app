@@ -1,3 +1,6 @@
+import '../../router/app_routes.dart';
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../view_models/signature_view_model.dart';
@@ -6,14 +9,20 @@ import 'widgets/signature_pad.dart';
 
 /// US-11: a reusable signature managed from Profile, separate from files.
 class SignatureView extends StatefulWidget {
-  const SignatureView({super.key, this.viewModel});
+  final AuthViewModel? authViewModel;
+  const SignatureView({this.authViewModel, super.key, this.viewModel});
   final SignatureViewModel? viewModel;
   @override
   State<SignatureView> createState() => _SignatureViewState();
 }
 
 class _SignatureViewState extends State<SignatureView> {
-  late final viewModel = widget.viewModel ?? SignatureViewModel();
+  late final viewModel =
+      widget.viewModel ??
+      SignatureViewModel(
+        canAccess: () =>
+            widget.authViewModel?.canAccess(AppRoutes.signature) == true,
+      );
   @override
   void initState() {
     super.initState();

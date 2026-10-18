@@ -6,6 +6,8 @@ import '../models/apartment.dart';
 /// list, the apartment details and the Compare page (see ARCHITECTURE.md §4).
 /// Kept in memory only: nothing is stored in Firebase.
 class CompareViewModel extends ChangeNotifier {
+  CompareViewModel({this.allowed = false});
+  final bool allowed;
   static const maxApartments = 2;
 
   final List<Apartment> selected = [];
@@ -20,6 +22,7 @@ class CompareViewModel extends ChangeNotifier {
   /// Adds the apartment, or removes it when it is already selected.
   /// Returns false when it could not be added because two are already chosen.
   bool toggle(Apartment apartment) {
+    if (!allowed) return false;
     if (isSelected(apartment)) {
       remove(apartment);
       return true;

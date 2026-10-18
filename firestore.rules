@@ -18,7 +18,25 @@ service cloud.firestore {
     }
     function verified() {
       // Rules use the signed token claim, not a value supplied by the contact form.
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null && request.auth.token.email_verified == true && hasRoles();
+    }
+    // US-07: profiles grant personas, never property assignment.
+    function hasRoles() {
+      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return data.keys().hasOnly(['roles']) && data.roles is list &&
+        data.roles.size() >= 1 && data.roles.size() <= 4 &&
+        data.roles.toSet().size() == data.roles.size() &&
+        data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+    }
+    function hasRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
+    }
+    function consumer() { return hasRole('buyer') || hasRole('renter'); }
+    function managementRole() { return hasRole('homeowner') || hasRole('propertyManager'); }
+    function manages(apartmentId) {
+      let apartment = get(/databases/$(database)/documents/apartments/$(apartmentId)).data;
+      return (hasRole('homeowner') && apartment.get('ownerId', '') == request.auth.uid) ||
+        (hasRole('propertyManager') && request.auth.uid in apartment.get('managerIds', []));
     }
     function participant() {
       // Only the sender and the addressed advertiser can read a stored message.
@@ -29,7 +47,7 @@ service cloud.firestore {
       allow read: if verified();
       // An apartment can only be reserved as part of the same atomic batch
       // that creates or promotes the linked application.
-      allow update: if verified() && validReservation(apartmentId);
+      allow update: if verified() && hasRole('renter') && validReservation(apartmentId);
       allow create, delete: if false;
 
       function validReservation(apartmentId) {
@@ -48,8 +66,8 @@ service cloud.firestore {
     }
     // US-11: one drawing per account, replaceable under the same ID.
     match /userSignatures/{userId} {
-      allow get: if verified() && request.auth.uid == userId;
-      allow create, update: if verified() && request.auth.uid == userId &&
+      allow get: if verified() && consumer() && request.auth.uid == userId;
+      allow create, update: if verified() && consumer() && request.auth.uid == userId &&
         request.resource.data.keys().hasAll(['drawing', 'updatedAt']) &&
         request.resource.data.keys().hasOnly(['drawing', 'updatedAt']) &&
         request.resource.data.drawing is string && request.resource.data.drawing.size() >= 20 &&
@@ -59,11 +77,11 @@ service cloud.firestore {
     // US-15/11: immutable originals, one first-use marker, and one signing transition.
     match /uploadedDocuments/{documentId} {
       function owner() { return resource.data.userId == request.auth.uid; }
-      allow get: if verified() && (resource == null || owner());
-      allow list: if verified() && owner();
-      allow create: if verified() && validUpload();
-      allow update: if verified() && owner() && (validFirstUse() || validBinding());
-      allow delete: if verified() && owner() &&
+      allow get: if verified() && consumer() && (resource == null || owner());
+      allow list: if verified() && consumer() && owner();
+      allow create: if verified() && consumer() && validUpload();
+      allow update: if verified() && consumer() && owner() && (validFirstUse() || validBinding());
+      allow delete: if verified() && consumer() && owner() &&
         resource.data.status == 'unsigned' && resource.data.firstApplicationId == null;
       function validUpload() {
         let data = request.resource.data;
@@ -112,12 +130,12 @@ service cloud.firestore {
     // Favourites: each user manages only their own saved apartments.
     match /favourites/{favouriteId} {
       // Queries must constrain userId to the signed-in user.
-      allow list: if verified() &&
+      allow list: if verified() && consumer() &&
         resource.data.userId == request.auth.uid;
-      allow get: if verified() &&
+      allow get: if verified() && consumer() &&
         resource.data.userId == request.auth.uid;
-      allow create: if verified() && validFavourite();
-      allow delete: if verified() &&
+      allow create: if verified() && consumer() && validFavourite();
+      allow delete: if verified() && consumer() &&
         resource.data.userId == request.auth.uid;
       allow update: if false;
       function validFavourite() {
@@ -149,30 +167,30 @@ service cloud.firestore {
       }
 
       // Queries must constrain userId to the signed-in user.
-      allow list, get: if verified() && owner();
-      allow create: if verified() && validSearch(request.resource.data) &&
+      allow list, get: if verified() && consumer() && owner();
+      allow create: if verified() && consumer() && validSearch(request.resource.data) &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.createdAt == request.time;
-      allow update: if verified() && owner() &&
+      allow update: if verified() && consumer() && owner() &&
         validSearch(request.resource.data) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['alertsEnabled', 'seenApartmentIds']);
-      allow delete: if verified() && owner();
+      allow delete: if verified() && consumer() && owner();
     }
     // US 12 only. Keep other stories' deployed matches when integrating this file.
     match /advertiserContacts/{apartmentId} {
-      allow read: if verified();
+      allow read: if verified() && consumer();
       allow write: if false;
     }
     match /advertiserMessages/{messageId} {
       // Transactions first read their generated ID. A missing document carries
       // no private data; existing messages remain restricted to participants.
-      allow get: if verified() &&
+      allow get: if verified() && consumer() &&
         (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant());
       // Queries must constrain senderId or advertiserId to the current UID.
       // Broader queries are rejected; rules do not filter out private messages.
-      allow list: if verified() && participant();
-      allow create: if verified() && validMessage();
+      allow list: if verified() && consumer() && participant();
+      allow create: if verified() && consumer() && validMessage();
       allow update, delete: if false;
 
       function validMessage() {
@@ -222,11 +240,11 @@ service cloud.firestore {
 
       // Submitting first checks that the generated ID is unused. A missing
       // document carries no private data.
-      allow get: if verified() && (resource == null || owner());
+      allow get: if verified() && consumer() && (resource == null || owner());
       // Queries must filter on userId == the current UID.
-      allow list: if verified() && owner();
-      allow create: if verified() && validNewApplication();
-      allow update: if verified() && owner() &&
+      allow list: if verified() && consumer() && owner();
+      allow create: if verified() && consumer() && validNewApplication();
+      allow update: if verified() && consumer() && owner() &&
         ((changeable() &&
           (validEdit() || validWithdraw() || validImmediateReservation())) ||
           validWithdrawBecauseReserved());
@@ -252,7 +270,7 @@ service cloud.firestore {
           apartmentIsAvailable(data.apartmentId);
       }
       function validImmediateApplication(data) {
-        return data.applicationType == 'immediate' && data.status == 'reserved' &&
+        return hasRole('renter') && data.applicationType == 'immediate' && data.status == 'reserved' &&
           reservationIsLinked(data);
       }
       function apartmentIsAvailable(apartmentId) {
@@ -298,7 +316,7 @@ service cloud.firestore {
       }
       function validImmediateReservation() {
         let data = request.resource.data;
-        return data.diff(resource.data).affectedKeys()
+        return hasRole('renter') && data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'updatedAt']) &&
           (!resource.data.keys().hasAny(['applicationType']) ||
             resource.data.applicationType == 'normal') &&
@@ -332,11 +350,11 @@ service cloud.firestore {
       }
 
       // A missing document carries no private data.
-      allow get: if verified() && (resource == null || owner());
+      allow get: if verified() && managementRole() && (resource == null || (owner() && manages(resource.data.apartmentId)));
       // Queries must filter on userId == the current UID.
-      allow list: if verified() && owner();
-      allow create: if verified() && validNewRequest();
-      allow update: if verified() && owner() && changeable() &&
+      allow list: if verified() && managementRole() && owner() && manages(resource.data.apartmentId);
+      allow create: if verified() && managementRole() && manages(request.resource.data.apartmentId) && validNewRequest();
+      allow update: if verified() && managementRole() && owner() && manages(resource.data.apartmentId) && changeable() &&
         (validReschedule() || validCancel());
       allow delete: if false;
 

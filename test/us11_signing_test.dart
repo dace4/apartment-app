@@ -157,7 +157,10 @@ void main() {
     },
   );
   test('US-11 failed signature save preserves a retryable draft', () async {
-    final vm = SignatureViewModel(service: FailedSignatureService(db));
+    final vm = SignatureViewModel(
+      canAccess: () => true,
+      service: FailedSignatureService(db),
+    );
     addTearDown(vm.dispose);
     await vm.load();
     vm.startStroke(const SignaturePoint(.1, .1));
@@ -173,6 +176,7 @@ void main() {
     () async {
       await documents.upload(fixtures.jpegUpload('file'));
       final vm = DocumentReviewViewModel(
+        canAccess: () => true,
         service: documents,
         signatureService: signatures,
       );

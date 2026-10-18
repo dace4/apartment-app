@@ -1,3 +1,5 @@
+import '../../view_models/auth_view_model.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,7 +11,12 @@ import '../../view_models/contact_advertiser_view_model.dart';
 /// US 12: sends a question to the advertiser of an apartment and shows a
 /// confirmation.
 class ContactAdvertiserView extends StatefulWidget {
-  const ContactAdvertiserView({super.key, required this.apartmentId});
+  final AuthViewModel? authViewModel;
+  const ContactAdvertiserView({
+    this.authViewModel,
+    super.key,
+    required this.apartmentId,
+  });
 
   final String apartmentId;
 
@@ -18,7 +25,10 @@ class ContactAdvertiserView extends StatefulWidget {
 }
 
 class _ContactAdvertiserViewState extends State<ContactAdvertiserView> {
-  final viewModel = ContactAdvertiserViewModel();
+  late final viewModel = ContactAdvertiserViewModel(
+    canAccess: () =>
+        widget.authViewModel?.canAccess(AppRoutes.applications) == true,
+  );
   final _formKey = GlobalKey<FormState>();
   final _subject = TextEditingController(text: 'Apartment enquiry');
   final _body = TextEditingController();

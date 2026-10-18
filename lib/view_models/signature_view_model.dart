@@ -8,8 +8,10 @@ import '../services/document_exception.dart';
 
 /// US-11: draft drawing state; replacing never changes the signature ID.
 class SignatureViewModel extends ChangeNotifier {
-  SignatureViewModel({SignatureService? service})
+  SignatureViewModel({this._canAccess, SignatureService? service})
     : service = service ?? SignatureService();
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final SignatureService service;
   UserSignature? savedSignature;
   final List<List<SignaturePoint>> _strokes = [];
@@ -21,12 +23,18 @@ class SignatureViewModel extends ChangeNotifier {
   String? actionError;
   bool _disposed = false;
   SignatureDrawing get drawing => SignatureDrawing(_strokes);
-  bool get canSave => !isLoading && !isSaving && hasChanges && drawing.hasInk;
+  bool get canSave =>
+      hasAccess && !isLoading && !isSaving && hasChanges && drawing.hasInk;
   void _notify() {
     if (!_disposed) notifyListeners();
   }
 
   Future<void> load() async {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     if (isSaving) return;
     isLoading = true;
     errorMessage = null;
@@ -81,6 +89,11 @@ class SignatureViewModel extends ChangeNotifier {
   }
 
   Future<void> save() async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      _notify();
+      return;
+    }
     if (!canSave) return;
     isSaving = true;
     actionError = null;

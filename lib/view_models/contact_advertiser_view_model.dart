@@ -8,6 +8,15 @@ import '../services/message_service.dart';
 
 /// US 12: send a question to the advertiser of an apartment.
 class ContactAdvertiserViewModel extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  ContactAdvertiserViewModel({this._canAccess});
+  final bool Function()? _canAccess;
+  bool get hasAccess => !_disposed && _canAccess?.call() == true;
   final ApartmentService apartmentService = ApartmentService();
   final MessageService messageService = MessageService();
   final AuthService authService = AuthService();
@@ -29,6 +38,11 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
   String get senderEmail => authService.currentUser?.email ?? '';
 
   Future<void> fetchContact(String apartmentId) async {
+    if (!hasAccess) {
+      errorMessage = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -47,6 +61,11 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
   }
 
   Future<void> send(String subject, String body) async {
+    if (!hasAccess) {
+      actionError = 'Choose Buyer or Renter to use this feature.';
+      notifyListeners();
+      return;
+    }
     isSending = true;
     actionError = null;
     notifyListeners();
@@ -71,5 +90,11 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
       isSending = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
