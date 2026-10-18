@@ -48,7 +48,42 @@ service cloud.firestore {
       // An apartment can only be reserved as part of the same atomic batch
       // that creates or promotes the linked application.
       allow update: if verified() && hasRole('renter') && validReservation(apartmentId);
-      allow create, delete: if false;
+      // US-24: creation grants ownership only of the new listing.
+      allow create: if verified() && hasRole('homeowner') && validListing();
+      allow delete: if false;
+
+      function validPhoto(photos, index) {
+        return photos.size() <= index ||
+          (photos[index] is string && photos[index].size() <= 131095 &&
+           photos[index].matches('data:image/jpeg;base64,/9j/[A-Za-z0-9+/=]+'));
+      }
+      function textField(value, limit) {
+        return value is string && value.size() <= limit &&
+          value.matches('[\\s\\S]*[^ \\t\\r\\n][\\s\\S]*');
+      }
+      function validListing() {
+        let data = request.resource.data;
+        let fields = ['title', 'address', 'city', 'listingType', 'price', 'rooms',
+          'surface', 'imageUrl', 'imageUrls', 'description', 'availability',
+          'amenities', 'ownerId', 'managerIds', 'createdAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.ownerId == request.auth.uid && data.managerIds == [] &&
+          data.createdAt == request.time && data.availability == 'available' &&
+          textField(data.title, 200) && textField(data.address, 200) &&
+          textField(data.city, 100) && textField(data.description, 5000) &&
+          data.listingType in ['rent', 'sale'] &&
+          data.price is int && data.price >= 1 && data.price <= 1000000000 &&
+          data.rooms is number && data.rooms > 0 && data.rooms <= 100 &&
+          data.surface is int && data.surface >= 1 && data.surface <= 100000 &&
+          data.amenities is list && data.amenities.size() <= 6 &&
+          data.amenities.toSet().size() == data.amenities.size() &&
+          data.amenities.hasOnly(['balcony', 'garden', 'parking', 'elevator', 'furnished', 'cellar']) &&
+          data.imageUrls is list && data.imageUrls.size() >= 3 && data.imageUrls.size() <= 6 &&
+          data.imageUrls.toSet().size() == data.imageUrls.size() && data.imageUrl == data.imageUrls[0] &&
+          validPhoto(data.imageUrls, 0) && validPhoto(data.imageUrls, 1) &&
+          validPhoto(data.imageUrls, 2) && validPhoto(data.imageUrls, 3) &&
+          validPhoto(data.imageUrls, 4) && validPhoto(data.imageUrls, 5);
+      }
 
       function validReservation(apartmentId) {
         let changed = request.resource.data.diff(resource.data).affectedKeys();

@@ -8,6 +8,7 @@ abstract final class AppRoutes {
 
   // Tab 1: Search
   static const apartments = '/apartments';
+  static const createApartment = '/apartments/new';
   static const filters = '/apartments/filters';
   static const compare = '/apartments/compare';
   static String apartmentDetail(String id) => '/apartments/$id';

@@ -11,6 +11,7 @@ import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
 import '../views/apartments/compare_view.dart';
 import '../views/apartments/filters_view.dart';
+import '../views/apartments/create_apartment_view.dart';
 import '../views/applications/application_detail_view.dart';
 import '../views/applications/applications_view.dart';
 import '../views/applications/apply_view.dart';
@@ -89,9 +90,15 @@ GoRouter createAppRouter({
                   compareViewModel: compareViewModel,
                   favouritesViewModel: favouritesViewModel,
                   savedSearchesViewModel: savedSearchesViewModel,
+                  authViewModel: authViewModel,
                 ),
                 routes: [
                   // Static paths must come before ':id' to be matched first.
+                  GoRoute(
+                    path: 'new',
+                    builder: (context, state) =>
+                        CreateApartmentView(authViewModel: authViewModel),
+                  ),
                   GoRoute(
                     path: 'filters',
                     builder: (context, state) =>

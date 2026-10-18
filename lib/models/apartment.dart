@@ -39,13 +39,14 @@ class Apartment {
     required this.description,
     this.availability = ApartmentAvailability.unavailable,
     this.amenities = const {},
+    this.imageUrls = const [],
     this.ownerId,
     this.managerIds = const {},
   });
 
   final String id;
   final String title;
-  // US-07: assigned by trusted admins, never by role selection.
+  // US-24: set to the creator; existing assignments remain immutable.
   final String? ownerId;
   final Set<String> managerIds;
 
@@ -61,6 +62,12 @@ class Apartment {
   final int surface;
 
   final String imageUrl;
+  final List<String> imageUrls;
+
+  /// US-24: old single-image listings remain readable.
+  List<String> get galleryImages => imageUrls.isNotEmpty
+      ? List.unmodifiable(imageUrls)
+      : [if (imageUrl.isNotEmpty) imageUrl];
   final String description;
   // Unknown availability defaults to unavailable so old listings are safe.
   final ApartmentAvailability availability;
@@ -85,6 +92,7 @@ class Apartment {
     rooms: rooms,
     surface: surface,
     imageUrl: imageUrl,
+    imageUrls: imageUrls,
     description: description,
     amenities: amenities,
     ownerId: ownerId,
@@ -108,7 +116,10 @@ class Apartment {
       // Firestore stores 3 as an int and 3.5 as a double: accept both.
       rooms: (map['rooms'] as num).toDouble(),
       surface: map['surface'] as int,
-      imageUrl: map['imageUrl'] as String,
+      imageUrl: map['imageUrl'] as String? ?? '',
+      imageUrls: map['imageUrls'] is List
+          ? List.unmodifiable((map['imageUrls'] as List).whereType<String>())
+          : const [],
       description: map['description'] as String,
       availability: ApartmentAvailability.values.byName(
         map['availability'] as String,
@@ -129,6 +140,7 @@ class Apartment {
       'rooms': rooms,
       'surface': surface,
       'imageUrl': imageUrl,
+      if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       'description': description,
       'availability': availability.name,
       // Firestore has no Set: store a list of names.

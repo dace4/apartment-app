@@ -9,7 +9,7 @@ import '../shared/widgets/message_view.dart';
 import '../../view_models/apartment_detail_view_model.dart';
 import '../../view_models/compare_view_model.dart';
 import '../../view_models/favourites_view_model.dart';
-import 'widgets/apartment_image.dart';
+import 'widgets/apartment_gallery.dart';
 import 'widgets/availability_badge.dart';
 
 class ApartmentDetailView extends StatefulWidget {
@@ -156,7 +156,7 @@ class _ApartmentDetails extends StatelessWidget {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        ApartmentImage(imageUrl: apartment.imageUrl),
+        ApartmentGallery(imageUrls: apartment.galleryImages),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

@@ -89,6 +89,7 @@ class AuthViewModel extends ChangeNotifier {
     if (account == null || !account.isReady) return false;
     bool under(String path) =>
         location == path || location.startsWith('$path/');
+    if (location == AppRoutes.createApartment) return account.isHomeowner;
     if (location.endsWith('/apply-immediately')) return account.isRenter;
     if (under(AppRoutes.applications) ||
         under(AppRoutes.documents) ||
