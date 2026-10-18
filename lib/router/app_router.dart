@@ -16,6 +16,7 @@ import '../views/applications/applications_view.dart';
 import '../views/applications/apply_view.dart';
 import '../views/applications/edit_application_view.dart';
 import '../views/auth/login_view.dart';
+import '../views/auth/choose_roles_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
 import '../views/favourites/favourites_view.dart';
@@ -55,6 +56,10 @@ String? _authRedirect(AuthViewModel authViewModel, GoRouterState state) {
   if (!user.emailVerified) {
     return onVerifyPage ? null : AppRoutes.verifyEmail;
   }
+  if (!user.hasRoles) {
+    return location == AppRoutes.chooseRoles ? null : AppRoutes.chooseRoles;
+  }
+  if (location == AppRoutes.chooseRoles) return AppRoutes.apartments;
   // US-07: a successful log in leads to the home page.
   return onAuthPage || onVerifyPage ? AppRoutes.apartments : null;
 }
@@ -73,6 +78,10 @@ GoRouter createAppRouter({
     refreshListenable: authViewModel,
     redirect: (context, state) => _authRedirect(authViewModel, state),
     routes: [
+      GoRoute(
+        path: AppRoutes.chooseRoles,
+        builder: (context, state) => ChooseRolesView(viewModel: authViewModel),
+      ),
       // Full-screen pages without the bottom navigation bar.
       GoRoute(
         path: AppRoutes.login,

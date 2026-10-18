@@ -5,6 +5,17 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+    // US-06: unverified accounts may only prepare their own role profile.
+    match /users/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['roles']) &&
+        request.resource.data.roles is list && request.resource.data.roles.size() >= 1 &&
+        request.resource.data.roles.size() <= 4 &&
+        request.resource.data.roles.toSet().size() == request.resource.data.roles.size() &&
+        request.resource.data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+      allow list, delete: if false;
+    }
     function verified() {
       // Rules use the signed token claim, not a value supplied by the contact form.
       return request.auth != null && request.auth.token.email_verified == true;
