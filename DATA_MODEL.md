@@ -31,7 +31,7 @@ erDiagram
     apartments {
         string id PK "auto ID"
         string title
-        string ownerId FK "admin-managed; optional for legacy listings"
+        string ownerId FK "US-24 creator UID; admin-managed on legacy listings"
         array managerIds FK "admin-managed assigned UIDs"
         string address
         string city
@@ -39,7 +39,9 @@ erDiagram
         int price "CHF, per month for a rent"
         number rooms "int or double, e.g. 3.5"
         int surface "m2"
-        string imageUrl
+        string imageUrl "cover; legacy network URL or inline JPEG"
+        array imageUrls "US-24: 3-6 distinct bounded inline JPEGs"
+        timestamp createdAt "US-24 server publication time"
         string description
         string availability "available | reserved | unavailable"
         array amenities "balcony, garden, parking, elevator, furnished, cellar"
@@ -162,7 +164,7 @@ erDiagram
 | Collection | Story | Written by | What the app may do |
 | --- | --- | --- | --- |
 | `users` | US-06/07 | App | Get and replace own role profile; no list or delete |
-| `apartments` | US 4, 5, 8 | Firebase console | Read |
+| `apartments` | US 4, 5, 8, 24 | Firebase console or verified homeowner (US-24) | Read; create own listing (US-24) |
 | `favourites` | US 22 | App | Create and delete the user's own; no update |
 | `applications` | US 16 | App | Create; edit or withdraw within 5 days while `submitted` or `underReview`; no delete |
 | `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
@@ -220,8 +222,33 @@ signatures) additionally require Buyer or Renter. Immediate reservation requires
 Notifications and preferences remain available to any completed, verified account.
 
 `apartments.ownerId` is a Firebase Auth UID. `managerIds` is an array of assigned UIDs.
-Only trusted console/admin operations manage these fields. Client model serialization
-omits both fields; copyWith preserves them in memory. Missing assignments grant no
+US-24 creation assigns ownerId to the verified homeowner creator and starts managerIds
+empty. Only trusted console/admin operations change existing assignments. General model
+serialization omits both fields; the creation service supplies them and copyWith
+preserves them in memory. Missing assignments grant no
 maintenance permissions. Maintenance requires Homeowner + matching ownerId, or
 Property Manager + membership of managerIds, in addition to existing request-creator
 restrictions. See docs/US-07-access-technical-guide.md for queries and validation.
+
+
+## US-24 publication contract
+
+New listings require title (1–200), address (1–200), city (1–100), description
+(1–5000), `listingType` (`rent`/`sale`), positive integer CHF price (maximum
+1,000,000,000), rooms greater than zero and at most 100, integer surface
+1–100,000 m², and 3–6 distinct pictures. Whitespace-only text is rejected.
+Amenities use the existing six enum names and may be empty.
+
+`ownerId` is always the verified homeowner creator, `managerIds` starts empty,
+`availability` starts `available`, and `createdAt` uses server time. Creation
+cannot change an existing listing or assign management of another property.
+The existing reservation update remains unchanged.
+
+Pictures are normalized from JPEG/PNG (10 MiB, 32 megapixels maximum) into JPEG
+data URIs of at most 96 KiB decoded each, stored in `imageUrls`; `imageUrl` is
+the first picture for existing cards/comparison screens. Including the duplicated
+cover, six maximum-size pictures consume about 896 KiB before metadata, within
+the 1 MiB document limit. No Storage bucket or orphan-file cleanup is required.
+Legacy documents without `imageUrls` keep their `imageUrl` fallback. Server rules
+validate picture count, distinct strings, encoded size and JPEG data-URI shape;
+they cannot decode images or establish that two photos depict different subjects.

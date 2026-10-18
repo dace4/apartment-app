@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/apartment.dart';
+import '../../view_models/auth_view_model.dart';
 import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
@@ -19,12 +20,14 @@ class ApartmentsView extends StatefulWidget {
     required this.compareViewModel,
     required this.favouritesViewModel,
     this.savedSearchesViewModel,
+    this.authViewModel,
     this.title = 'Apartments',
     this.emptyMessage = 'No apartments available right now.',
   });
 
   /// US 23: shows the "Save this search" button when given.
   final SavedSearchesViewModel? savedSearchesViewModel;
+  final AuthViewModel? authViewModel;
 
   /// Shared with the Filters page.
   final ApartmentsViewModel viewModel;
@@ -93,12 +96,20 @@ class _ApartmentsViewState extends State<ApartmentsView> {
         viewModel,
         compareViewModel,
         widget.favouritesViewModel,
+        widget.authViewModel,
       ]),
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
             title: Text(widget.title),
             actions: [
+              if (widget.authViewModel?.canAccess(AppRoutes.createApartment) ==
+                  true)
+                IconButton(
+                  tooltip: 'Add apartment',
+                  icon: const Icon(Icons.add_home_outlined),
+                  onPressed: () => context.go(AppRoutes.createApartment),
+                ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Refresh',
