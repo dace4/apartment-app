@@ -73,7 +73,7 @@ class SavedSearchesView extends StatelessWidget {
             return MessageView(
               icon: Icons.bookmark_border,
               message:
-                  'No saved searches yet. Set filters on the Search tab, '
+                  'No saved searches yet. Set filters on the Home tab, '
                   'then tap the bookmark to save them.',
               actionLabel: 'Go to search',
               onAction: () => context.go(AppRoutes.apartments),

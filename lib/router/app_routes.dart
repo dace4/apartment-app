@@ -6,7 +6,7 @@ abstract final class AppRoutes {
   static const chooseRoles = '/choose-roles';
   static const verifyEmail = '/verify-email';
 
-  // Tab 1: Search
+  // Tab 1: Home
   static const apartments = '/apartments';
   static const createApartment = '/apartments/new';
   static const filters = '/apartments/filters';
