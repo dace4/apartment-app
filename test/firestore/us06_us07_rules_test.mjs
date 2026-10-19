@@ -140,11 +140,12 @@ test('US-06/07 roles and property access', async t => {
     await status(await profile('home',['homeowner']),200);
     await status(await commit([write('maintenanceRequests',`${prefix}-home`,{status:'cancelled'},['updatedAt'],['status'])],token('home')),200);
   });
-  await t.test('buyer cannot bypass renter-only immediate reservation',async()=>{
-    const data={...application(),userId:'buyer',applicationType:'immediate',status:'reserved'};
-    await status(await commit([
-      write('applications',`${prefix}-buyer-immediate`,data,['submittedAt','updatedAt']),
-      write('apartments','apt',{availability:'reserved',reservationApplicationId:`${prefix}-buyer-immediate`},[],['availability','reservationApplicationId'])
-    ],token('buyer')),403);
+  // US 10: an immediate application is only submitted and never reserves.
+  await t.test('buyer cannot submit a renter-only immediate application',async()=>{
+    const data={...application(),userId:'buyer',applicationType:'immediate',status:'submitted'};
+    await status(await commit([write('applications',`${prefix}-buyer-immediate`,data,['submittedAt','updatedAt'])],token('buyer')),403);
+  });
+  await t.test('no client can reserve an apartment',async()=>{
+    await status(await commit([write('apartments','apt',{availability:'reserved'},[],['availability'])],token('tenant')),403);
   });
 });

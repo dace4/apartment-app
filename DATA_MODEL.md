@@ -64,7 +64,8 @@ erDiagram
         timestamp moveInDate "date only, local midnight"
         int occupants "1-10"
         string message "max 1000, may be empty"
-        string status "submitted | underReview | accepted | rejected | withdrawn"
+        string status "submitted | underReview | accepted | rejected | withdrawn; reserved only on old records"
+        string applicationType "normal | immediate (US 10, never reserves); missing on older ones"
         timestamp submittedAt "server time"
         timestamp updatedAt "server time"
         array documentIds FK "0-5 uploadedDocuments IDs, set once; missing on older ones"
@@ -218,7 +219,7 @@ Only that account may read or replace its profile, including before verification
 
 All protected collection operations require verified email and a valid role profile.
 Consumer collections (favourites, applications, saved searches, contacts, documents,
-signatures) additionally require Buyer or Renter. Immediate reservation requires Renter.
+signatures) additionally require Buyer or Renter. Immediate applications require Renter.
 Notifications and preferences remain available to any completed, verified account.
 
 `apartments.ownerId` is a Firebase Auth UID. `managerIds` is an array of assigned UIDs.
@@ -242,7 +243,7 @@ Amenities use the existing six enum names and may be empty.
 `ownerId` is always the verified homeowner creator, `managerIds` starts empty,
 `availability` starts `available`, and `createdAt` uses server time. Creation
 cannot change an existing listing or assign management of another property.
-The existing reservation update remains unchanged.
+The app can no longer change an existing listing (US 10: applying never reserves).
 
 Pictures are normalized from JPEG/PNG (10 MiB, 32 megapixels maximum) into JPEG
 data URIs of at most 96 KiB decoded each, stored in `imageUrls`; `imageUrl` is

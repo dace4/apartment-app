@@ -121,18 +121,4 @@ class ApartmentService {
           .toList(),
     );
   }
-
-  /// Whether a different application's immediate reservation won this listing.
-  Future<bool> isReservedByAnotherApplication(
-    String apartmentId,
-    String applicationId,
-  ) async {
-    final data = (await _collection.doc(apartmentId).get()).data();
-    if (data == null) return false;
-
-    final holder = data['reservationApplicationId'];
-    return data['availability'] == ApartmentAvailability.reserved.name &&
-        holder is String &&
-        holder != applicationId;
-  }
 }

@@ -1,3 +1,7 @@
+> **Superseded (US 10 fix):** Apply immediately no longer reserves the apartment.
+> It now only submits an application marked `immediate`. See
+> `docs/US-10-technical-guide.md`. This plan is kept for history.
+
 # Apply Immediately — no-Blaze implementation plan
 
 ## Goal

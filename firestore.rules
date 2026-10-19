@@ -45,9 +45,9 @@ service cloud.firestore {
     }
     match /apartments/{apartmentId} {
       allow read: if verified();
-      // An apartment can only be reserved as part of the same atomic batch
-      // that creates or promotes the linked application.
-      allow update: if verified() && hasRole('renter') && validReservation(apartmentId);
+      // US 10: applying never reserves an apartment, so the app cannot change
+      // availability. Existing reserved listings stay as they are.
+      allow update: if false;
       // US-24: creation grants ownership only of the new listing.
       allow create: if verified() && hasRole('homeowner') && validListing();
       allow delete: if false;
@@ -83,20 +83,6 @@ service cloud.firestore {
           validPhoto(data.imageUrls, 0) && validPhoto(data.imageUrls, 1) &&
           validPhoto(data.imageUrls, 2) && validPhoto(data.imageUrls, 3) &&
           validPhoto(data.imageUrls, 4) && validPhoto(data.imageUrls, 5);
-      }
-
-      function validReservation(apartmentId) {
-        let changed = request.resource.data.diff(resource.data).affectedKeys();
-        let application = getAfter(
-          /databases/$(database)/documents/applications/$(request.resource.data.reservationApplicationId)
-        ).data;
-        return resource.data.availability == 'available' &&
-          changed.hasOnly(['availability', 'reservationApplicationId']) &&
-          request.resource.data.availability == 'reserved' &&
-          request.resource.data.reservationApplicationId is string &&
-          application.userId == request.auth.uid &&
-          application.apartmentId == apartmentId &&
-          application.status == 'reserved';
       }
     }
     // US-11: one drawing per account, replaceable under the same ID.
@@ -279,10 +265,8 @@ service cloud.firestore {
       // Queries must filter on userId == the current UID.
       allow list: if verified() && consumer() && owner();
       allow create: if verified() && consumer() && validNewApplication();
-      allow update: if verified() && consumer() && owner() &&
-        ((changeable() &&
-          (validEdit() || validWithdraw() || validImmediateReservation())) ||
-          validWithdrawBecauseReserved());
+      allow update: if verified() && consumer() && owner() && changeable() &&
+        (validEdit() || validWithdraw());
       allow delete: if false;
 
       function validNewApplication() {
@@ -298,26 +282,14 @@ service cloud.firestore {
           data.apartmentTitle.size() <= 200 &&
           validDetails(data) && moveInNotPast(data) &&
           data.submittedAt == request.time && data.updatedAt == request.time &&
-          (validNormalApplication(data) || validImmediateApplication(data));
-      }
-      function validNormalApplication(data) {
-        return data.applicationType == 'normal' && data.status == 'submitted' &&
-          apartmentIsAvailable(data.apartmentId);
-      }
-      function validImmediateApplication(data) {
-        return hasRole('renter') && data.applicationType == 'immediate' && data.status == 'reserved' &&
-          reservationIsLinked(data);
+          data.status == 'submitted' && apartmentIsAvailable(data.apartmentId) &&
+          // US 10: an immediate application is only submitted (renters only).
+          (data.applicationType == 'normal' ||
+            (data.applicationType == 'immediate' && hasRole('renter')));
       }
       function apartmentIsAvailable(apartmentId) {
         return get(/databases/$(database)/documents/apartments/$(apartmentId))
           .data.availability == 'available';
-      }
-      function reservationIsLinked(data) {
-        let apartment = getAfter(
-          /databases/$(database)/documents/apartments/$(data.apartmentId)
-        ).data;
-        return apartment.availability == 'reserved' &&
-          apartment.reservationApplicationId == applicationId;
       }
       function validEdit() {
         let data = request.resource.data;
@@ -333,30 +305,6 @@ service cloud.firestore {
         return data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'updatedAt']) &&
           data.status == 'withdrawn' && data.updatedAt == request.time;
-      }
-      // A normal application may be withdrawn even after five days when a
-      // different application has already reserved its apartment.
-      function validWithdrawBecauseReserved() {
-        let data = request.resource.data;
-        let apartment = get(
-          /databases/$(database)/documents/apartments/$(resource.data.apartmentId)
-        ).data;
-        return resource.data.status in ['submitted', 'underReview'] &&
-          data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          data.status == 'withdrawn' && data.updatedAt == request.time &&
-          apartment.availability == 'reserved' &&
-          apartment.reservationApplicationId is string &&
-          apartment.reservationApplicationId != applicationId;
-      }
-      function validImmediateReservation() {
-        let data = request.resource.data;
-        return hasRole('renter') && data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          (!resource.data.keys().hasAny(['applicationType']) ||
-            resource.data.applicationType == 'normal') &&
-          data.status == 'reserved' && data.updatedAt == request.time &&
-          reservationIsLinked(data);
       }
     }
     // US-17: each property manager only sees and changes their own

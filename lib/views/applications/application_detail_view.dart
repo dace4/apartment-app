@@ -28,11 +28,6 @@ class ApplicationDetailView extends StatefulWidget {
 
 class _ApplicationDetailViewState extends State<ApplicationDetailView> {
   late final viewModel = ApplicationDetailViewModel(
-    canApplyImmediately: () =>
-        widget.authViewModel?.canAccess(
-          AppRoutes.applyImmediately(widget.applicationId),
-        ) ==
-        true,
     canAccess: () =>
         widget.authViewModel?.canAccess(AppRoutes.applications) == true,
   );
@@ -71,14 +66,6 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
       ),
     );
     if (confirmed == true) viewModel.withdraw();
-  }
-
-  Future<void> _applyImmediately() async {
-    final reserved = await viewModel.applyImmediately();
-    if (reserved && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Apartment reserved.')));
-    }
   }
 
   @override
@@ -179,20 +166,6 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
                         ),
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Edit'),
-                ),
-                const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed:
-                      viewModel.canApplyImmediately && !viewModel.isReserving
-                      ? _applyImmediately
-                      : null,
-                  icon: viewModel.isReserving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.bolt),
-                  label: const Text('Apply immediately'),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
