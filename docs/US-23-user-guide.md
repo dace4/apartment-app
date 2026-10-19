@@ -6,11 +6,12 @@ matching it appears.
 ## Save a search
 
 1. Log in with a verified email address.
-2. On the **Search** tab, open **Filters** and choose your criteria: location,
+2. On the **Home** tab, open **Filters** and choose your criteria: location,
    rent or buy, price range, rooms, surface and amenities. Select **Apply filters**.
-3. Tap the bookmark button (**Save this search**) at the top of the list. It is
-   disabled while no filter is active, because such a search would match every
-   offer.
+3. A **Save this search?** card appears above the list. Select **Save**, or
+   **Not now** to hide it. You can also tap the bookmark button (**Save this
+   search**) at the top of the list; it is disabled while no filter is active,
+   because such a search would match every offer.
 4. Give the search a name (at most 40 characters) and select **Save**.
 
 The apartments that already match when you save do not alert you: only offers
@@ -18,7 +19,8 @@ that appear afterwards do. You can save up to 5 searches.
 
 ## Manage your saved searches
 
-Open **Profile → Saved searches**. For each search you can:
+Open **Profile → Saved searches**. The newest search is listed first. For each
+search you can:
 
 - switch **Alerts for new offers** off or on;
 - select **Show results** to open the apartment list with its filters;

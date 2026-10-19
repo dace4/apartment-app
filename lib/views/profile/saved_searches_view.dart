@@ -23,7 +23,8 @@ class SavedSearchesView extends StatelessWidget {
   final ApartmentsViewModel apartmentsViewModel;
 
   void _showResults(BuildContext context, SavedSearch search) {
-    apartmentsViewModel.applyFilter(search.filter);
+    // Already saved: no need to offer saving it again.
+    apartmentsViewModel.applyFilter(search.filter, askToSave: false);
     context.go(AppRoutes.apartments);
   }
 

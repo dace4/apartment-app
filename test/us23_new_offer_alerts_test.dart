@@ -14,6 +14,7 @@ import 'package:appartment_app_group_2/services/auth_service.dart';
 import 'package:appartment_app_group_2/services/notification_service.dart';
 import 'package:appartment_app_group_2/services/saved_search_service.dart';
 import 'package:appartment_app_group_2/view_models/saved_searches_view_model.dart';
+import 'package:appartment_app_group_2/view_models/apartments_view_model.dart';
 
 class FakeAuthService extends Fake implements AuthService {
   final users = StreamController<AppUser?>.broadcast();
@@ -281,6 +282,63 @@ void main() {
       expect(saved, isFalse);
       expect(viewModel.actionError, isNotNull);
       expect(searches.seenWhenCreated, isNull);
+    });
+  });
+
+  group('US-23 save prompt and ordering', () {
+    test('saved searches are listed newest first', () async {
+      final auth = FakeAuthService();
+      final searches = FakeSavedSearchService();
+      final notifications = FakeNotificationService();
+      final viewModel = SavedSearchesViewModel(
+        authService: auth,
+        savedSearchService: searches,
+        apartmentService: FakeApartmentService(),
+        notificationService: notifications,
+      );
+      auth.users.add(
+        const AppUser(
+          id: 'u1',
+          email: 'u1@example.test',
+          emailVerified: true,
+          roles: {UserRole.renter},
+        ),
+      );
+      await _settle();
+
+      SavedSearch search(String id, int day) => SavedSearch(
+        id: id,
+        name: id,
+        filter: _filter,
+        alertsEnabled: true,
+        seenApartmentIds: const {},
+        createdAt: DateTime(2026, 10, day),
+      );
+      searches.emit([search('old', 1), search('new', 3), search('mid', 2)]);
+      await _settle();
+
+      expect(viewModel.searches.map((s) => s.id), ['new', 'mid', 'old']);
+      viewModel.dispose();
+    });
+
+    test('the save prompt appears only after applying filters', () {
+      final list = ApartmentsViewModel(service: FakeApartmentService());
+      expect(list.askToSaveSearch, isFalse);
+
+      list.applyFilter(_filter);
+      expect(list.askToSaveSearch, isTrue);
+
+      list.dismissSaveSearch();
+      expect(list.askToSaveSearch, isFalse);
+
+      // No criteria, a reset, or an already saved search: no prompt.
+      list.applyFilter(const ApartmentFilter());
+      expect(list.askToSaveSearch, isFalse);
+      list.applyFilter(_filter);
+      list.clearFilters();
+      expect(list.askToSaveSearch, isFalse);
+      list.applyFilter(_filter, askToSave: false);
+      expect(list.askToSaveSearch, isFalse);
     });
   });
 }

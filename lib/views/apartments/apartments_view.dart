@@ -77,6 +77,7 @@ class _ApartmentsViewState extends State<ApartmentsView> {
 
     final saved = await savedSearches.save(name, viewModel.filter);
     if (!mounted) return;
+    if (saved) viewModel.dismissSaveSearch();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -164,6 +165,35 @@ class _ApartmentsViewState extends State<ApartmentsView> {
           body: Column(
             children: [
               _AvailabilityChips(viewModel: viewModel),
+              // US 23: offered right after the filters are applied.
+              if (widget.savedSearchesViewModel != null &&
+                  compareViewModel.allowed &&
+                  viewModel.askToSaveSearch)
+                Card(
+                  margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Column(
+                    children: [
+                      const ListTile(
+                        leading: Icon(Icons.bookmark_add_outlined),
+                        title: Text('Save this search?'),
+                        subtitle: Text('Get alerts for new matching offers.'),
+                      ),
+                      OverflowBar(
+                        alignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: viewModel.dismissSaveSearch,
+                            child: const Text('Not now'),
+                          ),
+                          TextButton(
+                            onPressed: _saveSearch,
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(child: _buildList()),
             ],
           ),

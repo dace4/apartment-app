@@ -20,11 +20,9 @@ class SavedSearchService {
         .where('userId', isEqualTo: _userId)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => SavedSearch.fromMap(doc.id, doc.data()))
-                  .toList()
-                ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+          (snapshot) => snapshot.docs
+              .map((doc) => SavedSearch.fromMap(doc.id, doc.data()))
+              .toList(),
         );
   }
 
