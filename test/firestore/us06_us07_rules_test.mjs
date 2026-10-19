@@ -140,11 +140,49 @@ test('US-06/07 roles and property access', async t => {
     await status(await profile('home',['homeowner']),200);
     await status(await commit([write('maintenanceRequests',`${prefix}-home`,{status:'cancelled'},['updatedAt'],['status'])],token('home')),200);
   });
-  await t.test('buyer cannot bypass renter-only immediate reservation',async()=>{
-    const data={...application(),userId:'buyer',applicationType:'immediate',status:'reserved'};
-    await status(await commit([
-      write('applications',`${prefix}-buyer-immediate`,data,['submittedAt','updatedAt']),
-      write('apartments','apt',{availability:'reserved',reservationApplicationId:`${prefix}-buyer-immediate`},[],['availability','reservationApplicationId'])
-    ],token('buyer')),403);
+  // US 10: an immediate application is only submitted and never reserves.
+  await t.test('buyer cannot submit a renter-only immediate application',async()=>{
+    const data={...application(),userId:'buyer',applicationType:'immediate',status:'submitted'};
+    await status(await commit([write('applications',`${prefix}-buyer-immediate`,data,['submittedAt','updatedAt'])],token('buyer')),403);
+  });
+  await t.test('no client can reserve an apartment',async()=>{
+    await status(await commit([write('apartments','apt',{availability:'reserved'},[],['availability'])],token('tenant')),403);
+  });
+  // US 16: owners and assigned managers review applications for their apartments.
+  await t.test('only the owner or manager reviews, step by step, and notifies',async()=>{
+    const id=`${prefix}-review`;
+    await status(await commit([write('applications',id,{...application(),apartmentId:'managed',applicationType:'normal'},['submittedAt','updatedAt'])]),200);
+    await status(await request(`/applications/${id}`,token('home')),200);
+    await status(await request(`/applications/${id}`,token('stranger')),403);
+    await status(await query('applications',[['apartmentId','EQUAL','managed']],token('home')),200);
+    await status(await query('applications',[['apartmentId','EQUAL','other']],token('home')),403);
+    const step=to=>write('applications',id,{status:to},['updatedAt'],['status']);
+    const notify=n=>write('notifications',`${prefix}-n${n}`,{userId:'tenant',type:'applicationStatus',title:'Update',
+      body:'',createdAt:{$time:new Date().toISOString()},isRead:false,applicationId:id});
+    await status(await commit([step('accepted')],token('home')),403); // a step cannot be skipped
+    await status(await commit([step('received')],token('stranger')),403);
+    await status(await commit([step('received')],token('tenant')),403);
+    await status(await commit([step('received'),notify(1)],token('home')),200);
+    await status(await commit([notify(2)],token('home')),403); // only with a status change
+    await status(await commit([step('underReview'),notify(3)],token('manager')),200);
+    await status(await commit([step('accepted'),notify(4)],token('home')),200);
+    await status(await commit([step('rejected')],token('home')),403); // decided
+  });
+  // US 12: owners and assigned managers read messages about their apartments.
+  await t.test('only the owner or manager reads messages in the inbox',async()=>{
+    const id=`${prefix}-message`;
+    await status(await admin([write('advertiserMessages',id,{apartmentId:'managed',advertiserId:'adv',senderId:'tenant',
+      senderEmail:'tenant@example.test',subject:'Hi',body:'Question',status:'sent'})]),200);
+    await status(await request(`/advertiserMessages/${id}`,token('manager')),200);
+    await status(await request(`/advertiserMessages/${id}`,token('stranger')),403);
+    await status(await query('advertiserMessages',[['apartmentId','EQUAL','managed']],token('home')),200);
+    await status(await query('advertiserMessages',[['apartmentId','EQUAL','other']],token('home')),403);
+  });
+  // US 12: a listing without advertiser contact can be contacted through its owner.
+  await t.test('a message goes to the listing owner, never to someone else',async()=>{
+    const message=advertiserId=>({apartmentId:'managed',advertiserId,senderId:'tenant',
+      senderEmail:'tenant@example.test',subject:'Hi',body:'Question',status:'sent'});
+    await status(await commit([write('advertiserMessages',`${prefix}-to-owner`,message('home'),['createdAt'])]),200);
+    await status(await commit([write('advertiserMessages',`${prefix}-to-other`,message('someone'),['createdAt'])]),403);
   });
 });

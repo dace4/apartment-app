@@ -28,11 +28,6 @@ class ApplicationDetailView extends StatefulWidget {
 
 class _ApplicationDetailViewState extends State<ApplicationDetailView> {
   late final viewModel = ApplicationDetailViewModel(
-    canApplyImmediately: () =>
-        widget.authViewModel?.canAccess(
-          AppRoutes.applyImmediately(widget.applicationId),
-        ) ==
-        true,
     canAccess: () =>
         widget.authViewModel?.canAccess(AppRoutes.applications) == true,
   );
@@ -71,14 +66,6 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
       ),
     );
     if (confirmed == true) viewModel.withdraw();
-  }
-
-  Future<void> _applyImmediately() async {
-    final reserved = await viewModel.applyImmediately();
-    if (reserved && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Apartment reserved.')));
-    }
   }
 
   @override
@@ -181,20 +168,6 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
                   label: const Text('Edit'),
                 ),
                 const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed:
-                      viewModel.canApplyImmediately && !viewModel.isReserving
-                      ? _applyImmediately
-                      : null,
-                  icon: viewModel.isReserving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.bolt),
-                  label: const Text('Apply immediately'),
-                ),
-                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: viewModel.isWithdrawing ? null : _withdraw,
                   icon: viewModel.isWithdrawing
@@ -237,7 +210,9 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
       ApplicationStatus.withdrawn => 'You withdrew this application.',
       ApplicationStatus.accepted => 'Your application was accepted.',
       ApplicationStatus.rejected => 'Your application was not accepted.',
-      ApplicationStatus.submitted || ApplicationStatus.underReview =>
+      ApplicationStatus.submitted ||
+      ApplicationStatus.received ||
+      ApplicationStatus.underReview =>
         'The 5 days to edit or withdraw this application have passed.',
     };
   }

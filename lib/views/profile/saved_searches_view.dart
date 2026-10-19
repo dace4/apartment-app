@@ -23,7 +23,8 @@ class SavedSearchesView extends StatelessWidget {
   final ApartmentsViewModel apartmentsViewModel;
 
   void _showResults(BuildContext context, SavedSearch search) {
-    apartmentsViewModel.applyFilter(search.filter);
+    // Already saved: no need to offer saving it again.
+    apartmentsViewModel.applyFilter(search.filter, askToSave: false);
     context.go(AppRoutes.apartments);
   }
 
@@ -73,7 +74,7 @@ class SavedSearchesView extends StatelessWidget {
             return MessageView(
               icon: Icons.bookmark_border,
               message:
-                  'No saved searches yet. Set filters on the Search tab, '
+                  'No saved searches yet. Set filters on the Home tab, '
                   'then tap the bookmark to save them.',
               actionLabel: 'Go to search',
               onAction: () => context.go(AppRoutes.apartments),

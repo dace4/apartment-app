@@ -106,7 +106,9 @@ class AuthViewModel extends ChangeNotifier {
     }
     if (under(AppRoutes.insurance)) return account.isRenter;
     if (under(AppRoutes.contractors)) return account.isHomeowner;
-    if (under(AppRoutes.maintenance)) return account.hasManagementRole;
+    if (under(AppRoutes.maintenance) || under(AppRoutes.inbox)) {
+      return account.hasManagementRole;
+    }
     return true;
   }
 

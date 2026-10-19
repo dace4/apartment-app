@@ -113,6 +113,23 @@ class ApartmentService {
     });
   }
 
+  /// US 16: the apartments [user] owns (Homeowner) or manages (Property
+  /// Manager).
+  Future<List<Apartment>> getManagedApartments(AppUser user) async {
+    final snapshots = await Future.wait([
+      if (user.isHomeowner)
+        _collection.where('ownerId', isEqualTo: user.id).get(),
+      if (user.isPropertyManager)
+        _collection.where('managerIds', arrayContains: user.id).get(),
+    ]);
+    // An apartment both owned and managed appears once.
+    return {
+      for (final snapshot in snapshots)
+        for (final doc in snapshot.docs)
+          doc.id: Apartment.fromMap(doc.id, doc.data()),
+    }.values.toList();
+  }
+
   /// US 23: live list, so new offers are noticed while the app is open.
   Stream<List<Apartment>> watchApartments() {
     return _collection.snapshots().map(
@@ -120,19 +137,5 @@ class ApartmentService {
           .map((doc) => Apartment.fromMap(doc.id, doc.data()))
           .toList(),
     );
-  }
-
-  /// Whether a different application's immediate reservation won this listing.
-  Future<bool> isReservedByAnotherApplication(
-    String apartmentId,
-    String applicationId,
-  ) async {
-    final data = (await _collection.doc(apartmentId).get()).data();
-    if (data == null) return false;
-
-    final holder = data['reservationApplicationId'];
-    return data['availability'] == ApartmentAvailability.reserved.name &&
-        holder is String &&
-        holder != applicationId;
   }
 }

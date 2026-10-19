@@ -6,7 +6,7 @@ abstract final class AppRoutes {
   static const chooseRoles = '/choose-roles';
   static const verifyEmail = '/verify-email';
 
-  // Tab 1: Search
+  // Tab 1: Home
   static const apartments = '/apartments';
   static const createApartment = '/apartments/new';
   static const filters = '/apartments/filters';
@@ -51,5 +51,9 @@ abstract final class AppRoutes {
   static const notifications = '/profile/notifications';
   // US-23: saved searches and their new-offer alerts.
   static const savedSearches = '/profile/saved-searches';
+  // US 16: applications received by owners and managers.
+  static const inbox = '/profile/inbox';
+  static String inboxApplication(String id) => '$inbox/applications/$id';
+  static String inboxMessage(String id) => '$inbox/messages/$id';
   static const faq = '/profile/faq';
 }

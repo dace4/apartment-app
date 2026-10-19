@@ -6,7 +6,6 @@ import '../models/rental_application.dart';
 import '../models/app_user.dart';
 import '../models/document_upload.dart';
 import 'document_exception.dart';
-import 'reservation_exceptions.dart';
 
 /// US 16: applications are stored in the Firestore collection `applications`.
 /// firestore.rules only lets users read and change their own applications,
@@ -74,26 +73,14 @@ class ApplicationService {
     return RentalApplication.fromMap(doc.id, doc.data()!);
   }
 
-  DocumentReference<Map<String, dynamic>> _apartmentRef(String apartmentId) =>
-      _db.collection('apartments').doc(apartmentId);
-
-  Map<String, Object> _reservationFields(String applicationId) => {
-    'availability': ApartmentAvailability.reserved.name,
-    'reservationApplicationId': applicationId,
-  };
-
-  void _ensureAvailable(DocumentSnapshot<Map<String, dynamic>> apartment) {
-    if (apartment.data()?['availability'] !=
-        ApartmentAvailability.available.name) {
-      throw const ApartmentUnavailableException();
-    }
-  }
-
+  /// US 10: an immediate application is only submitted, like a normal one.
+  /// The apartment is never reserved here and its availability is unchanged.
   Future<void> submit(
     Apartment apartment,
     ApplicationDetails details, {
     List<String> documentIds = const [],
     String? submissionId,
+    ApplicationType type = ApplicationType.normal,
   }) async {
     // US-15: the application and first-use markers commit together.
     if (documentIds.length > DocumentUpload.maxAttachments ||
@@ -129,7 +116,7 @@ class ApplicationService {
         'apartmentId': apartment.id,
         'apartmentTitle': apartment.title,
         ...details.toMap(),
-        'applicationType': ApplicationType.normal.name,
+        'applicationType': type.name,
         'status': ApplicationStatus.submitted.name,
         'submittedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -145,57 +132,49 @@ class ApplicationService {
 
   String newSubmissionId() => _collection.doc().id;
 
-  /// Creates the application and reserves its apartment in one atomic
-  /// transaction. Throws [ApartmentUnavailableException] if it was just taken.
-  Future<void> submitImmediately(
-    Apartment apartment,
-    ApplicationDetails details,
-  ) async {
-    final application = _collection.doc();
-    final apartmentRef = _apartmentRef(apartment.id);
-
-    await _db.runTransaction((transaction) async {
-      // Transactions require all reads before any writes.
-      _ensureAvailable(await transaction.get(apartmentRef));
-
-      transaction.set(application, {
-        'userId': _userId,
-        'apartmentId': apartment.id,
-        'apartmentTitle': apartment.title,
-        ...details.toMap(),
-        'applicationType': ApplicationType.immediate.name,
-        'status': ApplicationStatus.reserved.name,
-        'submittedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      transaction.update(apartmentRef, _reservationFields(application.id));
-    });
-  }
-
-  /// Promotes the user's still-changeable normal application to a reservation.
-  /// Throws [ApartmentUnavailableException] if the apartment was just taken.
-  Future<void> reserveImmediately(RentalApplication application) async {
-    if (!application.status.isOpen) {
-      throw StateError('Only an open application can be promoted.');
-    }
-    final apartmentRef = _apartmentRef(application.apartmentId);
-
-    await _db.runTransaction((transaction) async {
-      _ensureAvailable(await transaction.get(apartmentRef));
-
-      transaction.update(_collection.doc(application.id), {
-        'status': ApplicationStatus.reserved.name,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      transaction.update(apartmentRef, _reservationFields(application.id));
-    });
-  }
-
   Future<void> update(String id, ApplicationDetails details) {
     return _collection.doc(id).update({
       ...details.toMap(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// US 16: the applications received for the owner's or manager's
+  /// apartments, newest first. Queried 5 apartments at a time, so
+  /// firestore.rules can check that the user manages each apartment.
+  Future<List<RentalApplication>> getApplicationsForApartments(
+    List<String> apartmentIds,
+  ) async {
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (var i = 0; i < apartmentIds.length; i += 5) {
+      final snapshot = await _collection
+          .where('apartmentId', whereIn: apartmentIds.skip(i).take(5).toList())
+          .get();
+      docs.addAll(snapshot.docs);
+    }
+    return _toSortedList(docs);
+  }
+
+  /// US 16: the owner or manager moves the application to its next status.
+  /// The applicant is notified in the same batch: both are saved, or neither.
+  Future<void> review(RentalApplication application, ApplicationStatus status) {
+    final title = 'Application update: ${application.apartmentTitle}';
+    final batch = _db.batch();
+    batch.update(_collection.doc(application.id), {
+      'status': status.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(_db.collection('notifications').doc(), {
+      'userId': application.userId,
+      'type': 'applicationStatus',
+      // firestore.rules accept titles of at most 120 characters.
+      'title': title.length <= 120 ? title : '${title.substring(0, 119)}…',
+      'body': 'Your application is now: ${status.label}.',
+      'createdAt': Timestamp.now(),
+      'isRead': false,
+      'applicationId': application.id,
+    });
+    return batch.commit();
   }
 
   Future<void> withdraw(String id) {

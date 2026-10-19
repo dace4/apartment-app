@@ -79,6 +79,18 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
               // US-23: saved searches and their new-offer alerts.
+              if (viewModel.canAccess(AppRoutes.inbox))
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.inbox_outlined),
+                    title: const Text('Inbox'),
+                    subtitle: const Text(
+                      'Applications and messages for your apartments',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.go(AppRoutes.inbox),
+                  ),
+                ),
               if (viewModel.canAccess(AppRoutes.savedSearches))
                 Card(
                   child: ListTile(

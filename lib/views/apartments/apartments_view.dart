@@ -77,6 +77,7 @@ class _ApartmentsViewState extends State<ApartmentsView> {
 
     final saved = await savedSearches.save(name, viewModel.filter);
     if (!mounted) return;
+    if (saved) viewModel.dismissSaveSearch();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -101,7 +102,20 @@ class _ApartmentsViewState extends State<ApartmentsView> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: Text(widget.title),
+            // US 5: the selected filter values are shown under the title.
+            title: viewModel.filter.isEmpty
+                ? Text(widget.title)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.title),
+                      Text(
+                        describeFilter(viewModel.filter),
+                        style: Theme.of(context).textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
             actions: [
               if (widget.authViewModel?.canAccess(AppRoutes.createApartment) ==
                   true)
@@ -151,6 +165,35 @@ class _ApartmentsViewState extends State<ApartmentsView> {
           body: Column(
             children: [
               _AvailabilityChips(viewModel: viewModel),
+              // US 23: offered right after the filters are applied.
+              if (widget.savedSearchesViewModel != null &&
+                  compareViewModel.allowed &&
+                  viewModel.askToSaveSearch)
+                Card(
+                  margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Column(
+                    children: [
+                      const ListTile(
+                        leading: Icon(Icons.bookmark_add_outlined),
+                        title: Text('Save this search?'),
+                        subtitle: Text('Get alerts for new matching offers.'),
+                      ),
+                      OverflowBar(
+                        alignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: viewModel.dismissSaveSearch,
+                            child: const Text('Not now'),
+                          ),
+                          TextButton(
+                            onPressed: _saveSearch,
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(child: _buildList()),
             ],
           ),

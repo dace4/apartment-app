@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// US 16: where an application is in the process, with its user-facing label.
+/// `reserved` only exists on applications stored before the US 10 fix.
 enum ApplicationStatus {
-  submitted('Submitted'),
-  underReview('Under review'),
+  submitted('Applied'),
+  received('Received'),
+  underReview('In review'),
   reserved('Reserved'),
   accepted('Accepted'),
   rejected('Rejected'),
@@ -22,7 +24,21 @@ enum ApplicationStatus {
   /// withdrawn.
   bool get isOpen =>
       this == ApplicationStatus.submitted ||
+      this == ApplicationStatus.received ||
       this == ApplicationStatus.underReview;
+
+  /// US 16: the statuses the owner or manager can choose next:
+  /// Applied → Received → In review → Accepted or Rejected.
+  /// firestore.rules allow the same transitions.
+  List<ApplicationStatus> get reviewSteps => switch (this) {
+    ApplicationStatus.submitted => [ApplicationStatus.received],
+    ApplicationStatus.received => [ApplicationStatus.underReview],
+    ApplicationStatus.underReview => [
+      ApplicationStatus.accepted,
+      ApplicationStatus.rejected,
+    ],
+    _ => [],
+  };
 }
 
 /// Whether this was a regular application or an immediate reservation.

@@ -13,7 +13,10 @@ class ApartmentsViewModel extends ChangeNotifier {
     if (!_disposed) super.notifyListeners();
   }
 
-  final ApartmentService service = ApartmentService();
+  ApartmentsViewModel({ApartmentService? service})
+    : service = service ?? ApartmentService();
+
+  final ApartmentService service;
 
   List<Apartment> apartments = [];
   bool isLoading = false;
@@ -24,6 +27,9 @@ class ApartmentsViewModel extends ChangeNotifier {
 
   /// Criteria chosen on the Filters page.
   ApartmentFilter filter = const ApartmentFilter();
+
+  /// US 23: true right after filters are applied, to offer saving them.
+  bool askToSaveSearch = false;
 
   /// The apartments matching both the availability and the filter.
   List<Apartment> get visibleApartments => apartments
@@ -56,14 +62,22 @@ class ApartmentsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyFilter(ApartmentFilter value) {
+  /// [askToSave] is false when the filter comes from a saved search.
+  void applyFilter(ApartmentFilter value, {bool askToSave = true}) {
     filter = value;
+    askToSaveSearch = askToSave && !value.isEmpty;
+    notifyListeners();
+  }
+
+  void dismissSaveSearch() {
+    askToSaveSearch = false;
     notifyListeners();
   }
 
   void clearFilters() {
     availability = null;
     filter = const ApartmentFilter();
+    askToSaveSearch = false;
     notifyListeners();
   }
 

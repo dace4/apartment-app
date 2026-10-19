@@ -158,7 +158,9 @@ class SavedSearchesViewModel extends ChangeNotifier {
     _subscriptions.add(
       searchService.watchMySearches().listen(
         (value) {
-          searches = value;
+          // Newest first.
+          searches = [...value]
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
           _searchesLoaded = true;
           isLoading = false;
           notifyListeners();

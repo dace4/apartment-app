@@ -64,7 +64,8 @@ erDiagram
         timestamp moveInDate "date only, local midnight"
         int occupants "1-10"
         string message "max 1000, may be empty"
-        string status "submitted | underReview | accepted | rejected | withdrawn"
+        string status "submitted (Applied) | received | underReview (In review) | accepted | rejected | withdrawn; reserved only on old records"
+        string applicationType "normal | immediate (US 10, never reserves); missing on older ones"
         timestamp submittedAt "server time"
         timestamp updatedAt "server time"
         array documentIds FK "0-5 uploadedDocuments IDs, set once; missing on older ones"
@@ -110,6 +111,7 @@ erDiagram
         string body "max 500"
         timestamp createdAt
         bool isRead
+        string applicationId FK "US 16: set when an owner or manager changed the status"
     }
 
     notificationPreferences {
@@ -166,11 +168,11 @@ erDiagram
 | `users` | US-06/07 | App | Get and replace own role profile; no list or delete |
 | `apartments` | US 4, 5, 8, 24 | Firebase console or verified homeowner (US-24) | Read; create own listing (US-24) |
 | `favourites` | US 22 | App | Create and delete the user's own; no update |
-| `applications` | US 16 | App | Create; edit or withdraw within 5 days while `submitted` or `underReview`; no delete |
+| `applications` | US 16 | App | Applicant: create; edit or withdraw within 5 days while `submitted`, `received` or `underReview`. Owner or assigned manager of the apartment (US 16): read and move the status submitted → received → underReview → accepted or rejected; no delete |
 | `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
 | `advertiserContacts` | US 12 | Firebase console | Read |
-| `advertiserMessages` | US 12 | App | Create; read by the sender and the advertiser only; no update or delete |
-| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` only; set `isRead` to true; no delete |
+| `advertiserMessages` | US 12 | App | Create; read by the sender, the advertiser, and the apartment's owner or assigned managers (inbox); no update or delete |
+| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
 | `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |
 | `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |
@@ -218,7 +220,7 @@ Only that account may read or replace its profile, including before verification
 
 All protected collection operations require verified email and a valid role profile.
 Consumer collections (favourites, applications, saved searches, contacts, documents,
-signatures) additionally require Buyer or Renter. Immediate reservation requires Renter.
+signatures) additionally require Buyer or Renter. Immediate applications require Renter.
 Notifications and preferences remain available to any completed, verified account.
 
 `apartments.ownerId` is a Firebase Auth UID. `managerIds` is an array of assigned UIDs.
@@ -242,7 +244,7 @@ Amenities use the existing six enum names and may be empty.
 `ownerId` is always the verified homeowner creator, `managerIds` starts empty,
 `availability` starts `available`, and `createdAt` uses server time. Creation
 cannot change an existing listing or assign management of another property.
-The existing reservation update remains unchanged.
+The app can no longer change an existing listing (US 10: applying never reserves).
 
 Pictures are normalized from JPEG/PNG (10 MiB, 32 megapixels maximum) into JPEG
 data URIs of at most 96 KiB decoded each, stored in `imageUrls`; `imageUrl` is

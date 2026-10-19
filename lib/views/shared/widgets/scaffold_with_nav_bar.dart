@@ -53,7 +53,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
         initialLocation: indices[index] == navigationShell.currentIndex,
       ),
       destinations: [
-        NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Home',
+        ),
         if (authViewModel.canAccess(AppRoutes.favourites))
           NavigationDestination(
             icon: Icon(Icons.favorite_border),

@@ -45,9 +45,9 @@ service cloud.firestore {
     }
     match /apartments/{apartmentId} {
       allow read: if verified();
-      // An apartment can only be reserved as part of the same atomic batch
-      // that creates or promotes the linked application.
-      allow update: if verified() && hasRole('renter') && validReservation(apartmentId);
+      // US 10: applying never reserves an apartment, so the app cannot change
+      // availability. Existing reserved listings stay as they are.
+      allow update: if false;
       // US-24: creation grants ownership only of the new listing.
       allow create: if verified() && hasRole('homeowner') && validListing();
       allow delete: if false;
@@ -83,20 +83,6 @@ service cloud.firestore {
           validPhoto(data.imageUrls, 0) && validPhoto(data.imageUrls, 1) &&
           validPhoto(data.imageUrls, 2) && validPhoto(data.imageUrls, 3) &&
           validPhoto(data.imageUrls, 4) && validPhoto(data.imageUrls, 5);
-      }
-
-      function validReservation(apartmentId) {
-        let changed = request.resource.data.diff(resource.data).affectedKeys();
-        let application = getAfter(
-          /databases/$(database)/documents/applications/$(request.resource.data.reservationApplicationId)
-        ).data;
-        return resource.data.availability == 'available' &&
-          changed.hasOnly(['availability', 'reservationApplicationId']) &&
-          request.resource.data.availability == 'reserved' &&
-          request.resource.data.reservationApplicationId is string &&
-          application.userId == request.auth.uid &&
-          application.apartmentId == apartmentId &&
-          application.status == 'reserved';
       }
     }
     // US-11: one drawing per account, replaceable under the same ID.
@@ -220,11 +206,20 @@ service cloud.firestore {
     match /advertiserMessages/{messageId} {
       // Transactions first read their generated ID. A missing document carries
       // no private data; existing messages remain restricted to participants.
-      allow get: if verified() && consumer() &&
-        (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant());
-      // Queries must constrain senderId or advertiserId to the current UID.
+      allow get: if verified() &&
+        ((consumer() &&
+          (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant())) ||
+         messageReviewer());
+      // Queries must constrain senderId or advertiserId to the current UID,
+      // or (US 12 inbox) apartmentId to apartments the user manages.
       // Broader queries are rejected; rules do not filter out private messages.
-      allow list: if verified() && consumer() && participant();
+      allow list: if verified() && ((consumer() && participant()) || messageReviewer());
+
+      // US 12: a message also belongs to the apartment's owner and managers.
+      function messageReviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
       allow create: if verified() && consumer() && validMessage();
       allow update, delete: if false;
 
@@ -245,8 +240,11 @@ service cloud.firestore {
           data.body is string && data.body.size() <= 2000 &&
           data.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
           data.createdAt == request.time && data.status == 'sent' &&
-          exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
-          get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId;
+          // The recipient is the listing's advertiser contact or, for
+          // listings published in the app (US-24), its owner.
+          ((exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
+            get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId) ||
+           get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data.get('ownerId', '') == data.advertiserId);
       }
     }
     // US 16: each user can only see and change their own applications.
@@ -257,7 +255,7 @@ service cloud.firestore {
       // Acceptance criterion: edit or withdraw within 5 days, and only while
       // the application still waits for a decision.
       function changeable() {
-        return resource.data.status in ['submitted', 'underReview'] &&
+        return resource.data.status in ['submitted', 'received', 'underReview'] &&
           request.time < resource.data.submittedAt + duration.value(5, 'd');
       }
       function validDetails(data) {
@@ -275,15 +273,35 @@ service cloud.firestore {
 
       // Submitting first checks that the generated ID is unused. A missing
       // document carries no private data.
-      allow get: if verified() && consumer() && (resource == null || owner());
-      // Queries must filter on userId == the current UID.
-      allow list: if verified() && consumer() && owner();
+      allow get: if verified() &&
+        ((consumer() && (resource == null || owner())) || reviewer());
+      // Queries must filter on userId == the current UID, or (US 16) on
+      // apartmentId in the apartments the reviewer manages.
+      allow list: if verified() && ((consumer() && owner()) || reviewer());
       allow create: if verified() && consumer() && validNewApplication();
-      allow update: if verified() && consumer() && owner() &&
-        ((changeable() &&
-          (validEdit() || validWithdraw() || validImmediateReservation())) ||
-          validWithdrawBecauseReserved());
+      allow update: if verified() &&
+        ((consumer() && owner() && changeable() &&
+          (validEdit() || validWithdraw())) ||
+         (reviewer() && validReview()));
       allow delete: if false;
+
+      // US 16: the application belongs to the applicant (userId) and is
+      // reviewed by the apartment's owner or assigned property managers.
+      function reviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
+      // Applied → Received → In review → Accepted or Rejected.
+      function validReview() {
+        let data = request.resource.data;
+        let from = resource.data.status;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.updatedAt == request.time &&
+          ((from == 'submitted' && data.status == 'received') ||
+           (from == 'received' && data.status == 'underReview') ||
+           (from == 'underReview' && data.status in ['accepted', 'rejected']));
+      }
 
       function validNewApplication() {
         let data = request.resource.data;
@@ -298,26 +316,14 @@ service cloud.firestore {
           data.apartmentTitle.size() <= 200 &&
           validDetails(data) && moveInNotPast(data) &&
           data.submittedAt == request.time && data.updatedAt == request.time &&
-          (validNormalApplication(data) || validImmediateApplication(data));
-      }
-      function validNormalApplication(data) {
-        return data.applicationType == 'normal' && data.status == 'submitted' &&
-          apartmentIsAvailable(data.apartmentId);
-      }
-      function validImmediateApplication(data) {
-        return hasRole('renter') && data.applicationType == 'immediate' && data.status == 'reserved' &&
-          reservationIsLinked(data);
+          data.status == 'submitted' && apartmentIsAvailable(data.apartmentId) &&
+          // US 10: an immediate application is only submitted (renters only).
+          (data.applicationType == 'normal' ||
+            (data.applicationType == 'immediate' && hasRole('renter')));
       }
       function apartmentIsAvailable(apartmentId) {
         return get(/databases/$(database)/documents/apartments/$(apartmentId))
           .data.availability == 'available';
-      }
-      function reservationIsLinked(data) {
-        let apartment = getAfter(
-          /databases/$(database)/documents/apartments/$(data.apartmentId)
-        ).data;
-        return apartment.availability == 'reserved' &&
-          apartment.reservationApplicationId == applicationId;
       }
       function validEdit() {
         let data = request.resource.data;
@@ -333,30 +339,6 @@ service cloud.firestore {
         return data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'updatedAt']) &&
           data.status == 'withdrawn' && data.updatedAt == request.time;
-      }
-      // A normal application may be withdrawn even after five days when a
-      // different application has already reserved its apartment.
-      function validWithdrawBecauseReserved() {
-        let data = request.resource.data;
-        let apartment = get(
-          /databases/$(database)/documents/apartments/$(resource.data.apartmentId)
-        ).data;
-        return resource.data.status in ['submitted', 'underReview'] &&
-          data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          data.status == 'withdrawn' && data.updatedAt == request.time &&
-          apartment.availability == 'reserved' &&
-          apartment.reservationApplicationId is string &&
-          apartment.reservationApplicationId != applicationId;
-      }
-      function validImmediateReservation() {
-        let data = request.resource.data;
-        return hasRole('renter') && data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          (!resource.data.keys().hasAny(['applicationType']) ||
-            resource.data.applicationType == 'normal') &&
-          data.status == 'reserved' && data.updatedAt == request.time &&
-          reservationIsLinked(data);
       }
     }
     // US-17: each property manager only sees and changes their own
@@ -447,20 +429,37 @@ service cloud.firestore {
         let data = request.resource.data;
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
-          data.keys().hasOnly(fields.concat(['apartmentId'])) &&
-          data.userId == request.auth.uid &&
+          data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId'])) &&
           (
-            (data.type == 'applicationStatus' &&
-              !data.keys().hasAny(['apartmentId'])) ||
-            // US-23: new-offer alerts a user creates for themselves, with the
-            // fixed id uid_search_apartment so an alert never exists twice.
-            (data.type == 'newListing' && data.apartmentId is string &&
-              notificationId.matches(request.auth.uid + '_.+'))
+            (data.userId == request.auth.uid &&
+              !data.keys().hasAny(['applicationId']) &&
+              (
+                (data.type == 'applicationStatus' &&
+                  !data.keys().hasAny(['apartmentId'])) ||
+                // US-23: new-offer alerts a user creates for themselves, with the
+                // fixed id uid_search_apartment so an alert never exists twice.
+                (data.type == 'newListing' && data.apartmentId is string &&
+                  notificationId.matches(request.auth.uid + '_.+'))
+              )) ||
+            validReviewNotification(data)
           ) &&
           data.title is string && data.title.size() > 0 &&
           data.title.size() <= 120 &&
           data.body is string && data.body.size() <= 500 &&
           data.createdAt is timestamp && data.isRead == false;
+      }
+      // US 16: the reviewer notifies the applicant, only in the same batch
+      // that changes the application's status (updatedAt == request.time).
+      function validReviewNotification(data) {
+        return data.type == 'applicationStatus' &&
+          !data.keys().hasAny(['apartmentId']) &&
+          data.applicationId is string &&
+          reviewed(data.applicationId).userId == data.userId &&
+          reviewed(data.applicationId).updatedAt == request.time &&
+          managementRole() && manages(reviewed(data.applicationId).apartmentId);
+      }
+      function reviewed(applicationId) {
+        return getAfter(/databases/$(database)/documents/applications/$(applicationId)).data;
       }
     }
     // US-18: opt-in / opt-out switches, one document per user ID.

@@ -52,16 +52,17 @@ class _ApplyViewState extends State<ApplyView> {
   }
 
   Future<void> _submit(ApplicationDetails details) async {
-    final submitted = widget.applyImmediately
-        ? await viewModel.submitImmediately(details)
-        : await viewModel.submit(details);
+    final submitted = await viewModel.submit(
+      details,
+      immediately: widget.applyImmediately,
+    );
     if (submitted && mounted) {
+      // US 10: submitting never reserves the apartment.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            widget.applyImmediately
-                ? 'Apartment reserved.'
-                : 'Application submitted.',
+            'Application submitted. The apartment is not reserved '
+            'until the owner accepts an application.',
           ),
         ),
       );
@@ -125,6 +126,13 @@ class _ApplyViewState extends State<ApplyView> {
                       '${apartment.city} · ${formatChf(apartment.price)}',
                       style: theme.textTheme.bodyMedium,
                     ),
+                    if (widget.applyImmediately) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Your application is sent to the owner right away. '
+                        'It does not reserve the apartment.',
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     // US-15: optional reusable documents; no signing prerequisite.
                     Text(
