@@ -206,11 +206,20 @@ service cloud.firestore {
     match /advertiserMessages/{messageId} {
       // Transactions first read their generated ID. A missing document carries
       // no private data; existing messages remain restricted to participants.
-      allow get: if verified() && consumer() &&
-        (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant());
-      // Queries must constrain senderId or advertiserId to the current UID.
+      allow get: if verified() &&
+        ((consumer() &&
+          (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant())) ||
+         messageReviewer());
+      // Queries must constrain senderId or advertiserId to the current UID,
+      // or (US 12 inbox) apartmentId to apartments the user manages.
       // Broader queries are rejected; rules do not filter out private messages.
-      allow list: if verified() && consumer() && participant();
+      allow list: if verified() && ((consumer() && participant()) || messageReviewer());
+
+      // US 12: a message also belongs to the apartment's owner and managers.
+      function messageReviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
       allow create: if verified() && consumer() && validMessage();
       allow update, delete: if false;
 

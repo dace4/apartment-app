@@ -7,6 +7,7 @@ import 'package:appartment_app_group_2/models/rental_application.dart';
 import 'package:appartment_app_group_2/models/user_role.dart';
 import 'package:appartment_app_group_2/services/apartment_service.dart';
 import 'package:appartment_app_group_2/services/application_service.dart';
+import 'package:appartment_app_group_2/services/message_service.dart';
 import 'package:appartment_app_group_2/view_models/inbox_view_model.dart';
 import 'package:appartment_app_group_2/view_models/review_application_view_model.dart';
 
@@ -129,6 +130,7 @@ void main() {
           () => owner,
           apartmentService: ApartmentService(firestore: db),
           applicationService: applications,
+          messageService: MessageService(firestore: db),
         );
 
         await inbox.fetchInbox();
@@ -147,6 +149,7 @@ void main() {
         ),
         apartmentService: ApartmentService(firestore: db),
         applicationService: applications,
+        messageService: MessageService(firestore: db),
       );
 
       await inbox.fetchInbox();

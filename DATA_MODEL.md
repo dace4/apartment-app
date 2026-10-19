@@ -171,7 +171,7 @@ erDiagram
 | `applications` | US 16 | App | Applicant: create; edit or withdraw within 5 days while `submitted`, `received` or `underReview`. Owner or assigned manager of the apartment (US 16): read and move the status submitted → received → underReview → accepted or rejected; no delete |
 | `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
 | `advertiserContacts` | US 12 | Firebase console | Read |
-| `advertiserMessages` | US 12 | App | Create; read by the sender and the advertiser only; no update or delete |
+| `advertiserMessages` | US 12 | App | Create; read by the sender, the advertiser, and the apartment's owner or assigned managers (inbox); no update or delete |
 | `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
 | `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |

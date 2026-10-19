@@ -84,7 +84,9 @@ class ProfileView extends StatelessWidget {
                   child: ListTile(
                     leading: const Icon(Icons.inbox_outlined),
                     title: const Text('Inbox'),
-                    subtitle: const Text('Applications for your apartments'),
+                    subtitle: const Text(
+                      'Applications and messages for your apartments',
+                    ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.go(AppRoutes.inbox),
                   ),

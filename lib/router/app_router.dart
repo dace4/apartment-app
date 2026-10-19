@@ -27,6 +27,7 @@ import '../views/signatures/signature_view.dart';
 import '../views/messages/contact_advertiser_view.dart';
 import '../views/profile/faq_view.dart';
 import '../views/profile/inbox_view.dart';
+import '../views/profile/message_detail_view.dart';
 import '../views/profile/review_application_view.dart';
 import '../views/profile/notifications_view.dart';
 import '../views/profile/profile_view.dart';
@@ -298,6 +299,12 @@ GoRouter createAppRouter({
                         path: 'applications/:id',
                         builder: (context, state) => ReviewApplicationView(
                           applicationId: state.pathParameters['id']!,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'messages/:id',
+                        builder: (context, state) => MessageDetailView(
+                          messageId: state.pathParameters['id']!,
                         ),
                       ),
                     ],

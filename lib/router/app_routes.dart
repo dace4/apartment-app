@@ -54,5 +54,6 @@ abstract final class AppRoutes {
   // US 16: applications received by owners and managers.
   static const inbox = '/profile/inbox';
   static String inboxApplication(String id) => '$inbox/applications/$id';
+  static String inboxMessage(String id) => '$inbox/messages/$id';
   static const faq = '/profile/faq';
 }

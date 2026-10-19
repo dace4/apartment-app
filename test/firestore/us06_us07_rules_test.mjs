@@ -168,4 +168,14 @@ test('US-06/07 roles and property access', async t => {
     await status(await commit([step('accepted'),notify(4)],token('home')),200);
     await status(await commit([step('rejected')],token('home')),403); // decided
   });
+  // US 12: owners and assigned managers read messages about their apartments.
+  await t.test('only the owner or manager reads messages in the inbox',async()=>{
+    const id=`${prefix}-message`;
+    await status(await admin([write('advertiserMessages',id,{apartmentId:'managed',advertiserId:'adv',senderId:'tenant',
+      senderEmail:'tenant@example.test',subject:'Hi',body:'Question',status:'sent'})]),200);
+    await status(await request(`/advertiserMessages/${id}`,token('manager')),200);
+    await status(await request(`/advertiserMessages/${id}`,token('stranger')),403);
+    await status(await query('advertiserMessages',[['apartmentId','EQUAL','managed']],token('home')),200);
+    await status(await query('advertiserMessages',[['apartmentId','EQUAL','other']],token('home')),403);
+  });
 });
