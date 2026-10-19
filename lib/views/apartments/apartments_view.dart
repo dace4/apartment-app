@@ -101,7 +101,20 @@ class _ApartmentsViewState extends State<ApartmentsView> {
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(
-            title: Text(widget.title),
+            // US 5: the selected filter values are shown under the title.
+            title: viewModel.filter.isEmpty
+                ? Text(widget.title)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.title),
+                      Text(
+                        describeFilter(viewModel.filter),
+                        style: Theme.of(context).textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
             actions: [
               if (widget.authViewModel?.canAccess(AppRoutes.createApartment) ==
                   true)

@@ -13,7 +13,10 @@ class ApartmentsViewModel extends ChangeNotifier {
     if (!_disposed) super.notifyListeners();
   }
 
-  final ApartmentService service = ApartmentService();
+  ApartmentsViewModel({ApartmentService? service})
+    : service = service ?? ApartmentService();
+
+  final ApartmentService service;
 
   List<Apartment> apartments = [];
   bool isLoading = false;
