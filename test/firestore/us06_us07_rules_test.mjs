@@ -148,4 +148,24 @@ test('US-06/07 roles and property access', async t => {
   await t.test('no client can reserve an apartment',async()=>{
     await status(await commit([write('apartments','apt',{availability:'reserved'},[],['availability'])],token('tenant')),403);
   });
+  // US 16: owners and assigned managers review applications for their apartments.
+  await t.test('only the owner or manager reviews, step by step, and notifies',async()=>{
+    const id=`${prefix}-review`;
+    await status(await commit([write('applications',id,{...application(),apartmentId:'managed',applicationType:'normal'},['submittedAt','updatedAt'])]),200);
+    await status(await request(`/applications/${id}`,token('home')),200);
+    await status(await request(`/applications/${id}`,token('stranger')),403);
+    await status(await query('applications',[['apartmentId','EQUAL','managed']],token('home')),200);
+    await status(await query('applications',[['apartmentId','EQUAL','other']],token('home')),403);
+    const step=to=>write('applications',id,{status:to},['updatedAt'],['status']);
+    const notify=n=>write('notifications',`${prefix}-n${n}`,{userId:'tenant',type:'applicationStatus',title:'Update',
+      body:'',createdAt:{$time:new Date().toISOString()},isRead:false,applicationId:id});
+    await status(await commit([step('accepted')],token('home')),403); // a step cannot be skipped
+    await status(await commit([step('received')],token('stranger')),403);
+    await status(await commit([step('received')],token('tenant')),403);
+    await status(await commit([step('received'),notify(1)],token('home')),200);
+    await status(await commit([notify(2)],token('home')),403); // only with a status change
+    await status(await commit([step('underReview'),notify(3)],token('manager')),200);
+    await status(await commit([step('accepted'),notify(4)],token('home')),200);
+    await status(await commit([step('rejected')],token('home')),403); // decided
+  });
 });

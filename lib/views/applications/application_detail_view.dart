@@ -210,7 +210,9 @@ class _ApplicationDetailViewState extends State<ApplicationDetailView> {
       ApplicationStatus.withdrawn => 'You withdrew this application.',
       ApplicationStatus.accepted => 'Your application was accepted.',
       ApplicationStatus.rejected => 'Your application was not accepted.',
-      ApplicationStatus.submitted || ApplicationStatus.underReview =>
+      ApplicationStatus.submitted ||
+      ApplicationStatus.received ||
+      ApplicationStatus.underReview =>
         'The 5 days to edit or withdraw this application have passed.',
     };
   }

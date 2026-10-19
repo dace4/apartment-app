@@ -26,6 +26,8 @@ import '../views/documents/document_review_view.dart';
 import '../views/signatures/signature_view.dart';
 import '../views/messages/contact_advertiser_view.dart';
 import '../views/profile/faq_view.dart';
+import '../views/profile/inbox_view.dart';
+import '../views/profile/review_application_view.dart';
 import '../views/profile/notifications_view.dart';
 import '../views/profile/profile_view.dart';
 import '../views/profile/saved_searches_view.dart';
@@ -286,6 +288,19 @@ GoRouter createAppRouter({
                       viewModel: savedSearchesViewModel,
                       apartmentsViewModel: apartmentsViewModel,
                     ),
+                  ),
+                  GoRoute(
+                    path: 'inbox',
+                    builder: (context, state) =>
+                        InboxView(authViewModel: authViewModel),
+                    routes: [
+                      GoRoute(
+                        path: 'applications/:id',
+                        builder: (context, state) => ReviewApplicationView(
+                          applicationId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'faq',

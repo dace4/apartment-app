@@ -17,6 +17,11 @@ class ApplicationStatusChip extends StatelessWidget {
         colors.secondaryContainer,
         colors.onSecondaryContainer,
       ),
+      ApplicationStatus.received => (
+        Icons.mark_email_read_outlined,
+        colors.secondaryContainer,
+        colors.onSecondaryContainer,
+      ),
       ApplicationStatus.underReview => (
         Icons.hourglass_top,
         colors.tertiaryContainer,

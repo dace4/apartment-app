@@ -139,6 +139,44 @@ class ApplicationService {
     });
   }
 
+  /// US 16: the applications received for the owner's or manager's
+  /// apartments, newest first. Queried 5 apartments at a time, so
+  /// firestore.rules can check that the user manages each apartment.
+  Future<List<RentalApplication>> getApplicationsForApartments(
+    List<String> apartmentIds,
+  ) async {
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    for (var i = 0; i < apartmentIds.length; i += 5) {
+      final snapshot = await _collection
+          .where('apartmentId', whereIn: apartmentIds.skip(i).take(5).toList())
+          .get();
+      docs.addAll(snapshot.docs);
+    }
+    return _toSortedList(docs);
+  }
+
+  /// US 16: the owner or manager moves the application to its next status.
+  /// The applicant is notified in the same batch: both are saved, or neither.
+  Future<void> review(RentalApplication application, ApplicationStatus status) {
+    final title = 'Application update: ${application.apartmentTitle}';
+    final batch = _db.batch();
+    batch.update(_collection.doc(application.id), {
+      'status': status.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(_db.collection('notifications').doc(), {
+      'userId': application.userId,
+      'type': 'applicationStatus',
+      // firestore.rules accept titles of at most 120 characters.
+      'title': title.length <= 120 ? title : '${title.substring(0, 119)}…',
+      'body': 'Your application is now: ${status.label}.',
+      'createdAt': Timestamp.now(),
+      'isRead': false,
+      'applicationId': application.id,
+    });
+    return batch.commit();
+  }
+
   Future<void> withdraw(String id) {
     return _collection.doc(id).update({
       'status': ApplicationStatus.withdrawn.name,

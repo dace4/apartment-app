@@ -243,7 +243,7 @@ service cloud.firestore {
       // Acceptance criterion: edit or withdraw within 5 days, and only while
       // the application still waits for a decision.
       function changeable() {
-        return resource.data.status in ['submitted', 'underReview'] &&
+        return resource.data.status in ['submitted', 'received', 'underReview'] &&
           request.time < resource.data.submittedAt + duration.value(5, 'd');
       }
       function validDetails(data) {
@@ -261,13 +261,35 @@ service cloud.firestore {
 
       // Submitting first checks that the generated ID is unused. A missing
       // document carries no private data.
-      allow get: if verified() && consumer() && (resource == null || owner());
-      // Queries must filter on userId == the current UID.
-      allow list: if verified() && consumer() && owner();
+      allow get: if verified() &&
+        ((consumer() && (resource == null || owner())) || reviewer());
+      // Queries must filter on userId == the current UID, or (US 16) on
+      // apartmentId in the apartments the reviewer manages.
+      allow list: if verified() && ((consumer() && owner()) || reviewer());
       allow create: if verified() && consumer() && validNewApplication();
-      allow update: if verified() && consumer() && owner() && changeable() &&
-        (validEdit() || validWithdraw());
+      allow update: if verified() &&
+        ((consumer() && owner() && changeable() &&
+          (validEdit() || validWithdraw())) ||
+         (reviewer() && validReview()));
       allow delete: if false;
+
+      // US 16: the application belongs to the applicant (userId) and is
+      // reviewed by the apartment's owner or assigned property managers.
+      function reviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
+      // Applied → Received → In review → Accepted or Rejected.
+      function validReview() {
+        let data = request.resource.data;
+        let from = resource.data.status;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.updatedAt == request.time &&
+          ((from == 'submitted' && data.status == 'received') ||
+           (from == 'received' && data.status == 'underReview') ||
+           (from == 'underReview' && data.status in ['accepted', 'rejected']));
+      }
 
       function validNewApplication() {
         let data = request.resource.data;
@@ -395,20 +417,37 @@ service cloud.firestore {
         let data = request.resource.data;
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
-          data.keys().hasOnly(fields.concat(['apartmentId'])) &&
-          data.userId == request.auth.uid &&
+          data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId'])) &&
           (
-            (data.type == 'applicationStatus' &&
-              !data.keys().hasAny(['apartmentId'])) ||
-            // US-23: new-offer alerts a user creates for themselves, with the
-            // fixed id uid_search_apartment so an alert never exists twice.
-            (data.type == 'newListing' && data.apartmentId is string &&
-              notificationId.matches(request.auth.uid + '_.+'))
+            (data.userId == request.auth.uid &&
+              !data.keys().hasAny(['applicationId']) &&
+              (
+                (data.type == 'applicationStatus' &&
+                  !data.keys().hasAny(['apartmentId'])) ||
+                // US-23: new-offer alerts a user creates for themselves, with the
+                // fixed id uid_search_apartment so an alert never exists twice.
+                (data.type == 'newListing' && data.apartmentId is string &&
+                  notificationId.matches(request.auth.uid + '_.+'))
+              )) ||
+            validReviewNotification(data)
           ) &&
           data.title is string && data.title.size() > 0 &&
           data.title.size() <= 120 &&
           data.body is string && data.body.size() <= 500 &&
           data.createdAt is timestamp && data.isRead == false;
+      }
+      // US 16: the reviewer notifies the applicant, only in the same batch
+      // that changes the application's status (updatedAt == request.time).
+      function validReviewNotification(data) {
+        return data.type == 'applicationStatus' &&
+          !data.keys().hasAny(['apartmentId']) &&
+          data.applicationId is string &&
+          reviewed(data.applicationId).userId == data.userId &&
+          reviewed(data.applicationId).updatedAt == request.time &&
+          managementRole() && manages(reviewed(data.applicationId).apartmentId);
+      }
+      function reviewed(applicationId) {
+        return getAfter(/databases/$(database)/documents/applications/$(applicationId)).data;
       }
     }
     // US-18: opt-in / opt-out switches, one document per user ID.
