@@ -51,6 +51,16 @@ class ContactAdvertiserViewModel extends ChangeNotifier {
       apartment = await apartmentService.getApartment(apartmentId);
       if (apartment != null) {
         contact = await messageService.getAdvertiserContact(apartmentId);
+        // Listings published in the app (US-24) have no advertiser contact:
+        // the message goes to their owner.
+        final ownerId = apartment!.ownerId;
+        if (contact == null && ownerId != null) {
+          contact = AdvertiserContact(
+            apartmentId: apartmentId,
+            advertiserId: ownerId,
+            advertiserName: 'the owner',
+          );
+        }
       }
     } catch (e) {
       errorMessage = 'Could not load the advertiser.';

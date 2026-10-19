@@ -7,6 +7,11 @@ addressed advertiser (`advertiserId`), and the owner or assigned managers of
 its apartment (`manages(apartmentId)`, as for US-16 applications). Nobody can
 change or delete it.
 
+The recipient (`advertiserId`) is the `advertiserContacts` entry of the
+apartment or, for listings published in the app (US-24, no contact entry), the
+apartment's `ownerId`. `ContactAdvertiserViewModel` falls back to the owner and
+`validMessage()` accepts either.
+
 ## Code (MVVM)
 
 | Layer | File | Role |

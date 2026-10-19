@@ -240,8 +240,11 @@ service cloud.firestore {
           data.body is string && data.body.size() <= 2000 &&
           data.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
           data.createdAt == request.time && data.status == 'sent' &&
-          exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
-          get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId;
+          // The recipient is the listing's advertiser contact or, for
+          // listings published in the app (US-24), its owner.
+          ((exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
+            get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId) ||
+           get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data.get('ownerId', '') == data.advertiserId);
       }
     }
     // US 16: each user can only see and change their own applications.

@@ -178,4 +178,11 @@ test('US-06/07 roles and property access', async t => {
     await status(await query('advertiserMessages',[['apartmentId','EQUAL','managed']],token('home')),200);
     await status(await query('advertiserMessages',[['apartmentId','EQUAL','other']],token('home')),403);
   });
+  // US 12: a listing without advertiser contact can be contacted through its owner.
+  await t.test('a message goes to the listing owner, never to someone else',async()=>{
+    const message=advertiserId=>({apartmentId:'managed',advertiserId,senderId:'tenant',
+      senderEmail:'tenant@example.test',subject:'Hi',body:'Question',status:'sent'});
+    await status(await commit([write('advertiserMessages',`${prefix}-to-owner`,message('home'),['createdAt'])]),200);
+    await status(await commit([write('advertiserMessages',`${prefix}-to-other`,message('someone'),['createdAt'])]),403);
+  });
 });
