@@ -21,14 +21,27 @@ enum SlotState {
 }
 
 /// US-17: book a new repair or maintenance service, or reschedule one.
+/// US-17.1: only homeowners and assigned property managers, for the
+/// properties they own or manage.
 class MaintenanceBookingViewModel extends ChangeNotifier {
+  // Tests pass fakes and a fixed clock; the app uses Firebase and now().
+  MaintenanceBookingViewModel({
+    MaintenanceService? service,
+    AuthService? authService,
+    DateTime Function()? clock,
+  }) : service = service ?? MaintenanceService(),
+       authService = authService ?? AuthService(),
+       _now = clock ?? DateTime.now;
+
   bool _disposed = false;
   @override
   void notifyListeners() {
     if (!_disposed) super.notifyListeners();
   }
 
-  final MaintenanceService service = MaintenanceService();
+  final MaintenanceService service;
+  final AuthService authService;
+  final DateTime Function() _now;
 
   /// The service being rescheduled, or null when booking a new one.
   MaintenanceRequest? existing;
@@ -74,7 +87,7 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
         existing = await service.getRequest(rescheduleId);
         if (existing == null) {
           errorMessage = 'This maintenance service does not exist.';
-        } else if (!existing!.canChange(DateTime.now())) {
+        } else if (!existing!.canChange(_now())) {
           errorMessage = 'This service can no longer be rescheduled.';
         } else {
           reminders = {...existing!.reminders};
@@ -89,14 +102,14 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
   }
 
   // Date picker limits (17.1 scheduling rules).
-  DateTime get firstDate => MaintenanceSchedule.firstDate(DateTime.now());
-  DateTime get lastDate => MaintenanceSchedule.lastDate(DateTime.now());
+  DateTime get firstDate => MaintenanceSchedule.firstDate(_now());
+  DateTime get lastDate => MaintenanceSchedule.lastDate(_now());
   DateTime get pickerInitialDate =>
-      date ?? MaintenanceSchedule.firstSelectableDay(DateTime.now());
+      date ?? MaintenanceSchedule.firstSelectableDay(_now());
   bool isSelectableDay(DateTime day) =>
-      MaintenanceSchedule.isSelectableDay(day, DateTime.now());
+      MaintenanceSchedule.isSelectableDay(day, _now());
 
-  /// The times that can be booked on the chosen date, for the dropdown.
+  /// The times that can be booked on the chosen date, for the time wheel.
   /// Booked, current and too-soon slots are left out.
   List<DateTime> get availableSlots => date == null
       ? const []
@@ -108,7 +121,7 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     if (existing != null && slot == existing!.slotStart) {
       return SlotState.current;
     }
-    if (!MaintenanceSchedule.isBookable(slot, DateTime.now())) {
+    if (!MaintenanceSchedule.isBookable(slot, _now())) {
       return SlotState.unavailable;
     }
     if (_isTaken(slot)) return SlotState.booked;
@@ -138,9 +151,14 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// US-17.2: the time wheel always shows a time, so the first free time
+  /// of the new date is selected (null when the day has none).
+  /// Choosing the same date again keeps the chosen time.
   void selectDate(DateTime value) {
-    date = MaintenanceSchedule.dateOnly(value);
-    slot = null;
+    final day = MaintenanceSchedule.dateOnly(value);
+    if (day == date) return;
+    date = day;
+    slot = availableSlots.firstOrNull;
     notifyListeners();
   }
 
@@ -206,7 +224,7 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final account = await AuthService().loadUser();
+      final account = await authService.loadUser();
       final managed = await service.getManageableApartments();
       final propertyId = existing?.apartmentId ?? apartment?.id;
       if (_disposed ||

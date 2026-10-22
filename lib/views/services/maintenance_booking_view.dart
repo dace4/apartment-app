@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -95,11 +96,15 @@ class _MaintenanceBookingViewState extends State<MaintenanceBookingView> {
             );
           }
 
-          // 3. Empty: nothing to book for
+          // 3. Empty: nothing to book for (US-17.1: only the properties the
+          // user owns or is assigned to manage can be chosen).
           if (!viewModel.isRescheduling && viewModel.apartments.isEmpty) {
             return const MessageView(
-              icon: Icons.search_off,
-              message: 'No apartments available.',
+              icon: Icons.home_work_outlined,
+              message:
+                  'You do not own or manage any property yet. Homeowners '
+                  'can book for the apartments they published; property '
+                  'managers for the apartments they are assigned to.',
             );
           }
 
@@ -214,7 +219,7 @@ class _MaintenanceBookingViewState extends State<MaintenanceBookingView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildTimeDropdown(),
+                _buildTimeWheel(),
                 if (viewModel.actionError != null) ...[
                   const SizedBox(height: 16),
                   _ErrorText(viewModel.actionError!),
@@ -241,12 +246,13 @@ class _MaintenanceBookingViewState extends State<MaintenanceBookingView> {
     );
   }
 
-  /// The available times of the chosen date. A dropdown keeps the form the
-  /// same size whatever the number of free times.
-  Widget _buildTimeDropdown() {
+  /// US-17.2: the free times of the chosen date on a scrolling wheel. Only
+  /// valid slots are on it (booked, too-soon and past times are left out),
+  /// and the time in the middle is the selected one.
+  Widget _buildTimeWheel() {
     final slots = viewModel.availableSlots;
-    // A selected time that just became unavailable is not in the list.
-    final selected = slots.contains(viewModel.slot) ? viewModel.slot : null;
+    final selected = viewModel.slot;
+    final selectedIndex = selected == null ? -1 : slots.indexOf(selected);
     final enabled = slots.isNotEmpty && !viewModel.isSaving;
 
     return InputDecorator(
@@ -255,29 +261,37 @@ class _MaintenanceBookingViewState extends State<MaintenanceBookingView> {
         border: const OutlineInputBorder(),
         errorText: viewModel.slotError,
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<DateTime>(
-          value: selected,
-          isExpanded: true,
-          isDense: true,
-          hint: Text(
-            viewModel.date == null
-                ? 'Choose a date first'
-                : slots.isEmpty
-                ? 'No free times on this day'
-                : 'Choose a time',
-          ),
-          onChanged: enabled
-              ? (slot) {
-                  if (slot != null) viewModel.selectSlot(slot);
-                }
-              : null,
-          items: [
-            for (final slot in slots)
-              DropdownMenuItem(value: slot, child: Text(_timeRange(slot))),
-          ],
-        ),
-      ),
+      child: slots.isEmpty
+          ? Text(
+              viewModel.date == null
+                  ? 'Choose a date first'
+                  : 'No free times on this day. Choose another date.',
+            )
+          : SizedBox(
+              height: 150,
+              child: IgnorePointer(
+                ignoring: !enabled,
+                child: CupertinoPicker(
+                  // A new wheel for each date, starting on its selected time.
+                  key: ValueKey(viewModel.date),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: selectedIndex < 0 ? 0 : selectedIndex,
+                  ),
+                  itemExtent: 40,
+                  onSelectedItemChanged: (index) =>
+                      viewModel.selectSlot(slots[index]),
+                  children: [
+                    for (final slot in slots)
+                      Center(
+                        child: Text(
+                          _timeRange(slot),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 

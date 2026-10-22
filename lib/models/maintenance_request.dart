@@ -95,6 +95,17 @@ class MaintenanceRequest {
         .toList();
   }
 
+  /// US-17.3: the due reminder closest to the service, or null. When the
+  /// app was closed while several became due, only this one is shown and
+  /// notified, so the user is not flooded with old reminders.
+  MaintenanceReminder? latestDueReminder(DateTime now) {
+    final due = dueReminders(now);
+    // MaintenanceReminder.values goes from the earliest to the latest.
+    return due.isEmpty
+        ? null
+        : due.reduce((a, b) => a.index > b.index ? a : b);
+  }
+
   factory MaintenanceRequest.fromMap(String id, Map<String, dynamic> map) {
     final reminderNames = (map['reminders'] as List?) ?? const [];
     return MaintenanceRequest(

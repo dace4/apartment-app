@@ -6,6 +6,7 @@ class NotificationPreferences {
     this.applicationStatus = true,
     this.announcement = true,
     this.visit = true,
+    this.maintenance = true,
   });
   final bool newListing;
   final bool applicationStatus;
@@ -14,11 +15,15 @@ class NotificationPreferences {
   /// US-20: visits of the user's apartments.
   final bool visit;
 
+  /// US-17: reminders before repair and maintenance services.
+  final bool maintenance;
+
   bool isEnabled(NotificationType type) => switch (type) {
     NotificationType.newListing => newListing,
     NotificationType.applicationStatus => applicationStatus,
     NotificationType.announcement => announcement,
     NotificationType.visit => visit,
+    NotificationType.maintenance => maintenance,
   };
 
   //Return new pre with 1 switch changed + keep other
@@ -32,6 +37,9 @@ class NotificationPreferences {
           ? enabled
           : announcement,
       visit: type == NotificationType.visit ? enabled : visit,
+      maintenance: type == NotificationType.maintenance
+          ? enabled
+          : maintenance,
     );
   }
 
@@ -42,6 +50,7 @@ class NotificationPreferences {
       applicationStatus: map?['applicationStatus'] as bool? ?? true,
       announcement: map?['announcement'] as bool? ?? true,
       visit: map?['visit'] as bool? ?? true,
+      maintenance: map?['maintenance'] as bool? ?? true,
     );
   }
 
@@ -51,6 +60,7 @@ class NotificationPreferences {
       'applicationStatus': applicationStatus,
       'announcement': announcement,
       'visit': visit,
+      'maintenance': maintenance,
     };
   }
 }
