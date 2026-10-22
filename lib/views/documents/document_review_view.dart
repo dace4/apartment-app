@@ -207,6 +207,12 @@ class _DocumentReviewViewState extends State<DocumentReviewView> {
                               'Signature bound on ${formatSigningTime(document.signedAt!)}',
                             ),
                           const SizedBox(height: 8),
+                          // US-11: persisted signing state also survives reopening.
+                          const Text(
+                            'This signed document is certified and cannot be changed after it has been signed.',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          const SizedBox(height: 8),
                         ] else ...[
                           if (viewModel.signatureError != null)
                             Text(viewModel.signatureError!),
