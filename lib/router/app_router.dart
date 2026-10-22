@@ -1,8 +1,8 @@
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 
 import '../view_models/auth_view_model.dart';
 import '../view_models/compare_view_model.dart';
-
 import '../view_models/apartments_view_model.dart';
 import '../view_models/favourites_view_model.dart';
 import '../view_models/maintenance_reminders_view_model.dart';
@@ -338,7 +338,14 @@ GoRouter createAppRouter({
                   ),
                   GoRoute(
                     path: 'faq',
-                    builder: (context, state) => const FaqView(),
+                    // US 14: ?apartment= comes from an apartment's page.
+                    builder: (context, state) => FaqView(
+                      // A new page when the apartment changes, even if the
+                      // FAQ is already open in the Profile tab.
+                      key: ValueKey(state.uri.toString()),
+                      canAccess: authViewModel.canAccess,
+                      apartmentId: state.uri.queryParameters['apartment'],
+                    ),
                   ),
                 ],
               ),

@@ -326,6 +326,15 @@ class _ApartmentDetails extends StatelessWidget {
                   label: const Text('Mortgage calculator'),
                 ),
               ],
+              // US 14: common property questions, with a way back to this
+              // apartment's advertiser.
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () =>
+                    context.go(AppRoutes.faqForApartment(apartment.id)),
+                icon: const Icon(Icons.help_outline),
+                label: const Text('Questions? Read the FAQ'),
+              ),
             ],
           ),
         ),

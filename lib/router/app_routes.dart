@@ -62,4 +62,7 @@ abstract final class AppRoutes {
   // US-20: a visit of the owner's apartment, opened from its notification.
   static String inboxVisit(String id) => '$inbox/visits/$id';
   static const faq = '/profile/faq';
+  // US 14: the FAQ opened from an apartment, to contact its advertiser.
+  static String faqForApartment(String id) =>
+      '$faq?apartment=${Uri.encodeQueryComponent(id)}';
 }
