@@ -28,6 +28,13 @@ class NotificationService {
   Future<void> add(AppNotification notification) =>
       _notifications.add({...notification.toMap(), 'userId': _userId});
 
+  /// US-17.3: saves a notification under the fixed id `<uid>_<id>`, so the
+  /// same reminder is stored at most once (firestore.rules refuse to
+  /// overwrite it).
+  Future<void> addWithFixedId(AppNotification notification) => _notifications
+      .doc('${_userId}_${notification.id}')
+      .set({...notification.toMap(), 'userId': _userId});
+
   Future<void> markAsRead(String notificationId) =>
       _notifications.doc(notificationId).update({'isRead': true});
 

@@ -522,17 +522,19 @@ service cloud.firestore {
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
           data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId',
-            'visitId'])) &&
+            'visitId', 'maintenanceId'])) &&
           (
             (data.userId == request.auth.uid &&
               !data.keys().hasAny(['applicationId', 'visitId']) &&
               (
                 (data.type == 'applicationStatus' &&
-                  !data.keys().hasAny(['apartmentId'])) ||
+                  !data.keys().hasAny(['apartmentId', 'maintenanceId'])) ||
                 // US-23: new-offer alerts a user creates for themselves, with the
                 // fixed id uid_search_apartment so an alert never exists twice.
                 (data.type == 'newListing' && data.apartmentId is string &&
-                  notificationId.matches(request.auth.uid + '_.+'))
+                  !data.keys().hasAny(['maintenanceId']) &&
+                  notificationId.matches(request.auth.uid + '_.+')) ||
+                validMaintenanceNotification(data)
               )) ||
             validReviewNotification(data) ||
             validVisitNotification(data)
@@ -546,7 +548,7 @@ service cloud.firestore {
       // that changes the application's status (updatedAt == request.time).
       function validReviewNotification(data) {
         return data.type == 'applicationStatus' &&
-          !data.keys().hasAny(['apartmentId', 'visitId']) &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId']) &&
           data.applicationId is string &&
           reviewed(data.applicationId).userId == data.userId &&
           reviewed(data.applicationId).updatedAt == request.time &&
@@ -559,7 +561,7 @@ service cloud.firestore {
       // write that books or cancels the visit (updatedAt == request.time).
       function validVisitNotification(data) {
         return data.type == 'visit' && data.visitId is string &&
-          !data.keys().hasAny(['applicationId']) &&
+          !data.keys().hasAny(['applicationId', 'maintenanceId']) &&
           visited(data.visitId).visitorId == request.auth.uid &&
           visited(data.visitId).ownerId == data.userId &&
           visited(data.visitId).apartmentId == data.apartmentId &&
@@ -567,6 +569,19 @@ service cloud.firestore {
       }
       function visited(visitId) {
         return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
+      }
+      // US-17.3: a reminder before the user's own maintenance service. The
+      // fixed id uid_maintenance_request_reminder means each reminder is
+      // stored once; an existing one cannot be overwritten (update rule).
+      function validMaintenanceNotification(data) {
+        return data.type == 'maintenance' && data.maintenanceId is string &&
+          !data.keys().hasAny(['apartmentId']) &&
+          notificationId in [
+            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneDay',
+            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneHour',
+            request.auth.uid + '_maintenance_' + data.maintenanceId +
+              '_fiveMinutes'] &&
+          get(/databases/$(database)/documents/maintenanceRequests/$(data.maintenanceId)).data.userId == request.auth.uid;
       }
     }
     // US-18: opt-in / opt-out switches, one document per user ID.
@@ -578,11 +593,13 @@ service cloud.firestore {
       function validPreferences() {
         let data = request.resource.data;
         let fields = ['newListing', 'applicationStatus', 'announcement'];
-        // US-20: 'visit' is optional, so documents saved before it stay valid.
+        // US-20 'visit' and US-17 'maintenance' are optional, so documents
+        // saved before them stay valid.
         return data.keys().hasAll(fields) &&
-          data.keys().hasOnly(fields.concat(['visit'])) &&
+          data.keys().hasOnly(fields.concat(['visit', 'maintenance'])) &&
           data.newListing is bool && data.applicationStatus is bool &&
-          data.announcement is bool && data.get('visit', true) is bool;
+          data.announcement is bool && data.get('visit', true) is bool &&
+          data.get('maintenance', true) is bool;
       }
     }     
   }

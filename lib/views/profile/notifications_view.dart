@@ -98,10 +98,14 @@ class _NotificationsViewState extends State<NotificationsView> {
                       viewModel.markAsRead(notification);
                       // US-20: a visit opens who is coming and when.
                       final visitId = notification.visitId;
+                      // US-17: a reminder opens its maintenance service.
+                      final maintenanceId = notification.maintenanceId;
                       // US 23: a new-offer alert opens its apartment.
                       final apartmentId = notification.apartmentId;
                       if (visitId != null) {
                         context.go(AppRoutes.inboxVisit(visitId));
+                      } else if (maintenanceId != null) {
+                        context.go(AppRoutes.maintenanceDetail(maintenanceId));
                       } else if (apartmentId != null) {
                         context.go(AppRoutes.apartmentDetail(apartmentId));
                       }
@@ -127,6 +131,7 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.applicationStatus => Icons.assignment_outlined,
     NotificationType.announcement => Icons.campaign_outlined,
     NotificationType.visit => Icons.event_available,
+    NotificationType.maintenance => Icons.build_outlined,
   };
 
   @override
