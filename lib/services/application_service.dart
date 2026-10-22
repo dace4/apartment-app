@@ -127,6 +127,21 @@ class ApplicationService {
           tx.update(file.reference, {'firstApplicationId': ref.id});
         }
       }
+      // US 18.2: the apartment's owner is notified in the same write.
+      final ownerId = apartment.ownerId;
+      if (ownerId != null && ownerId != uid) {
+        final title = 'New application: ${apartment.title}';
+        tx.set(_db.collection('notifications').doc(), {
+          'userId': ownerId,
+          'type': 'newApplication',
+          // firestore.rules accept titles of at most 120 characters.
+          'title': title.length <= 120 ? title : '${title.substring(0, 119)}…',
+          'body': '${details.fullName.trim()} applied for your apartment.',
+          'createdAt': Timestamp.now(),
+          'isRead': false,
+          'applicationId': ref.id,
+        });
+      }
     }, timeout: const Duration(seconds: 20));
   }
 

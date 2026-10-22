@@ -106,7 +106,7 @@ erDiagram
     notifications {
         string id PK "auto ID"
         string userId FK
-        string type "newListing | applicationStatus | announcement | visit | maintenance"
+        string type "newListing | applicationStatus | announcement | visit | maintenance | message | newApplication"
         string title "max 120"
         string body "max 500"
         timestamp createdAt
@@ -115,6 +115,7 @@ erDiagram
         string apartmentId FK "US 23 new offer, US-20 visit: opens the apartment"
         string visitId FK "US-20: the visit that was booked or cancelled"
         string maintenanceId FK "US-17: the service of a reminder; id = userId_maintenance_requestId_reminder"
+        string messageId FK "US 18: the message an owner received"
     }
 
     notificationPreferences {
@@ -124,6 +125,8 @@ erDiagram
         bool announcement
         bool visit "US-20, optional: missing means on"
         bool maintenance "US-17, optional: missing means on"
+        bool message "US 18, optional: missing means on"
+        bool newApplication "US 18, optional: missing means on"
     }
 
     userSignatures {
@@ -202,7 +205,7 @@ erDiagram
 | `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
 | `advertiserContacts` | US 12 | Firebase console | Read |
 | `advertiserMessages` | US 12 | App | Create; read by the sender, the advertiser, and the apartment's owner or assigned managers (inbox); no update or delete |
-| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); create `visit` for the apartment's owner in the same write that books or cancels a visit (US-20); create `maintenance` reminders for one's own service, once per reminder (US-17); set `isRead` to true; no delete |
+| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); create `visit` for the apartment's owner in the same write that books or cancels a visit (US-20); create `maintenance` reminders for one's own service, once per reminder (US-17); create `visit` reminders for one's own visit, once (id `userId_visitReminder_visitId`, US 18); create `message` for the advertiser in the same batch as the message, and `newApplication` for the apartment's owner in the same write as the application (US 18); set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
 | `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |
 | `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |

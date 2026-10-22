@@ -522,10 +522,10 @@ service cloud.firestore {
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
           data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId',
-            'visitId', 'maintenanceId'])) &&
+            'visitId', 'maintenanceId', 'messageId'])) &&
           (
             (data.userId == request.auth.uid &&
-              !data.keys().hasAny(['applicationId', 'visitId']) &&
+              !data.keys().hasAny(['applicationId', 'visitId', 'messageId']) &&
               (
                 (data.type == 'applicationStatus' &&
                   !data.keys().hasAny(['apartmentId', 'maintenanceId'])) ||
@@ -534,10 +534,13 @@ service cloud.firestore {
                 (data.type == 'newListing' && data.apartmentId is string &&
                   !data.keys().hasAny(['maintenanceId']) &&
                   notificationId.matches(request.auth.uid + '_.+')) ||
-                validMaintenanceNotification(data)
+                validMaintenanceNotification(data) ||
+                validVisitReminder(data)
               )) ||
             validReviewNotification(data) ||
-            validVisitNotification(data)
+            validVisitNotification(data) ||
+            validMessageNotification(data) ||
+            validNewApplicationNotification(data)
           ) &&
           data.title is string && data.title.size() > 0 &&
           data.title.size() <= 120 &&
@@ -548,7 +551,8 @@ service cloud.firestore {
       // that changes the application's status (updatedAt == request.time).
       function validReviewNotification(data) {
         return data.type == 'applicationStatus' &&
-          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId']) &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
+            'messageId']) &&
           data.applicationId is string &&
           reviewed(data.applicationId).userId == data.userId &&
           reviewed(data.applicationId).updatedAt == request.time &&
@@ -561,7 +565,7 @@ service cloud.firestore {
       // write that books or cancels the visit (updatedAt == request.time).
       function validVisitNotification(data) {
         return data.type == 'visit' && data.visitId is string &&
-          !data.keys().hasAny(['applicationId', 'maintenanceId']) &&
+          !data.keys().hasAny(['applicationId', 'maintenanceId', 'messageId']) &&
           visited(data.visitId).visitorId == request.auth.uid &&
           visited(data.visitId).ownerId == data.userId &&
           visited(data.visitId).apartmentId == data.apartmentId &&
@@ -583,6 +587,38 @@ service cloud.firestore {
               '_fiveMinutes'] &&
           get(/databases/$(database)/documents/maintenanceRequests/$(data.maintenanceId)).data.userId == request.auth.uid;
       }
+      // US 18.4: the visitor's reminder the day before their own visit, with
+      // the fixed id uid_visitReminder_visitId so it is stored once.
+      function validVisitReminder(data) {
+        return data.type == 'visit' && data.apartmentId is string &&
+          !data.keys().hasAny(['maintenanceId']) &&
+          notificationId.matches(request.auth.uid + '_visitReminder_[A-Za-z0-9]+') &&
+          get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.visitorId == request.auth.uid &&
+          get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.apartmentId == data.apartmentId;
+      }
+      // US 18.2: the sender notifies the advertiser, only in the same batch
+      // that stores the message (createdAt == request.time).
+      function validMessageNotification(data) {
+        return data.type == 'message' && data.messageId is string &&
+          !data.keys().hasAny(['apartmentId', 'applicationId', 'visitId',
+            'maintenanceId']) &&
+          sentMessage(data.messageId).senderId == request.auth.uid &&
+          sentMessage(data.messageId).advertiserId == data.userId &&
+          sentMessage(data.messageId).createdAt == request.time;
+      }
+      function sentMessage(messageId) {
+        return getAfter(/databases/$(database)/documents/advertiserMessages/$(messageId)).data;
+      }
+      // US 18.2: the applicant notifies the apartment's owner, only in the
+      // same write that submits the application (submittedAt == request.time).
+      function validNewApplicationNotification(data) {
+        return data.type == 'newApplication' && data.applicationId is string &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
+            'messageId']) &&
+          reviewed(data.applicationId).userId == request.auth.uid &&
+          reviewed(data.applicationId).submittedAt == request.time &&
+          data.userId == get(/databases/$(database)/documents/apartments/$(reviewed(data.applicationId).apartmentId)).data.get('ownerId', '');
+      }
     }
     // US-18: opt-in / opt-out switches, one document per user ID.
     match /notificationPreferences/{userId} {
@@ -593,13 +629,16 @@ service cloud.firestore {
       function validPreferences() {
         let data = request.resource.data;
         let fields = ['newListing', 'applicationStatus', 'announcement'];
-        // US-20 'visit' and US-17 'maintenance' are optional, so documents
-        // saved before them stay valid.
+        // US-20 'visit', US-17 'maintenance' and US 18 'message' and
+        // 'newApplication' are optional, so older documents stay valid.
         return data.keys().hasAll(fields) &&
-          data.keys().hasOnly(fields.concat(['visit', 'maintenance'])) &&
+          data.keys().hasOnly(fields.concat(['visit', 'maintenance', 'message',
+            'newApplication'])) &&
           data.newListing is bool && data.applicationStatus is bool &&
           data.announcement is bool && data.get('visit', true) is bool &&
-          data.get('maintenance', true) is bool;
+          data.get('maintenance', true) is bool &&
+          data.get('message', true) is bool &&
+          data.get('newApplication', true) is bool;
       }
     }     
   }

@@ -22,16 +22,32 @@ class MessageService {
     return AdvertiserContact.fromMap(doc.id, doc.data()!);
   }
 
-  /// Returns the id of the stored message.
+  /// Returns the id of the stored message. US 18.2: the advertiser is
+  /// notified in the same batch, so both are saved or neither.
   Future<String> send(AdvertiserMessage message) async {
     final user = FirebaseAuth.instance.currentUser!;
-    final doc = await _messages.add({
+    final doc = _messages.doc();
+    final batch = _db.batch();
+    batch.set(doc, {
       ...message.toMap(),
       'senderId': user.uid,
       'senderEmail': user.email,
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'sent',
     });
+    final title = 'New message: ${message.subject.trim()}';
+    final body = message.body.trim();
+    batch.set(_db.collection('notifications').doc(), {
+      'userId': message.advertiserId,
+      'type': 'message',
+      // firestore.rules accept a title of 120 and a body of 500 characters.
+      'title': title.length <= 120 ? title : '${title.substring(0, 119)}…',
+      'body': body.length <= 500 ? body : '${body.substring(0, 499)}…',
+      'createdAt': Timestamp.now(),
+      'isRead': false,
+      'messageId': doc.id,
+    });
+    await batch.commit();
     return doc.id;
   }
 

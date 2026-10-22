@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'maintenance_request.dart';
+import 'visit.dart';
 
 /// US 18: the kinds of notification a user can receive.
 enum NotificationType {
@@ -12,7 +13,13 @@ enum NotificationType {
   visit('Visits'),
 
   /// US-17: a reminder before a scheduled repair or maintenance service.
-  maintenance('Maintenance');
+  maintenance('Maintenance'),
+
+  /// US 18.2: an owner received a message about their apartment.
+  message('Messages'),
+
+  /// US 18.2: an owner received an application for their apartment.
+  newApplication('New applications');
 
   const NotificationType(this.label);
   final String label;
@@ -30,7 +37,37 @@ class AppNotification {
     this.apartmentId,
     this.visitId,
     this.maintenanceId,
+    this.applicationId,
+    this.messageId,
   });
+
+  /// US 18.4: the visitor's reminder the day before a visit. Its [id] is
+  /// fixed per visit, so it is never stored twice. It opens the apartment,
+  /// which shows the visit.
+  factory AppNotification.visitReminder(
+    Visit visit, {
+    required DateTime createdAt,
+  }) {
+    final title = 'Visit tomorrow: ${visit.apartmentTitle}';
+    return AppNotification(
+      id: visitReminderId(visit.id),
+      type: NotificationType.visit,
+      // firestore.rules accept titles of at most 120 characters.
+      title: title.length <= 120 ? title : '${title.substring(0, 119)}…',
+      body:
+          'Your visit starts on ${visit.slotStart.day}.${visit.slotStart.month}.'
+          '${visit.slotStart.year} at ${_time(visit.slotStart)}.',
+      createdAt: createdAt,
+      apartmentId: visit.apartmentId,
+    );
+  }
+
+  /// The part of the document id after the user id (`<uid>_<this>`).
+  static String visitReminderId(String visitId) => 'visitReminder_$visitId';
+
+  static String _time(DateTime time) =>
+      '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
 
   /// US-17.3: the reminder for [request]. Its [id] is fixed per request and
   /// reminder, so the same reminder is never stored twice.
@@ -76,6 +113,13 @@ class AppNotification {
   /// US-17: the maintenance service of a reminder; opens its details.
   final String? maintenanceId;
 
+  /// US 16 / 18.2: the application whose status changed (for the applicant)
+  /// or that was received (for the owner).
+  final String? applicationId;
+
+  /// US 18.2: the message an owner received.
+  final String? messageId;
+
   factory AppNotification.fromMap(String id, Map<String, dynamic> map) {
     return AppNotification(
       id: id,
@@ -87,6 +131,8 @@ class AppNotification {
       apartmentId: map['apartmentId'] as String?,
       visitId: map['visitId'] as String?,
       maintenanceId: map['maintenanceId'] as String?,
+      applicationId: map['applicationId'] as String?,
+      messageId: map['messageId'] as String?,
     );
   }
 
@@ -100,6 +146,8 @@ class AppNotification {
       if (apartmentId != null) 'apartmentId': apartmentId,
       if (visitId != null) 'visitId': visitId,
       if (maintenanceId != null) 'maintenanceId': maintenanceId,
+      if (applicationId != null) 'applicationId': applicationId,
+      if (messageId != null) 'messageId': messageId,
     };
   }
 }
