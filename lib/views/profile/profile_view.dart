@@ -4,11 +4,20 @@ import 'package:go_router/go_router.dart';
 import '../../router/app_routes.dart';
 import '../auth/widgets/role_checkboxes.dart';
 import '../../view_models/auth_view_model.dart';
+import '../../view_models/notifications_view_model.dart';
 
 class ProfileView extends StatelessWidget {
-  const ProfileView({super.key, required this.viewModel});
+  const ProfileView({
+    super.key,
+    required this.viewModel,
+    this.notificationsViewModel,
+  });
 
   final AuthViewModel viewModel;
+
+  /// US-20: unread notifications put a red dot on the Notifications tile.
+  /// Optional so the page can be shown without Firebase in tests.
+  final NotificationsViewModel? notificationsViewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -72,12 +81,29 @@ class ProfileView extends StatelessWidget {
                 ),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.notifications_outlined),
+                  leading: ListenableBuilder(
+                    listenable: Listenable.merge([notificationsViewModel]),
+                    builder: (context, _) => Badge(
+                      isLabelVisible:
+                          (notificationsViewModel?.unreadCount ?? 0) > 0,
+                      child: const Icon(Icons.notifications_outlined),
+                    ),
+                  ),
                   title: const Text('Notifications'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.go(AppRoutes.notifications),
                 ),
               ),
+              // US-20: visits booked by a renter or buyer.
+              if (viewModel.canAccess(AppRoutes.visits))
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('My visits'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.go(AppRoutes.visits),
+                  ),
+                ),
               // US-23: saved searches and their new-offer alerts.
               if (viewModel.canAccess(AppRoutes.inbox))
                 Card(

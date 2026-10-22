@@ -407,6 +407,98 @@ service cloud.firestore {
           data.status == 'cancelled' && data.updatedAt == request.time;
       }
     }
+    // US-20: a visit belongs to its visitor (a renter or buyer). The slot it
+    // reserves is stored separately in visitSlots, without the visitor.
+    match /visits/{visitId} {
+      function visitor() {
+        return resource.data.visitorId == request.auth.uid;
+      }
+      function slot(slotId) {
+        return getAfter(/databases/$(database)/documents/visitSlots/$(slotId));
+      }
+      // The visitor, and the apartment's owner (who is notified and opens the
+      // visit to see who is coming). Queries must filter on visitorId or
+      // ownerId == the current UID.
+      allow get, list: if verified() &&
+        (visitor() || resource.data.ownerId == request.auth.uid);
+      allow create: if verified() && consumer() && validNewVisit();
+      allow update: if verified() && visitor() && validCancel();
+      allow delete: if false;
+
+      // Booked in the same write as its slot. Only available apartments with
+      // an owner, and not by their owner or managers.
+      function validNewVisit() {
+        let data = request.resource.data;
+        let fields = ['apartmentId', 'apartmentTitle', 'ownerId', 'visitorId',
+          'visitorEmail', 'slotId', 'slotStart', 'status', 'createdAt',
+          'updatedAt'];
+        let apartment = get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data;
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.visitorId == request.auth.uid &&
+          data.visitorEmail == request.auth.token.email &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          apartment.availability == 'available' &&
+          data.ownerId is string && data.ownerId.size() > 0 &&
+          data.ownerId == apartment.get('ownerId', '') &&
+          data.ownerId != request.auth.uid &&
+          !(request.auth.uid in apartment.get('managerIds', [])) &&
+          // The app also enforces weekdays, the 09:00 and 14:00 slots and
+          // booking from the next day; the server checks that the slot is in
+          // the future and within 30 days.
+          data.slotStart is timestamp && data.slotStart > request.time &&
+          data.slotStart < request.time + duration.value(31, 'd') &&
+          data.status == 'booked' &&
+          data.createdAt == request.time && data.updatedAt == request.time &&
+          data.slotId is string && slot(data.slotId) != null &&
+          slot(data.slotId).data.visitId == visitId;
+      }
+      // Until the visit starts, and only together with freeing its slot.
+      function validCancel() {
+        let data = request.resource.data;
+        return resource.data.status == 'booked' &&
+          request.time < resource.data.slotStart &&
+          data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'cancelled' && data.updatedAt == request.time &&
+          slot(resource.data.slotId) == null;
+      }
+    }
+    // US-20: one document per booked slot, with the fixed ID
+    // "apartmentId_yyyyMMdd_HHmm". It can be created but never overwritten,
+    // so a slot is never booked twice. It holds no personal data, so every
+    // user can see which slots are taken.
+    match /visitSlots/{slotId} {
+      function visit(visitId) {
+        return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
+      }
+      allow read: if verified();
+      allow create: if verified() && consumer() && validSlot();
+      allow update: if false;
+      // Freed when its visitor cancels the visit in the same write.
+      allow delete: if verified() &&
+        visit(resource.data.visitId).visitorId == request.auth.uid &&
+        visit(resource.data.visitId).slotId == slotId &&
+        visit(resource.data.visitId).status == 'cancelled' &&
+        visit(resource.data.visitId).updatedAt == request.time;
+
+      function validSlot() {
+        let data = request.resource.data;
+        let parts = slotId.split('_');
+        let suffix = parts[parts.size() - 2] + '_' + parts[parts.size() - 1];
+        return data.keys().hasAll(['apartmentId', 'slotStart', 'visitId']) &&
+          data.keys().hasOnly(['apartmentId', 'slotStart', 'visitId']) &&
+          data.apartmentId is string && data.visitId is string &&
+          suffix.matches('[0-9]{8}_(0900|1400)') &&
+          slotId == data.apartmentId + '_' + suffix &&
+          visit(data.visitId).visitorId == request.auth.uid &&
+          visit(data.visitId).slotId == slotId &&
+          visit(data.visitId).apartmentId == data.apartmentId &&
+          visit(data.visitId).slotStart == data.slotStart &&
+          visit(data.visitId).status == 'booked';
+      }
+    }
     // US-18: each user only sees their own notifications and can only mark
     // them as read. New listings and announcements are added from the console.
     match /notifications/{notificationId} {
@@ -429,10 +521,11 @@ service cloud.firestore {
         let data = request.resource.data;
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
-          data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId'])) &&
+          data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId',
+            'visitId'])) &&
           (
             (data.userId == request.auth.uid &&
-              !data.keys().hasAny(['applicationId']) &&
+              !data.keys().hasAny(['applicationId', 'visitId']) &&
               (
                 (data.type == 'applicationStatus' &&
                   !data.keys().hasAny(['apartmentId'])) ||
@@ -441,7 +534,8 @@ service cloud.firestore {
                 (data.type == 'newListing' && data.apartmentId is string &&
                   notificationId.matches(request.auth.uid + '_.+'))
               )) ||
-            validReviewNotification(data)
+            validReviewNotification(data) ||
+            validVisitNotification(data)
           ) &&
           data.title is string && data.title.size() > 0 &&
           data.title.size() <= 120 &&
@@ -452,7 +546,7 @@ service cloud.firestore {
       // that changes the application's status (updatedAt == request.time).
       function validReviewNotification(data) {
         return data.type == 'applicationStatus' &&
-          !data.keys().hasAny(['apartmentId']) &&
+          !data.keys().hasAny(['apartmentId', 'visitId']) &&
           data.applicationId is string &&
           reviewed(data.applicationId).userId == data.userId &&
           reviewed(data.applicationId).updatedAt == request.time &&
@@ -460,6 +554,19 @@ service cloud.firestore {
       }
       function reviewed(applicationId) {
         return getAfter(/databases/$(database)/documents/applications/$(applicationId)).data;
+      }
+      // US-20: the visitor notifies the apartment's owner, only in the same
+      // write that books or cancels the visit (updatedAt == request.time).
+      function validVisitNotification(data) {
+        return data.type == 'visit' && data.visitId is string &&
+          !data.keys().hasAny(['applicationId']) &&
+          visited(data.visitId).visitorId == request.auth.uid &&
+          visited(data.visitId).ownerId == data.userId &&
+          visited(data.visitId).apartmentId == data.apartmentId &&
+          visited(data.visitId).updatedAt == request.time;
+      }
+      function visited(visitId) {
+        return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
       }
     }
     // US-18: opt-in / opt-out switches, one document per user ID.
@@ -471,9 +578,11 @@ service cloud.firestore {
       function validPreferences() {
         let data = request.resource.data;
         let fields = ['newListing', 'applicationStatus', 'announcement'];
-        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+        // US-20: 'visit' is optional, so documents saved before it stay valid.
+        return data.keys().hasAll(fields) &&
+          data.keys().hasOnly(fields.concat(['visit'])) &&
           data.newListing is bool && data.applicationStatus is bool &&
-          data.announcement is bool;
+          data.announcement is bool && data.get('visit', true) is bool;
       }
     }     
   }

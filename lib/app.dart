@@ -7,6 +7,7 @@ import 'view_models/auth_view_model.dart';
 import 'view_models/compare_view_model.dart';
 import 'view_models/favourites_view_model.dart';
 import 'view_models/maintenance_reminders_view_model.dart';
+import 'view_models/notifications_view_model.dart';
 import 'view_models/saved_searches_view_model.dart';
 
 class HomeFlowApp extends StatefulWidget {
@@ -63,6 +64,9 @@ class _SessionAppState extends State<_SessionApp> {
   final _maintenanceRemindersViewModel = MaintenanceRemindersViewModel();
   // US-23: saved searches, and alerts for new matching offers on every tab.
   final _savedSearchesViewModel = SavedSearchesViewModel();
+  // US-18/20: the notification list and the red dot for unread ones, shown
+  // on the Profile tab and the Notifications tile.
+  final _notificationsViewModel = NotificationsViewModel();
 
   late final GoRouter _router = createAppRouter(
     authViewModel: _authViewModel,
@@ -71,7 +75,16 @@ class _SessionAppState extends State<_SessionApp> {
     favouritesViewModel: _favouritesViewModel,
     maintenanceRemindersViewModel: _maintenanceRemindersViewModel,
     savedSearchesViewModel: _savedSearchesViewModel,
+    notificationsViewModel: _notificationsViewModel,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // firestore.rules only let verified users with roles read notifications.
+    // A new session (see HomeFlowApp) starts listening again.
+    if (_authViewModel.user?.isReady == true) _notificationsViewModel.listen();
+  }
 
   @override
   void dispose() {
@@ -82,6 +95,7 @@ class _SessionAppState extends State<_SessionApp> {
     _favouritesViewModel.dispose();
     _maintenanceRemindersViewModel.dispose();
     _savedSearchesViewModel.dispose();
+    _notificationsViewModel.dispose();
     super.dispose();
   }
 

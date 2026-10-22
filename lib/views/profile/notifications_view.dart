@@ -7,27 +7,24 @@ import '../../view_models/notifications_view_model.dart';
 
 /// US 18: opt-in / opt-out switches and the list of notifications.
 class NotificationsView extends StatefulWidget {
-  const NotificationsView({super.key});
+  const NotificationsView({super.key, required this.viewModel});
+
+  /// Shared with the red dots on the Profile tab and tile (US-20), so it is
+  /// created once in app.dart (ARCHITECTURE.md §4).
+  final NotificationsViewModel viewModel;
 
   @override
   State<NotificationsView> createState() => _NotificationsViewState();
 }
 
 class _NotificationsViewState extends State<NotificationsView> {
-  // Only this screen needs the notifications, so it owns its ViewModel
-  // (ARCHITECTURE.md §4).
-  final viewModel = NotificationsViewModel();
+  NotificationsViewModel get viewModel => widget.viewModel;
 
   @override
   void initState() {
     super.initState();
-    viewModel.listen();
-  }
-
-  @override
-  void dispose() {
-    viewModel.dispose();
-    super.dispose();
+    // Opening the page retries after a loading error.
+    if (viewModel.errorMessage != null) viewModel.listen();
   }
 
   @override
@@ -99,9 +96,13 @@ class _NotificationsViewState extends State<NotificationsView> {
                     notification: notification,
                     onTap: () {
                       viewModel.markAsRead(notification);
+                      // US-20: a visit opens who is coming and when.
+                      final visitId = notification.visitId;
                       // US 23: a new-offer alert opens its apartment.
                       final apartmentId = notification.apartmentId;
-                      if (apartmentId != null) {
+                      if (visitId != null) {
+                        context.go(AppRoutes.inboxVisit(visitId));
+                      } else if (apartmentId != null) {
                         context.go(AppRoutes.apartmentDetail(apartmentId));
                       }
                     },
@@ -125,6 +126,7 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.newListing => Icons.home_outlined,
     NotificationType.applicationStatus => Icons.assignment_outlined,
     NotificationType.announcement => Icons.campaign_outlined,
+    NotificationType.visit => Icons.event_available,
   };
 
   @override

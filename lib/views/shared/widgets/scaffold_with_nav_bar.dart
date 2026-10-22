@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../view_models/maintenance_reminders_view_model.dart';
 import '../../../view_models/auth_view_model.dart';
+import '../../../view_models/notifications_view_model.dart';
 import '../../../router/app_routes.dart';
 import '../../services/widgets/maintenance_reminder_banner.dart';
 
@@ -13,6 +14,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     required this.navigationShell,
     required this.authViewModel,
     required this.remindersViewModel,
+    required this.notificationsViewModel,
   });
 
   final StatefulNavigationShell navigationShell;
@@ -20,6 +22,9 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
   /// US-17: due maintenance reminders, shown above the tabs on every page.
   final MaintenanceRemindersViewModel remindersViewModel;
+
+  /// US-20: unread notifications put a red dot on the Profile tab.
+  final NotificationsViewModel notificationsViewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -76,11 +81,20 @@ class ScaffoldWithNavBar extends StatelessWidget {
           label: 'Services',
         ),
         NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
+          icon: _withUnreadDot(const Icon(Icons.person_outline)),
+          selectedIcon: _withUnreadDot(const Icon(Icons.person)),
           label: 'Profile',
         ),
       ],
     );
   }
+
+  /// A small red dot (Material [Badge]) while notifications are unread.
+  Widget _withUnreadDot(Widget icon) => ListenableBuilder(
+    listenable: notificationsViewModel,
+    builder: (context, _) => Badge(
+      isLabelVisible: notificationsViewModel.unreadCount > 0,
+      child: icon,
+    ),
+  );
 }

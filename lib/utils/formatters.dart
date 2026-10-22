@@ -21,11 +21,15 @@ String formatDate(DateTime date) {
 }
 
 /// US-17: a time slot, e.g. "15.10.2026, 10:00–12:00".
-String formatTimeSlot(DateTime start, DateTime end) {
+String formatTimeSlot(DateTime start, DateTime end) =>
+    '${formatDate(start)}, ${formatTimeRange(start, end)}';
+
+/// US-20: the times of a slot without its date, e.g. "09:00–11:00".
+String formatTimeRange(DateTime start, DateTime end) {
   String time(DateTime value) =>
       '${value.hour.toString().padLeft(2, '0')}:'
       '${value.minute.toString().padLeft(2, '0')}';
-  return '${formatDate(start)}, ${time(start)}–${time(end)}';
+  return '${time(start)}–${time(end)}';
 }
 
 /// US-11: human-readable audit time with the local UTC offset.
