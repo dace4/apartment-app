@@ -63,6 +63,13 @@ class Visit {
   /// the same limit on the server.
   bool canCancel(DateTime now) => !isCancelled && now.isBefore(slotStart);
 
+  /// US 18.4: the visitor is reminded during the day before the visit,
+  /// until it starts.
+  static const reminderBefore = Duration(days: 1);
+
+  bool isReminderDue(DateTime now) =>
+      canCancel(now) && !now.isBefore(slotStart.subtract(reminderBefore));
+
   factory Visit.fromMap(String id, Map<String, dynamic> map) {
     return Visit(
       id: id,

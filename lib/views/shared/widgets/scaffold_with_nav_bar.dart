@@ -89,10 +89,12 @@ class ScaffoldWithNavBar extends StatelessWidget {
     );
   }
 
-  /// A small red dot (Material [Badge]) while notifications are unread.
+  /// US 18.3: a red badge with the number of unread notifications, shared
+  /// with the Notifications tile and updated live.
   Widget _withUnreadDot(Widget icon) => ListenableBuilder(
     listenable: notificationsViewModel,
-    builder: (context, _) => Badge(
+    builder: (context, _) => Badge.count(
+      count: notificationsViewModel.unreadCount,
       isLabelVisible: notificationsViewModel.unreadCount > 0,
       child: icon,
     ),

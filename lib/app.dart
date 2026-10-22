@@ -7,6 +7,7 @@ import 'view_models/auth_view_model.dart';
 import 'view_models/compare_view_model.dart';
 import 'view_models/favourites_view_model.dart';
 import 'view_models/maintenance_reminders_view_model.dart';
+import 'view_models/visit_reminders_view_model.dart';
 import 'view_models/notifications_view_model.dart';
 import 'view_models/saved_searches_view_model.dart';
 
@@ -62,6 +63,8 @@ class _SessionAppState extends State<_SessionApp> {
   final _favouritesViewModel = FavouritesViewModel();
   // US-17: the in-app maintenance reminder shown on every tab.
   final _maintenanceRemindersViewModel = MaintenanceRemindersViewModel();
+  // US 18.4: "Visit tomorrow" notifications for renters and buyers.
+  final _visitRemindersViewModel = VisitRemindersViewModel();
   // US-23: saved searches, and alerts for new matching offers on every tab.
   final _savedSearchesViewModel = SavedSearchesViewModel();
   // US-18/20: the notification list and the red dot for unread ones, shown
@@ -94,6 +97,7 @@ class _SessionAppState extends State<_SessionApp> {
     _compareViewModel.dispose();
     _favouritesViewModel.dispose();
     _maintenanceRemindersViewModel.dispose();
+    _visitRemindersViewModel.dispose();
     _savedSearchesViewModel.dispose();
     _notificationsViewModel.dispose();
     super.dispose();

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
 import '../models/notification_preferences.dart';
+import '../router/app_routes.dart';
 import '../services/notification_service.dart';
 
 /// US 18: the notification center and the opt-in / opt-out switches.
@@ -28,7 +29,36 @@ class NotificationsViewModel extends ChangeNotifier {
       _all.where((n) => preferences.isEnabled(n.type)).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+  /// US 18.3: shared by the Profile tab, the Notifications tile and this
+  /// page, and updated live.
   int get unreadCount => notifications.where((n) => !n.isRead).length;
+
+  /// US 18.4: the page a notification opens, or null when it only informs.
+  String? destinationFor(AppNotification notification) {
+    final n = notification;
+    return switch (n.type) {
+      NotificationType.message when n.messageId != null => AppRoutes
+          .inboxMessage(n.messageId!),
+      NotificationType.newApplication when n.applicationId != null =>
+        AppRoutes.inboxApplication(n.applicationId!),
+      NotificationType.applicationStatus when n.applicationId != null =>
+        AppRoutes.applicationDetail(n.applicationId!),
+      NotificationType.maintenance when n.maintenanceId != null =>
+        AppRoutes.maintenanceDetail(n.maintenanceId!),
+      // US-20: the owner's visit; the visitor's reminder opens the apartment.
+      _ when n.visitId != null => AppRoutes.inboxVisit(n.visitId!),
+      _ when n.apartmentId != null => AppRoutes.apartmentDetail(
+        n.apartmentId!,
+      ),
+      _ => null,
+    };
+  }
+
+  /// Marks the notification as read and returns the page it opens.
+  String? open(AppNotification notification) {
+    markAsRead(notification);
+    return destinationFor(notification);
+  }
 
   /// Starts listening to the notifications and the switches (live data).
   void listen() {

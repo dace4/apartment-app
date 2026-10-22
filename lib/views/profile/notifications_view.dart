@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/app_notification.dart';
-import '../../router/app_routes.dart';
 import '../../view_models/notifications_view_model.dart';
 
 /// US 18: opt-in / opt-out switches and the list of notifications.
@@ -94,21 +93,10 @@ class _NotificationsViewState extends State<NotificationsView> {
                 for (final notification in notifications)
                   _NotificationTile(
                     notification: notification,
+                    // US 18.4: marks it as read and opens its page.
                     onTap: () {
-                      viewModel.markAsRead(notification);
-                      // US-20: a visit opens who is coming and when.
-                      final visitId = notification.visitId;
-                      // US-17: a reminder opens its maintenance service.
-                      final maintenanceId = notification.maintenanceId;
-                      // US 23: a new-offer alert opens its apartment.
-                      final apartmentId = notification.apartmentId;
-                      if (visitId != null) {
-                        context.go(AppRoutes.inboxVisit(visitId));
-                      } else if (maintenanceId != null) {
-                        context.go(AppRoutes.maintenanceDetail(maintenanceId));
-                      } else if (apartmentId != null) {
-                        context.go(AppRoutes.apartmentDetail(apartmentId));
-                      }
+                      final destination = viewModel.open(notification);
+                      if (destination != null) context.go(destination);
                     },
                   ),
             ],
@@ -132,6 +120,8 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.announcement => Icons.campaign_outlined,
     NotificationType.visit => Icons.event_available,
     NotificationType.maintenance => Icons.build_outlined,
+    NotificationType.message => Icons.mail_outline,
+    NotificationType.newApplication => Icons.inbox_outlined,
   };
 
   @override

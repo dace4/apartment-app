@@ -83,7 +83,9 @@ class ProfileView extends StatelessWidget {
                 child: ListTile(
                   leading: ListenableBuilder(
                     listenable: Listenable.merge([notificationsViewModel]),
-                    builder: (context, _) => Badge(
+                    // US 18.3: the shared unread count, updated live.
+                    builder: (context, _) => Badge.count(
+                      count: notificationsViewModel?.unreadCount ?? 0,
                       isLabelVisible:
                           (notificationsViewModel?.unreadCount ?? 0) > 0,
                       child: const Icon(Icons.notifications_outlined),
