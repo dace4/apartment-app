@@ -106,12 +106,14 @@ erDiagram
     notifications {
         string id PK "auto ID"
         string userId FK
-        string type "newListing | applicationStatus | announcement"
+        string type "newListing | applicationStatus | announcement | visit"
         string title "max 120"
         string body "max 500"
         timestamp createdAt
         bool isRead
         string applicationId FK "US 16: set when an owner or manager changed the status"
+        string apartmentId FK "US 23 new offer, US-20 visit: opens the apartment"
+        string visitId FK "US-20: the visit that was booked or cancelled"
     }
 
     notificationPreferences {
@@ -119,6 +121,7 @@ erDiagram
         bool newListing
         bool applicationStatus
         bool announcement
+        bool visit "US-20, optional: missing means on"
     }
 
     userSignatures {
@@ -141,6 +144,27 @@ erDiagram
         string firstApplicationId FK "null until attached to an application"
     }
 
+    visits {
+        string id PK "auto ID"
+        string apartmentId FK
+        string apartmentTitle "copy of the title, max 200"
+        string ownerId FK "the apartment's owner, who is notified"
+        string visitorId FK "renter or buyer"
+        string visitorEmail "from the login token"
+        string slotId FK "visitSlots ID"
+        timestamp slotStart "09:00 or 14:00; the visit lasts 2 hours"
+        string status "booked | cancelled"
+        timestamp createdAt "server time"
+        timestamp updatedAt "server time"
+    }
+
+    visitSlots {
+        string id PK "apartmentId_yyyyMMdd_0900 or _1400"
+        string apartmentId FK
+        timestamp slotStart
+        string visitId FK "no personal data: readable by all users"
+    }
+
     AUTH_USER ||--o| users : "selects roles"
     AUTH_USER ||--o{ favourites : saves
     apartments ||--o{ favourites : "saved as"
@@ -159,6 +183,10 @@ erDiagram
     userSignatures |o--o{ uploadedDocuments : signs
     applications }o--o{ uploadedDocuments : attaches
     applications |o--o{ uploadedDocuments : "first used by"
+    AUTH_USER ||--o{ visits : "books (visitor)"
+    apartments ||--o{ visits : "visited in"
+    visits ||--o| visitSlots : reserves
+    apartments ||--o{ visitSlots : "taken slots"
 ```
 
 ## Collections
@@ -172,10 +200,12 @@ erDiagram
 | `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
 | `advertiserContacts` | US 12 | Firebase console | Read |
 | `advertiserMessages` | US 12 | App | Create; read by the sender, the advertiser, and the apartment's owner or assigned managers (inbox); no update or delete |
-| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); set `isRead` to true; no delete |
+| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); create `visit` for the apartment's owner in the same write that books or cancels a visit (US-20); set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
 | `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |
 | `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |
+| `visits` | US-20 | App | Renter or buyer: create with its slot for an available apartment with an owner (not their own or managed one), from now to 30 days ahead; read their own; cancel until `slotStart` while freeing the slot; no delete. Owner (`ownerId`): read, to see who is coming |
+| `visitSlots` | US-20 | App | Every verified user reads; create together with its visit; never update, so a slot cannot be booked twice; delete only when its visitor cancels |
 
 Every other path is closed: `firestore.rules` denies all reads and writes that
 no rule above allows.
@@ -185,8 +215,9 @@ no rule above allows.
 - **Enums are stored by name**, e.g. `"underReview"`, never by label or index.
   A set of enums (`amenities`, `reminders`) is stored as a list of names.
 - **Each user only sees their own documents.** Queries must filter on
-  `userId` (or `senderId`) equal to the signed-in user's `uid`, otherwise the
-  rules reject the whole query.
+  `userId` (or `senderId`, `visitorId`, `ownerId`) equal to the signed-in user's `uid`,
+  otherwise the rules reject the whole query. Only `visitSlots`, which holds no
+  personal data, can be listed by everybody (by `apartmentId`).
 - **Server time:** `createdAt`, `updatedAt`, `submittedAt` and `signedAt` are
   written with `FieldValue.serverTimestamp()`; the rules check them against
   `request.time`. Only `notifications.createdAt` is set by the app's clock.
@@ -201,11 +232,18 @@ no rule above allows.
 - **Attachments** (US-15): an application lists its files in `documentIds`,
   fixed when it is submitted. The same transaction sets `firstApplicationId` on
   each file that had none, which blocks deleting that file afterwards.
-- **Copied fields:** `apartmentTitle` is copied into `applications` and
-  `maintenanceRequests` so their lists do not load every apartment. It is not
+- **Visits** (US-20): every apartment has the same slots, Monday to Friday
+  09:00–11:00 and 14:00–16:00, bookable from tomorrow up to 30 days ahead. A
+  booking writes the visit, its `visitSlots` document and the owner's
+  notification in one transaction. The slot document has a fixed ID and can
+  never be overwritten, so two visitors can never book the same slot.
+  Weekdays and slot hours are checked by the app (time zones), the future and
+  the 30 days by the rules.
+- **Copied fields:** `apartmentTitle` is copied into `applications`,
+  `maintenanceRequests` and `visits` so their lists do not load every apartment. It is not
   updated if the apartment's title changes later.
-- **Computed, not stored:** a maintenance service's "Done" status (its slot has
-  ended), an apartment's price per m², and the mortgage calculator's results
+- **Computed, not stored:** a maintenance service's "Done" status and a
+  visit's "past" state (their slot has ended), an apartment's price per m², and the mortgage calculator's results
   (`MortgageEstimate`, US-09).
 - **Defaults:** a user without a `notificationPreferences` document receives
   every kind of notification.

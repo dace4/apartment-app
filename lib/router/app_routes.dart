@@ -16,6 +16,8 @@ abstract final class AppRoutes {
   static String applyImmediately(String id) =>
       '/apartments/$id/apply-immediately';
   static String contactAdvertiser(String id) => '/apartments/$id/contact';
+  // US-20: choose a day and a free time slot to visit the apartment.
+  static String bookVisit(String id) => '/apartments/$id/visit';
 
   // Tab 2: Favourites
   static const favourites = '/favourites';
@@ -49,11 +51,15 @@ abstract final class AppRoutes {
   static String documentReview(String id) =>
       '$documents/${Uri.encodeComponent(id)}';
   static const notifications = '/profile/notifications';
+  // US-20: the visitor's booked visits.
+  static const visits = '/profile/visits';
   // US-23: saved searches and their new-offer alerts.
   static const savedSearches = '/profile/saved-searches';
   // US 16: applications received by owners and managers.
   static const inbox = '/profile/inbox';
   static String inboxApplication(String id) => '$inbox/applications/$id';
   static String inboxMessage(String id) => '$inbox/messages/$id';
+  // US-20: a visit of the owner's apartment, opened from its notification.
+  static String inboxVisit(String id) => '$inbox/visits/$id';
   static const faq = '/profile/faq';
 }

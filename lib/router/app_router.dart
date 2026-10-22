@@ -6,6 +6,7 @@ import '../view_models/compare_view_model.dart';
 import '../view_models/apartments_view_model.dart';
 import '../view_models/favourites_view_model.dart';
 import '../view_models/maintenance_reminders_view_model.dart';
+import '../view_models/notifications_view_model.dart';
 import '../view_models/saved_searches_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
 import '../views/apartments/apartments_view.dart';
@@ -41,6 +42,9 @@ import '../views/services/market_trends_view.dart';
 import '../views/services/mortgage_calculator_view.dart';
 import '../views/services/services_view.dart';
 import '../views/shared/widgets/scaffold_with_nav_bar.dart';
+import '../views/visits/my_visits_view.dart';
+import '../views/visits/visit_booking_view.dart';
+import '../views/visits/visit_detail_view.dart';
 import 'app_routes.dart';
 
 GoRouter createAppRouter({
@@ -50,6 +54,7 @@ GoRouter createAppRouter({
   required FavouritesViewModel favouritesViewModel,
   required MaintenanceRemindersViewModel maintenanceRemindersViewModel,
   required SavedSearchesViewModel savedSearchesViewModel,
+  required NotificationsViewModel notificationsViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
@@ -81,6 +86,7 @@ GoRouter createAppRouter({
         builder: (context, state, navigationShell) => ScaffoldWithNavBar(
           navigationShell: navigationShell,
           remindersViewModel: maintenanceRemindersViewModel,
+          notificationsViewModel: notificationsViewModel,
           authViewModel: authViewModel,
         ),
         branches: [
@@ -140,6 +146,13 @@ GoRouter createAppRouter({
                         path: 'contact',
                         builder: (context, state) => ContactAdvertiserView(
                           authViewModel: authViewModel,
+                          apartmentId: state.pathParameters['id']!,
+                        ),
+                      ),
+                      // US-20: renters and buyers only (canAccess).
+                      GoRoute(
+                        path: 'visit',
+                        builder: (context, state) => VisitBookingView(
                           apartmentId: state.pathParameters['id']!,
                         ),
                       ),
@@ -256,8 +269,10 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) =>
-                    ProfileView(viewModel: authViewModel),
+                builder: (context, state) => ProfileView(
+                  viewModel: authViewModel,
+                  notificationsViewModel: notificationsViewModel,
+                ),
                 routes: [
                   GoRoute(
                     path: 'signature',
@@ -281,7 +296,13 @@ GoRouter createAppRouter({
                   ),
                   GoRoute(
                     path: 'notifications',
-                    builder: (context, state) => const NotificationsView(),
+                    builder: (context, state) =>
+                        NotificationsView(viewModel: notificationsViewModel),
+                  ),
+                  // US-20: renters and buyers only (canAccess).
+                  GoRoute(
+                    path: 'visits',
+                    builder: (context, state) => const MyVisitsView(),
                   ),
                   GoRoute(
                     path: 'saved-searches',
@@ -305,6 +326,12 @@ GoRouter createAppRouter({
                         path: 'messages/:id',
                         builder: (context, state) => MessageDetailView(
                           messageId: state.pathParameters['id']!,
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'visits/:id',
+                        builder: (context, state) => VisitDetailView(
+                          visitId: state.pathParameters['id']!,
                         ),
                       ),
                     ],

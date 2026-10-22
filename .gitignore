@@ -51,3 +51,4 @@ android/key.properties
 *.jks
 *.keystore
 /docs
+/test

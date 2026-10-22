@@ -96,9 +96,11 @@ class AuthViewModel extends ChangeNotifier {
         under(AppRoutes.signature) ||
         under(AppRoutes.favourites) ||
         under(AppRoutes.savedSearches) ||
+        under(AppRoutes.visits) ||
         location == AppRoutes.compare ||
         location.endsWith('/apply') ||
-        location.endsWith('/contact')) {
+        location.endsWith('/contact') ||
+        location.endsWith('/visit')) {
       return account.isConsumer;
     }
     if (under(AppRoutes.mortgage) || under(AppRoutes.marketTrends)) {

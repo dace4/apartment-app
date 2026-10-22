@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/apartment.dart';
+import '../../models/visit.dart';
 import '../../view_models/auth_view_model.dart';
 import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
@@ -39,6 +40,10 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
   void initState() {
     super.initState();
     viewModel.fetchApartment(widget.apartmentId);
+    // US-20: renters and buyers see their booked visit.
+    if (widget.authViewModel.canAccess(AppRoutes.visits)) {
+      viewModel.listenToMyVisit(widget.apartmentId);
+    }
   }
 
   @override
@@ -120,6 +125,7 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
       onRefresh: _refresh,
       child: _ApartmentDetails(
         apartment: apartment,
+        myVisit: viewModel.myVisit,
         authViewModel: widget.authViewModel,
         compareViewModel: widget.compareViewModel,
       ),
@@ -131,11 +137,15 @@ class _ApartmentDetailViewState extends State<ApartmentDetailView> {
 class _ApartmentDetails extends StatelessWidget {
   const _ApartmentDetails({
     required this.apartment,
+    required this.myVisit,
     required this.authViewModel,
     required this.compareViewModel,
   });
 
   final Apartment apartment;
+
+  /// US-20: the user's upcoming visit of this apartment, if any.
+  final Visit? myVisit;
   final AuthViewModel authViewModel;
   final CompareViewModel compareViewModel;
 
@@ -244,6 +254,32 @@ class _ApartmentDetails extends StatelessWidget {
                   icon: const Icon(Icons.mail_outline),
                   label: const Text('Contact advertiser'),
                 ),
+              const SizedBox(height: 8),
+              // US-20: visits need an available apartment with an owner, who
+              // is notified.
+              if (authViewModel.canAccess(AppRoutes.bookVisit(apartment.id)))
+                if (myVisit != null)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.event_available),
+                      title: const Text('Your visit'),
+                      subtitle: Text(
+                        formatTimeSlot(myVisit!.slotStart, myVisit!.slotEnd),
+                      ),
+                      trailing: TextButton(
+                        onPressed: () => context.go(AppRoutes.visits),
+                        child: const Text('My visits'),
+                      ),
+                    ),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: apartment.canApply && apartment.ownerId != null
+                        ? () => context.go(AppRoutes.bookVisit(apartment.id))
+                        : null,
+                    icon: const Icon(Icons.event),
+                    label: const Text('Schedule a visit'),
+                  ),
               const SizedBox(height: 8),
               // US 13: rebuilds only these buttons when the selection changes.
               if (compareViewModel.allowed)

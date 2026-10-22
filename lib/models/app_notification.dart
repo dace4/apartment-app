@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// US 18: the three kinds of notification a user can receive.
+/// US 18: the kinds of notification a user can receive.
 enum NotificationType {
   newListing('New listings'),
   applicationStatus('Application status'),
-  announcement('Announcements');
+  announcement('Announcements'),
+
+  /// US-20: a visit of the user's apartment was booked or cancelled.
+  visit('Visits');
 
   const NotificationType(this.label);
   final String label;
@@ -20,6 +23,7 @@ class AppNotification {
     required this.createdAt,
     this.isRead = false,
     this.apartmentId,
+    this.visitId,
   });
 
   final String id;
@@ -31,6 +35,9 @@ class AppNotification {
 
   final String? apartmentId;
 
+  /// US-20: the visit that was booked or cancelled; opens its details.
+  final String? visitId;
+
   factory AppNotification.fromMap(String id, Map<String, dynamic> map) {
     return AppNotification(
       id: id,
@@ -40,6 +47,7 @@ class AppNotification {
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       isRead: map['isRead'] as bool? ?? false,
       apartmentId: map['apartmentId'] as String?,
+      visitId: map['visitId'] as String?,
     );
   }
 
@@ -51,6 +59,7 @@ class AppNotification {
       'createdAt': Timestamp.fromDate(createdAt),
       'isRead': isRead,
       if (apartmentId != null) 'apartmentId': apartmentId,
+      if (visitId != null) 'visitId': visitId,
     };
   }
 }

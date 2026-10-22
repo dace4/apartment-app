@@ -92,6 +92,28 @@ void main() {
     expect(viewModel.unreadCount, 1);
   });
 
+  // US-20: unreadCount drives the red dot on the Profile tab and tile.
+  test('a new visit counts as unread until read or switched off', () async {
+    service.notifications.add([
+      _notification('visit', NotificationType.visit, day: 1),
+    ]);
+    await _flush();
+    expect(viewModel.unreadCount, 1);
+
+    service.notifications.add([
+      _notification('visit', NotificationType.visit, day: 1, isRead: true),
+    ]);
+    await _flush();
+    expect(viewModel.unreadCount, 0);
+
+    service.notifications.add([
+      _notification('visit', NotificationType.visit, day: 1),
+    ]);
+    service.preferences.add(const NotificationPreferences(visit: false));
+    await _flush();
+    expect(viewModel.unreadCount, 0);
+  });
+
   test('saves an opt-out and an opt-in', () async {
     await viewModel.setEnabled(NotificationType.newListing, false);
     await _flush();
