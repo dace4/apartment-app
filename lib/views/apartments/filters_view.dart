@@ -81,7 +81,8 @@ class _FiltersViewState extends State<FiltersView> {
   @override
   Widget build(BuildContext context) {
     // Rents are monthly, sale prices are totals.
-    final priceUnit = _listingType == ListingType.rent ? 'CHF / month' : 'CHF';
+    final priceUnit = widget.viewModel.filterPriceUnit(_listingType);
+    final listingTypeNotice = widget.viewModel.listingTypeNotice;
 
     return Scaffold(
       appBar: AppBar(
@@ -117,21 +118,24 @@ class _FiltersViewState extends State<FiltersView> {
             ),
             _Section(
               title: 'Rent or buy',
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  for (final type in [null, ...ListingType.values])
-                    ChoiceChip(
-                      label: Text(switch (type) {
-                        null => 'Any',
-                        ListingType.rent => 'Rent',
-                        ListingType.sale => 'Buy',
-                      }),
-                      selected: _listingType == type,
-                      onSelected: (_) => setState(() => _listingType = type),
+              child: listingTypeNotice != null
+                  ? Text(listingTypeNotice)
+                  : Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final type in [null, ...ListingType.values])
+                          ChoiceChip(
+                            label: Text(switch (type) {
+                              null => 'Any',
+                              ListingType.rent => 'Rent',
+                              ListingType.sale => 'Buy',
+                            }),
+                            selected: _listingType == type,
+                            onSelected: (_) =>
+                                setState(() => _listingType = type),
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
             _Section(
               title: 'Price',

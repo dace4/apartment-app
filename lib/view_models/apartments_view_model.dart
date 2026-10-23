@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/apartment.dart';
 import '../models/apartment_filter.dart';
+import '../models/app_user.dart';
 import '../services/apartment_service.dart';
 
 /// Shared by the apartment list and the Filters page, so both see the same
@@ -13,10 +14,31 @@ class ApartmentsViewModel extends ChangeNotifier {
     if (!_disposed) super.notifyListeners();
   }
 
-  ApartmentsViewModel({ApartmentService? service})
+  ApartmentsViewModel({ApartmentService? service, this.user})
     : service = service ?? ApartmentService();
 
   final ApartmentService service;
+
+  /// US-04: supplied by the session, or the favourites auth listener.
+  AppUser? user;
+
+  /// Consumer roles constrain browsing independently of optional filters.
+  ListingType? get restrictedListingType {
+    final account = user;
+    if (account == null || account.isRenter == account.isBuyer) return null;
+    return account.isRenter ? ListingType.rent : ListingType.sale;
+  }
+
+  String? get listingTypeNotice => switch (restrictedListingType) {
+    ListingType.rent => 'Rentals only',
+    ListingType.sale => 'Sales only',
+    null => null,
+  };
+
+  String filterPriceUnit(ListingType? selectedType) =>
+      (restrictedListingType ?? selectedType) == ListingType.rent
+      ? 'CHF / month'
+      : 'CHF';
 
   List<Apartment> apartments = [];
   bool isLoading = false;
@@ -35,6 +57,8 @@ class ApartmentsViewModel extends ChangeNotifier {
   List<Apartment> get visibleApartments => apartments
       .where(
         (apartment) =>
+            (restrictedListingType == null ||
+                apartment.listingType == restrictedListingType) &&
             (availability == null || apartment.availability == availability) &&
             filter.matches(apartment),
       )

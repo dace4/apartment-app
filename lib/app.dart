@@ -55,12 +55,16 @@ class _SessionAppState extends State<_SessionApp> {
   // ViewModels shared by several screens are created once, here
   // (see ARCHITECTURE.md §4).
   AuthViewModel get _authViewModel => widget.authViewModel;
-  final _apartmentsViewModel = ApartmentsViewModel();
+  late final _apartmentsViewModel = ApartmentsViewModel(
+    user: _authViewModel.user,
+  );
   late final _compareViewModel = CompareViewModel(
     allowed:
         _authViewModel.user?.isReady == true && _authViewModel.user!.isConsumer,
   );
-  final _favouritesViewModel = FavouritesViewModel();
+  late final _favouritesViewModel = FavouritesViewModel(
+    user: _authViewModel.user,
+  );
   // US-17: the in-app maintenance reminder shown on every tab.
   final _maintenanceRemindersViewModel = MaintenanceRemindersViewModel();
   // US 18.4: "Visit tomorrow" notifications for renters and buyers.

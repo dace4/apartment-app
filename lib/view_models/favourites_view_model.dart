@@ -8,11 +8,15 @@ import 'apartments_view_model.dart';
 /// US 22: the apartment list constrained to the current user's favourites.
 class FavouritesViewModel extends ApartmentsViewModel {
   FavouritesViewModel({
+    super.user,
+    super.service,
     FavouriteService? favouriteService,
     AuthService? authService,
   }) : _favourites = favouriteService ?? FavouriteService(),
        _auth = authService ?? AuthService() {
     _authSubscription = _auth.userChanges().listen((user) {
+      // US-04: favourites use the same role restriction as Search.
+      this.user = user;
       _subscription?.cancel();
       _subscription = null;
       _favouriteIds = {};
