@@ -1,0 +1,684 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Retain the new database's production-mode protection for all other data.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    // US-06: unverified accounts may only prepare their own role profile.
+    match /users/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['roles']) &&
+        request.resource.data.roles is list && request.resource.data.roles.size() >= 1 &&
+        request.resource.data.roles.size() <= 4 &&
+        request.resource.data.roles.toSet().size() == request.resource.data.roles.size() &&
+        request.resource.data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+      allow list, delete: if false;
+    }
+    function verified() {
+      // Rules use the signed token claim, not a value supplied by the contact form.
+      return request.auth != null && request.auth.token.email_verified == true && hasRoles();
+    }
+    // US-07: profiles grant personas, never property assignment.
+    function hasRoles() {
+      let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return data.keys().hasOnly(['roles']) && data.roles is list &&
+        data.roles.size() >= 1 && data.roles.size() <= 4 &&
+        data.roles.toSet().size() == data.roles.size() &&
+        data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+    }
+    function hasRole(role) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
+    }
+    function consumer() { return hasRole('buyer') || hasRole('renter'); }
+    function managementRole() { return hasRole('homeowner') || hasRole('propertyManager'); }
+    function manages(apartmentId) {
+      let apartment = get(/databases/$(database)/documents/apartments/$(apartmentId)).data;
+      return (hasRole('homeowner') && apartment.get('ownerId', '') == request.auth.uid) ||
+        (hasRole('propertyManager') && request.auth.uid in apartment.get('managerIds', []));
+    }
+    function participant() {
+      // Only the sender and the addressed advertiser can read a stored message.
+      return resource.data.senderId == request.auth.uid ||
+        resource.data.advertiserId == request.auth.uid;
+    }
+    match /apartments/{apartmentId} {
+      allow read: if verified();
+      // US 10: applying never reserves an apartment, so the app cannot change
+      // availability. Existing reserved listings stay as they are.
+      allow update: if false;
+      // US-24: creation grants ownership only of the new listing.
+      allow create: if verified() && hasRole('homeowner') && validListing();
+      allow delete: if false;
+
+      function validPhoto(photos, index) {
+        return photos.size() <= index ||
+          (photos[index] is string && photos[index].size() <= 131095 &&
+           photos[index].matches('data:image/jpeg;base64,/9j/[A-Za-z0-9+/=]+'));
+      }
+      function textField(value, limit) {
+        return value is string && value.size() <= limit &&
+          value.matches('[\\s\\S]*[^ \\t\\r\\n][\\s\\S]*');
+      }
+      function validListing() {
+        let data = request.resource.data;
+        let fields = ['title', 'address', 'city', 'listingType', 'price', 'rooms',
+          'surface', 'imageUrl', 'imageUrls', 'description', 'availability',
+          'amenities', 'ownerId', 'managerIds', 'createdAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.ownerId == request.auth.uid && data.managerIds == [] &&
+          data.createdAt == request.time && data.availability == 'available' &&
+          textField(data.title, 200) && textField(data.address, 200) &&
+          textField(data.city, 100) && textField(data.description, 5000) &&
+          data.listingType in ['rent', 'sale'] &&
+          data.price is int && data.price >= 1 && data.price <= 1000000000 &&
+          data.rooms is number && data.rooms > 0 && data.rooms <= 100 &&
+          data.surface is int && data.surface >= 1 && data.surface <= 100000 &&
+          data.amenities is list && data.amenities.size() <= 6 &&
+          data.amenities.toSet().size() == data.amenities.size() &&
+          data.amenities.hasOnly(['balcony', 'garden', 'parking', 'elevator', 'furnished', 'cellar']) &&
+          data.imageUrls is list && data.imageUrls.size() >= 3 && data.imageUrls.size() <= 6 &&
+          data.imageUrls.toSet().size() == data.imageUrls.size() && data.imageUrl == data.imageUrls[0] &&
+          validPhoto(data.imageUrls, 0) && validPhoto(data.imageUrls, 1) &&
+          validPhoto(data.imageUrls, 2) && validPhoto(data.imageUrls, 3) &&
+          validPhoto(data.imageUrls, 4) && validPhoto(data.imageUrls, 5);
+      }
+    }
+    // US-11: one drawing per account, replaceable under the same ID.
+    match /userSignatures/{userId} {
+      allow get: if verified() && consumer() && request.auth.uid == userId;
+      allow create, update: if verified() && consumer() && request.auth.uid == userId &&
+        request.resource.data.keys().hasAll(['drawing', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['drawing', 'updatedAt']) &&
+        request.resource.data.drawing is string && request.resource.data.drawing.size() >= 20 &&
+        request.resource.data.drawing.size() <= 100000 && request.resource.data.updatedAt == request.time;
+      allow list, delete: if false;
+    }
+    // US-15/11: immutable originals, one first-use marker, and one signing transition.
+    match /uploadedDocuments/{documentId} {
+      function owner() { return resource.data.userId == request.auth.uid; }
+      allow get: if verified() && consumer() && (resource == null || owner());
+      allow list: if verified() && consumer() && owner();
+      allow create: if verified() && consumer() && validUpload();
+      allow update: if verified() && consumer() && owner() && (validFirstUse() || validBinding());
+      allow delete: if verified() && consumer() && owner() &&
+        resource.data.status == 'unsigned' && resource.data.firstApplicationId == null;
+      function validUpload() {
+        let data = request.resource.data;
+        let fields = ['userId', 'name', 'mimeType', 'fileBytes', 'byteSize',
+          'createdAt', 'status', 'signatureId', 'signedAt', 'firstApplicationId'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.userId == request.auth.uid &&
+          data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+          data.mimeType in ['image/jpeg', 'application/pdf'] &&
+          ((data.mimeType == 'image/jpeg' && data.name.matches('(?i).*[.](jpg|jpeg)')) ||
+           (data.mimeType == 'application/pdf' && data.name.matches('(?i).*[.]pdf'))) &&
+          data.fileBytes is bytes && data.byteSize is int &&
+          data.byteSize > 0 && data.byteSize <= 716800 && data.fileBytes.size() == data.byteSize &&
+          data.createdAt == request.time && data.status == 'unsigned' &&
+          data.signatureId == null && data.signedAt == null && data.firstApplicationId == null;
+      }
+      function validFirstUse() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys().hasOnly(['firstApplicationId']) &&
+          resource.data.firstApplicationId == null && data.firstApplicationId is string &&
+          getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/applications/$(data.firstApplicationId)).data.documentIds.hasAny([documentId]);
+      }
+      function validBinding() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys().hasOnly(['status', 'signatureId', 'signedAt']) &&
+          resource.data.status == 'unsigned' && resource.data.signatureId == null &&
+          data.status == 'signed' && data.signatureId == request.auth.uid && data.signedAt == request.time &&
+          exists(/databases/$(database)/documents/userSignatures/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/userSignatures/$(request.auth.uid)).data.drawing is string &&
+          get(/databases/$(database)/documents/userSignatures/$(request.auth.uid)).data.drawing.size() >= 20;
+      }
+    }
+    function attachmentAllowed(ids, index) {
+      return ids.size() <= index ||
+        (ids[index] is string &&
+          getAfter(/databases/$(database)/documents/uploadedDocuments/$(ids[index])).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/uploadedDocuments/$(ids[index])).data.firstApplicationId != null);
+    }
+    function validAttachments(data) {
+      let ids = data.get('documentIds', []);
+      return ids is list && ids.size() <= 5 && ids.toSet().size() == ids.size() &&
+        attachmentAllowed(ids, 0) && attachmentAllowed(ids, 1) && attachmentAllowed(ids, 2) &&
+        attachmentAllowed(ids, 3) && attachmentAllowed(ids, 4);
+    }
+    // Favourites: each user manages only their own saved apartments.
+    match /favourites/{favouriteId} {
+      // Queries must constrain userId to the signed-in user.
+      allow list: if verified() && consumer() &&
+        resource.data.userId == request.auth.uid;
+      allow get: if verified() && consumer() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if verified() && consumer() && validFavourite();
+      allow delete: if verified() && consumer() &&
+        resource.data.userId == request.auth.uid;
+      allow update: if false;
+      function validFavourite() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['apartmentId', 'userId', 'createdAt']) &&
+          data.keys().hasOnly(['apartmentId', 'userId', 'createdAt']) &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.userId == request.auth.uid &&
+          data.createdAt == request.time &&
+          exists(/databases/$(database)/documents/apartments/$(data.apartmentId));
+      }
+    }
+    // US-23: saved searches. Each user only sees and changes their own;
+    // after saving, only the alert switch and the seen offers can change.
+    match /savedSearches/{searchId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      function validSearch(data) {
+        let fields = ['userId', 'name', 'filter', 'alertsEnabled',
+          'seenApartmentIds', 'createdAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.name is string && data.name.size() > 0 &&
+          data.name.size() <= 40 &&
+          data.filter is map &&
+          data.alertsEnabled is bool &&
+          data.seenApartmentIds is list &&
+          data.seenApartmentIds.size() <= 1000;
+      }
+
+      // Queries must constrain userId to the signed-in user.
+      allow list, get: if verified() && consumer() && owner();
+      allow create: if verified() && consumer() && validSearch(request.resource.data) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update: if verified() && consumer() && owner() &&
+        validSearch(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['alertsEnabled', 'seenApartmentIds']);
+      allow delete: if verified() && consumer() && owner();
+    }
+    // US 12 only. Keep other stories' deployed matches when integrating this file.
+    match /advertiserContacts/{apartmentId} {
+      allow read: if verified() && consumer();
+      allow write: if false;
+    }
+    match /advertiserMessages/{messageId} {
+      // Transactions first read their generated ID. A missing document carries
+      // no private data; existing messages remain restricted to participants.
+      allow get: if verified() &&
+        ((consumer() &&
+          (!exists(/databases/$(database)/documents/advertiserMessages/$(messageId)) || participant())) ||
+         messageReviewer());
+      // Queries must constrain senderId or advertiserId to the current UID,
+      // or (US 12 inbox) apartmentId to apartments the user manages.
+      // Broader queries are rejected; rules do not filter out private messages.
+      allow list: if verified() && ((consumer() && participant()) || messageReviewer());
+
+      // US 12: a message also belongs to the apartment's owner and managers.
+      function messageReviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
+      allow create: if verified() && consumer() && validMessage();
+      allow update, delete: if false;
+
+      function validMessage() {
+        let data = request.resource.data;
+        let fields = ['apartmentId', 'advertiserId', 'senderId', 'senderEmail',
+          'subject', 'body', 'createdAt', 'status'];
+        // Require exactly this schema, authenticated sender identity, nonblank
+        // text within the limits, a server timestamp and the listing's recipient.
+        // The regex accepts multiline messages but rejects whitespace-only text.
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.senderId == request.auth.uid &&
+          data.senderEmail == request.auth.token.email &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.advertiserId is string && data.advertiserId.size() > 0 &&
+          data.subject is string && data.subject.size() <= 120 &&
+          data.subject.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.body is string && data.body.size() <= 2000 &&
+          data.body.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.createdAt == request.time && data.status == 'sent' &&
+          // The recipient is the listing's advertiser contact or, for
+          // listings published in the app (US-24), its owner.
+          ((exists(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)) &&
+            get(/databases/$(database)/documents/advertiserContacts/$(data.apartmentId)).data.advertiserId == data.advertiserId) ||
+           get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data.get('ownerId', '') == data.advertiserId);
+      }
+    }
+    // US 16: each user can only see and change their own applications.
+    match /applications/{applicationId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Acceptance criterion: edit or withdraw within 5 days, and only while
+      // the application still waits for a decision.
+      function changeable() {
+        return resource.data.status in ['submitted', 'received', 'underReview'] &&
+          request.time < resource.data.submittedAt + duration.value(5, 'd');
+      }
+      function validDetails(data) {
+        return data.fullName is string && data.fullName.size() <= 100 &&
+          data.fullName.matches('.*\\S.*') &&
+          data.phone is string && data.phone.matches('[+0-9 ()\\-]{6,20}') &&
+          data.moveInDate is timestamp &&
+          data.occupants is int && data.occupants >= 1 && data.occupants <= 10 &&
+          data.message is string && data.message.size() <= 1000;
+      }
+      // A day of tolerance, because the app stores the date at local midnight.
+      function moveInNotPast(data) {
+        return data.moveInDate > request.time - duration.value(1, 'd');
+      }
+
+      // Submitting first checks that the generated ID is unused. A missing
+      // document carries no private data.
+      allow get: if verified() &&
+        ((consumer() && (resource == null || owner())) || reviewer());
+      // Queries must filter on userId == the current UID, or (US 16) on
+      // apartmentId in the apartments the reviewer manages.
+      allow list: if verified() && ((consumer() && owner()) || reviewer());
+      allow create: if verified() && consumer() && validNewApplication();
+      allow update: if verified() &&
+        ((consumer() && owner() && changeable() &&
+          (validEdit() || validWithdraw())) ||
+         (reviewer() && validReview()));
+      allow delete: if false;
+
+      // US 16: the application belongs to the applicant (userId) and is
+      // reviewed by the apartment's owner or assigned property managers.
+      function reviewer() {
+        return resource != null && managementRole() &&
+          manages(resource.data.apartmentId);
+      }
+      // Applied → Received → In review → Accepted or Rejected.
+      function validReview() {
+        let data = request.resource.data;
+        let from = resource.data.status;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.updatedAt == request.time &&
+          ((from == 'submitted' && data.status == 'received') ||
+           (from == 'received' && data.status == 'underReview') ||
+           (from == 'underReview' && data.status in ['accepted', 'rejected']));
+      }
+
+      function validNewApplication() {
+        let data = request.resource.data;
+        let fields = ['userId', 'apartmentId', 'apartmentTitle', 'fullName',
+          'phone', 'moveInDate', 'occupants', 'message', 'status',
+          'applicationType', 'submittedAt', 'updatedAt'];
+        return data.keys().hasAll(fields) &&
+          data.keys().hasOnly(fields.concat(['documentIds'])) &&
+          validAttachments(data) && data.userId == request.auth.uid &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          validDetails(data) && moveInNotPast(data) &&
+          data.submittedAt == request.time && data.updatedAt == request.time &&
+          data.status == 'submitted' && apartmentIsAvailable(data.apartmentId) &&
+          // US 10: an immediate application is only submitted (renters only).
+          (data.applicationType == 'normal' ||
+            (data.applicationType == 'immediate' && hasRole('renter')));
+      }
+      function apartmentIsAvailable(apartmentId) {
+        return get(/databases/$(database)/documents/apartments/$(apartmentId))
+          .data.availability == 'available';
+      }
+      function validEdit() {
+        let data = request.resource.data;
+        let changed = data.diff(resource.data).affectedKeys();
+        return changed.hasOnly(['fullName', 'phone', 'moveInDate', 'occupants',
+            'message', 'updatedAt']) &&
+          validDetails(data) && data.updatedAt == request.time &&
+          // A kept move-in date may lie in the past; a new one may not.
+          (!changed.hasAny(['moveInDate']) || moveInNotPast(data));
+      }
+      function validWithdraw() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'withdrawn' && data.updatedAt == request.time;
+      }
+    }
+    // US-17: each property manager only sees and changes their own
+    // repair and maintenance services.
+    match /maintenanceRequests/{requestId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Rescheduling and cancelling are possible until the service starts.
+      function changeable() {
+        return resource.data.status == 'scheduled' &&
+          request.time < resource.data.slotStart;
+      }
+      // The app also enforces weekdays, fixed slots and booking from the
+      // next day; the server checks that the slot is in the future and
+      // within 60 days.
+      function validSlot(data) {
+        return data.slotStart is timestamp &&
+          data.slotStart > request.time &&
+          data.slotStart < request.time + duration.value(61, 'd');
+      }
+      function validReminders(data) {
+        return data.reminders is list && data.reminders.size() >= 1 &&
+          data.reminders.size() <= 3 &&
+          data.reminders.hasOnly(['oneDay', 'oneHour', 'fiveMinutes']);
+      }
+
+      // A missing document carries no private data.
+      allow get: if verified() && managementRole() && (resource == null || (owner() && manages(resource.data.apartmentId)));
+      // Queries must filter on userId == the current UID.
+      allow list: if verified() && managementRole() && owner() && manages(resource.data.apartmentId);
+      allow create: if verified() && managementRole() && manages(request.resource.data.apartmentId) && validNewRequest();
+      allow update: if verified() && managementRole() && owner() && manages(resource.data.apartmentId) && changeable() &&
+        (validReschedule() || validCancel());
+      allow delete: if false;
+
+      function validNewRequest() {
+        let data = request.resource.data;
+        let fields = ['userId', 'apartmentId', 'apartmentTitle', 'category',
+          'description', 'slotStart', 'reminders', 'status', 'createdAt',
+          'updatedAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.userId == request.auth.uid &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          data.category in ['plumbing', 'electrical', 'heating', 'appliances',
+            'other'] &&
+          data.description is string && data.description.size() >= 5 &&
+          data.description.size() <= 500 &&
+          validSlot(data) && validReminders(data) &&
+          data.status == 'scheduled' &&
+          data.createdAt == request.time && data.updatedAt == request.time;
+      }
+      function validReschedule() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['slotStart', 'reminders', 'updatedAt']) &&
+          validSlot(data) && validReminders(data) &&
+          data.updatedAt == request.time;
+      }
+      function validCancel() {
+        let data = request.resource.data;
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'cancelled' && data.updatedAt == request.time;
+      }
+    }
+    // US-20: a visit belongs to its visitor (a renter or buyer). The slot it
+    // reserves is stored separately in visitSlots, without the visitor.
+    match /visits/{visitId} {
+      function visitor() {
+        return resource.data.visitorId == request.auth.uid;
+      }
+      function slot(slotId) {
+        return getAfter(/databases/$(database)/documents/visitSlots/$(slotId));
+      }
+      // The visitor, and the apartment's owner (who is notified and opens the
+      // visit to see who is coming). Queries must filter on visitorId or
+      // ownerId == the current UID.
+      allow get, list: if verified() &&
+        (visitor() || resource.data.ownerId == request.auth.uid);
+      allow create: if verified() && consumer() && validNewVisit();
+      allow update: if verified() && visitor() && validCancel();
+      allow delete: if false;
+
+      // Booked in the same write as its slot. Only available apartments with
+      // an owner, and not by their owner or managers.
+      function validNewVisit() {
+        let data = request.resource.data;
+        let fields = ['apartmentId', 'apartmentTitle', 'ownerId', 'visitorId',
+          'visitorEmail', 'slotId', 'slotStart', 'status', 'createdAt',
+          'updatedAt'];
+        let apartment = get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data;
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.visitorId == request.auth.uid &&
+          data.visitorEmail == request.auth.token.email &&
+          data.apartmentId is string && data.apartmentId.size() > 0 &&
+          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
+          data.apartmentTitle.size() <= 200 &&
+          apartment.availability == 'available' &&
+          data.ownerId is string && data.ownerId.size() > 0 &&
+          data.ownerId == apartment.get('ownerId', '') &&
+          data.ownerId != request.auth.uid &&
+          !(request.auth.uid in apartment.get('managerIds', [])) &&
+          // The app also enforces weekdays, the 09:00 and 14:00 slots and
+          // booking from the next day; the server checks that the slot is in
+          // the future and within 30 days.
+          data.slotStart is timestamp && data.slotStart > request.time &&
+          data.slotStart < request.time + duration.value(31, 'd') &&
+          data.status == 'booked' &&
+          data.createdAt == request.time && data.updatedAt == request.time &&
+          data.slotId is string && slot(data.slotId) != null &&
+          slot(data.slotId).data.visitId == visitId;
+      }
+      // Until the visit starts, and only together with freeing its slot.
+      function validCancel() {
+        let data = request.resource.data;
+        return resource.data.status == 'booked' &&
+          request.time < resource.data.slotStart &&
+          data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']) &&
+          data.status == 'cancelled' && data.updatedAt == request.time &&
+          slot(resource.data.slotId) == null;
+      }
+    }
+    // US-20: one document per booked slot, with the fixed ID
+    // "apartmentId_yyyyMMdd_HHmm". It can be created but never overwritten,
+    // so a slot is never booked twice. It holds no personal data, so every
+    // user can see which slots are taken.
+    match /visitSlots/{slotId} {
+      function visit(visitId) {
+        return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
+      }
+      allow read: if verified();
+      allow create: if verified() && consumer() && validSlot();
+      allow update: if false;
+      // Freed when its visitor cancels the visit in the same write.
+      allow delete: if verified() &&
+        visit(resource.data.visitId).visitorId == request.auth.uid &&
+        visit(resource.data.visitId).slotId == slotId &&
+        visit(resource.data.visitId).status == 'cancelled' &&
+        visit(resource.data.visitId).updatedAt == request.time;
+
+      function validSlot() {
+        let data = request.resource.data;
+        let parts = slotId.split('_');
+        let suffix = parts[parts.size() - 2] + '_' + parts[parts.size() - 1];
+        return data.keys().hasAll(['apartmentId', 'slotStart', 'visitId']) &&
+          data.keys().hasOnly(['apartmentId', 'slotStart', 'visitId']) &&
+          data.apartmentId is string && data.visitId is string &&
+          suffix.matches('[0-9]{8}_(0900|1400)') &&
+          slotId == data.apartmentId + '_' + suffix &&
+          visit(data.visitId).visitorId == request.auth.uid &&
+          visit(data.visitId).slotId == slotId &&
+          visit(data.visitId).apartmentId == data.apartmentId &&
+          visit(data.visitId).slotStart == data.slotStart &&
+          visit(data.visitId).status == 'booked';
+      }
+    }
+    // US-19: the insurance coverage catalogue, with each coverage's agent.
+    // Only edited in the Firebase console; renters read it.
+    match /insuranceCoverages/{coverageId} {
+      allow read: if verified() && hasRole('renter');
+      allow write: if false;
+    }
+    // US-19: a renter's request to a coverage's agent. The agent reads it in
+    // the Firebase console; in the app only its renter can read it.
+    match /insuranceRequests/{requestId} {
+      // Queries must filter on renterId == the current UID.
+      allow get, list: if verified() &&
+        resource.data.renterId == request.auth.uid;
+      allow create: if verified() && hasRole('renter') && validRequest();
+      allow update, delete: if false;
+
+      function validRequest() {
+        let data = request.resource.data;
+        let fields = ['coverageId', 'coverageName', 'agentName', 'agentEmail',
+          'renterId', 'renterEmail', 'contactMethod', 'phone', 'message',
+          'status', 'createdAt'];
+        let coverage = get(/databases/$(database)/documents/insuranceCoverages/$(data.coverageId)).data;
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.renterId == request.auth.uid &&
+          data.renterEmail == request.auth.token.email &&
+          // The copies must match the coverage, so the agent is not forged.
+          data.coverageId is string &&
+          data.coverageName == coverage.name &&
+          data.agentName == coverage.get('agentName', '') &&
+          data.agentEmail == coverage.get('agentEmail', '') &&
+          // A phone number only when the renter wants to be called
+          // (same pattern as Validators.phone).
+          ((data.contactMethod == 'email' && data.phone == '') ||
+           (data.contactMethod == 'phone' && data.phone is string &&
+            data.phone.matches('[+0-9 ()\\-]{6,20}'))) &&
+          data.message is string && data.message.size() <= 2000 &&
+          data.message.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.status == 'sent' && data.createdAt == request.time;
+      }
+    }
+    // US-18: each user only sees their own notifications and can only mark
+    // them as read. New listings and announcements are added from the console.
+    match /notifications/{notificationId} {
+      function owner() {
+        return resource.data.userId == request.auth.uid;
+      }
+      // Queries must filter on userId == the current UID.
+      allow list: if verified() && owner();
+      allow get: if verified() && owner();
+      allow create: if verified() && validNotification();
+      allow update: if verified() && owner() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isRead']) &&
+        request.resource.data.isRead == true;
+      allow delete: if false;
+
+      // The app may only create application updates for its own user, so a
+      // user cannot fake an announcement.
+      function validNotification() {
+        let data = request.resource.data;
+        let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
+        return data.keys().hasAll(fields) &&
+          data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId',
+            'visitId', 'maintenanceId', 'messageId'])) &&
+          (
+            (data.userId == request.auth.uid &&
+              !data.keys().hasAny(['applicationId', 'visitId', 'messageId']) &&
+              (
+                (data.type == 'applicationStatus' &&
+                  !data.keys().hasAny(['apartmentId', 'maintenanceId'])) ||
+                // US-23: new-offer alerts a user creates for themselves, with the
+                // fixed id uid_search_apartment so an alert never exists twice.
+                (data.type == 'newListing' && data.apartmentId is string &&
+                  !data.keys().hasAny(['maintenanceId']) &&
+                  notificationId.matches(request.auth.uid + '_.+')) ||
+                validMaintenanceNotification(data) ||
+                validVisitReminder(data)
+              )) ||
+            validReviewNotification(data) ||
+            validVisitNotification(data) ||
+            validMessageNotification(data) ||
+            validNewApplicationNotification(data)
+          ) &&
+          data.title is string && data.title.size() > 0 &&
+          data.title.size() <= 120 &&
+          data.body is string && data.body.size() <= 500 &&
+          data.createdAt is timestamp && data.isRead == false;
+      }
+      // US 16: the reviewer notifies the applicant, only in the same batch
+      // that changes the application's status (updatedAt == request.time).
+      function validReviewNotification(data) {
+        return data.type == 'applicationStatus' &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
+            'messageId']) &&
+          data.applicationId is string &&
+          reviewed(data.applicationId).userId == data.userId &&
+          reviewed(data.applicationId).updatedAt == request.time &&
+          managementRole() && manages(reviewed(data.applicationId).apartmentId);
+      }
+      function reviewed(applicationId) {
+        return getAfter(/databases/$(database)/documents/applications/$(applicationId)).data;
+      }
+      // US-20: the visitor notifies the apartment's owner, only in the same
+      // write that books or cancels the visit (updatedAt == request.time).
+      function validVisitNotification(data) {
+        return data.type == 'visit' && data.visitId is string &&
+          !data.keys().hasAny(['applicationId', 'maintenanceId', 'messageId']) &&
+          visited(data.visitId).visitorId == request.auth.uid &&
+          visited(data.visitId).ownerId == data.userId &&
+          visited(data.visitId).apartmentId == data.apartmentId &&
+          visited(data.visitId).updatedAt == request.time;
+      }
+      function visited(visitId) {
+        return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
+      }
+      // US-17.3: a reminder before the user's own maintenance service. The
+      // fixed id uid_maintenance_request_reminder means each reminder is
+      // stored once; an existing one cannot be overwritten (update rule).
+      function validMaintenanceNotification(data) {
+        return data.type == 'maintenance' && data.maintenanceId is string &&
+          !data.keys().hasAny(['apartmentId']) &&
+          notificationId in [
+            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneDay',
+            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneHour',
+            request.auth.uid + '_maintenance_' + data.maintenanceId +
+              '_fiveMinutes'] &&
+          get(/databases/$(database)/documents/maintenanceRequests/$(data.maintenanceId)).data.userId == request.auth.uid;
+      }
+      // US 18.4: the visitor's reminder the day before their own visit, with
+      // the fixed id uid_visitReminder_visitId so it is stored once.
+      function validVisitReminder(data) {
+        return data.type == 'visit' && data.apartmentId is string &&
+          !data.keys().hasAny(['maintenanceId']) &&
+          notificationId.matches(request.auth.uid + '_visitReminder_[A-Za-z0-9]+') &&
+          get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.visitorId == request.auth.uid &&
+          get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.apartmentId == data.apartmentId;
+      }
+      // US 18.2: the sender notifies the advertiser, only in the same batch
+      // that stores the message (createdAt == request.time).
+      function validMessageNotification(data) {
+        return data.type == 'message' && data.messageId is string &&
+          !data.keys().hasAny(['apartmentId', 'applicationId', 'visitId',
+            'maintenanceId']) &&
+          sentMessage(data.messageId).senderId == request.auth.uid &&
+          sentMessage(data.messageId).advertiserId == data.userId &&
+          sentMessage(data.messageId).createdAt == request.time;
+      }
+      function sentMessage(messageId) {
+        return getAfter(/databases/$(database)/documents/advertiserMessages/$(messageId)).data;
+      }
+      // US 18.2: the applicant notifies the apartment's owner, only in the
+      // same write that submits the application (submittedAt == request.time).
+      function validNewApplicationNotification(data) {
+        return data.type == 'newApplication' && data.applicationId is string &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
+            'messageId']) &&
+          reviewed(data.applicationId).userId == request.auth.uid &&
+          reviewed(data.applicationId).submittedAt == request.time &&
+          data.userId == get(/databases/$(database)/documents/apartments/$(reviewed(data.applicationId).apartmentId)).data.get('ownerId', '');
+      }
+    }
+    // US-18: opt-in / opt-out switches, one document per user ID.
+    match /notificationPreferences/{userId} {
+      allow read: if verified() && request.auth.uid == userId;
+      allow write: if verified() && request.auth.uid == userId &&
+        validPreferences();
+
+      function validPreferences() {
+        let data = request.resource.data;
+        let fields = ['newListing', 'applicationStatus', 'announcement'];
+        // US-20 'visit', US-17 'maintenance' and US 18 'message' and
+        // 'newApplication' are optional, so older documents stay valid.
+        return data.keys().hasAll(fields) &&
+          data.keys().hasOnly(fields.concat(['visit', 'maintenance', 'message',
+            'newApplication'])) &&
+          data.newListing is bool && data.applicationStatus is bool &&
+          data.announcement is bool && data.get('visit', true) is bool &&
+          data.get('maintenance', true) is bool &&
+          data.get('message', true) is bool &&
+          data.get('newApplication', true) is bool;
+      }
+    }     
+  }
+}

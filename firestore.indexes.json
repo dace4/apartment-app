@@ -1,0 +1,25 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "maintenanceRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "apartmentId",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "uploadedDocuments",
+      "fieldPath": "fileBytes",
+      "indexes": []
+    }
+  ]
+}
