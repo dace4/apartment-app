@@ -40,6 +40,9 @@ abstract final class AppRoutes {
   static String maintenanceReschedule(String id) =>
       '$maintenance/$id/reschedule';
   static const insurance = '/services/insurance';
+  // US-19: a coverage's details and the request to its agent (renters only).
+  static String insuranceCoverage(String id) => '$insurance/$id';
+  static String insuranceContact(String id) => '$insurance/$id/contact';
   static const contractors = '/services/contractors';
   static const marketTrends = '/services/market-trends';
 

@@ -499,6 +499,45 @@ service cloud.firestore {
           visit(data.visitId).status == 'booked';
       }
     }
+    // US-19: the insurance coverage catalogue, with each coverage's agent.
+    // Only edited in the Firebase console; renters read it.
+    match /insuranceCoverages/{coverageId} {
+      allow read: if verified() && hasRole('renter');
+      allow write: if false;
+    }
+    // US-19: a renter's request to a coverage's agent. The agent reads it in
+    // the Firebase console; in the app only its renter can read it.
+    match /insuranceRequests/{requestId} {
+      // Queries must filter on renterId == the current UID.
+      allow get, list: if verified() &&
+        resource.data.renterId == request.auth.uid;
+      allow create: if verified() && hasRole('renter') && validRequest();
+      allow update, delete: if false;
+
+      function validRequest() {
+        let data = request.resource.data;
+        let fields = ['coverageId', 'coverageName', 'agentName', 'agentEmail',
+          'renterId', 'renterEmail', 'contactMethod', 'phone', 'message',
+          'status', 'createdAt'];
+        let coverage = get(/databases/$(database)/documents/insuranceCoverages/$(data.coverageId)).data;
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.renterId == request.auth.uid &&
+          data.renterEmail == request.auth.token.email &&
+          // The copies must match the coverage, so the agent is not forged.
+          data.coverageId is string &&
+          data.coverageName == coverage.name &&
+          data.agentName == coverage.get('agentName', '') &&
+          data.agentEmail == coverage.get('agentEmail', '') &&
+          // A phone number only when the renter wants to be called
+          // (same pattern as Validators.phone).
+          ((data.contactMethod == 'email' && data.phone == '') ||
+           (data.contactMethod == 'phone' && data.phone is string &&
+            data.phone.matches('[+0-9 ()\\-]{6,20}'))) &&
+          data.message is string && data.message.size() <= 2000 &&
+          data.message.matches('[\\s\\S]*\\S[\\s\\S]*') &&
+          data.status == 'sent' && data.createdAt == request.time;
+      }
+    }
     // US-18: each user only sees their own notifications and can only mark
     // them as read. New listings and announcements are added from the console.
     match /notifications/{notificationId} {
