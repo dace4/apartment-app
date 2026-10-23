@@ -170,6 +170,35 @@ erDiagram
         string visitId FK "no personal data: readable by all users"
     }
 
+    insuranceCoverages {
+        string id PK "e.g. household-contents"
+        string name
+        string summary "one line in the catalogue"
+        string description
+        array covered "what is covered, one item each"
+        int priceFromChf "indicative, per month"
+        string provider
+        int order "position in the catalogue"
+        string agentName "agent-contact data"
+        string agentEmail
+        string agentPhone
+    }
+
+    insuranceRequests {
+        string id PK "auto ID, the renter's reference"
+        string coverageId FK
+        string coverageName "copy, must match the coverage"
+        string agentName "copy, must match the coverage"
+        string agentEmail "copy, must match the coverage"
+        string renterId FK
+        string renterEmail "from the login token"
+        string contactMethod "email | phone"
+        string phone "6-20 chars when phone, else empty"
+        string message "1-2000"
+        string status "always sent"
+        timestamp createdAt "server time"
+    }
+
     AUTH_USER ||--o| users : "selects roles"
     AUTH_USER ||--o{ favourites : saves
     apartments ||--o{ favourites : "saved as"
@@ -192,6 +221,8 @@ erDiagram
     apartments ||--o{ visits : "visited in"
     visits ||--o| visitSlots : reserves
     apartments ||--o{ visitSlots : "taken slots"
+    AUTH_USER ||--o{ insuranceRequests : "sends (renter)"
+    insuranceCoverages ||--o{ insuranceRequests : "about"
 ```
 
 ## Collections
@@ -211,6 +242,8 @@ erDiagram
 | `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |
 | `visits` | US-20 | App | Renter or buyer: create with its slot for an available apartment with an owner (not their own or managed one), from now to 30 days ahead; read their own; cancel until `slotStart` while freeing the slot; no delete. Owner (`ownerId`): read, to see who is coming |
 | `visitSlots` | US-20 | App | Every verified user reads; create together with its visit; never update, so a slot cannot be booked twice; delete only when its visitor cancels |
+| `insuranceCoverages` | US-19 | Firebase console | Verified renters read; no write |
+| `insuranceRequests` | US-19 | App (renter); read by the agent in the Firebase console | Renter: create in their own name for an existing coverage, with the coverage's name and agent copied unchanged; read their own; no update or delete |
 
 Every other path is closed: `firestore.rules` denies all reads and writes that
 no rule above allows.
@@ -220,7 +253,7 @@ no rule above allows.
 - **Enums are stored by name**, e.g. `"underReview"`, never by label or index.
   A set of enums (`amenities`, `reminders`) is stored as a list of names.
 - **Each user only sees their own documents.** Queries must filter on
-  `userId` (or `senderId`, `visitorId`, `ownerId`) equal to the signed-in user's `uid`,
+  `userId` (or `senderId`, `visitorId`, `ownerId`, `renterId`) equal to the signed-in user's `uid`,
   otherwise the rules reject the whole query. Only `visitSlots`, which holds no
   personal data, can be listed by everybody (by `apartmentId`).
 - **Server time:** `createdAt`, `updatedAt`, `submittedAt` and `signedAt` are
@@ -244,6 +277,11 @@ no rule above allows.
   never be overwritten, so two visitors can never book the same slot.
   Weekdays and slot hours are checked by the app (time zones), the future and
   the 30 days by the rules.
+- **Insurance** (US-19): the coverage catalogue and its agents are example
+  data edited in the Firebase console (`test/fixtures/us19_coverages.json`
+  seeds the emulator). A renter's request copies the coverage's name and agent
+  so the agent can read it on its own in the console; nobody is notified in
+  the app.
 - **Copied fields:** `apartmentTitle` is copied into `applications`,
   `maintenanceRequests` and `visits` so their lists do not load every apartment. It is not
   updated if the apartment's title changes later.

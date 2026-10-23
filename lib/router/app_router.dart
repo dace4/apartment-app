@@ -34,6 +34,8 @@ import '../views/profile/notifications_view.dart';
 import '../views/profile/profile_view.dart';
 import '../views/profile/saved_searches_view.dart';
 import '../views/services/contractors_view.dart';
+import '../views/services/insurance_contact_view.dart';
+import '../views/services/insurance_coverage_view.dart';
 import '../views/services/insurance_view.dart';
 import '../views/services/maintenance_booking_view.dart';
 import '../views/services/maintenance_detail_view.dart';
@@ -252,6 +254,23 @@ GoRouter createAppRouter({
                   GoRoute(
                     path: 'insurance',
                     builder: (context, state) => const InsuranceView(),
+                    routes: [
+                      // US-19: renters only (canAccess).
+                      GoRoute(
+                        path: ':id',
+                        builder: (context, state) => InsuranceCoverageView(
+                          coverageId: state.pathParameters['id']!,
+                        ),
+                        routes: [
+                          GoRoute(
+                            path: 'contact',
+                            builder: (context, state) => InsuranceContactView(
+                              coverageId: state.pathParameters['id']!,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'contractors',
