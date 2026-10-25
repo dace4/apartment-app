@@ -19,11 +19,12 @@ final monday = DateTime(2026, 11, 2, 10);
 final tuesday = DateTime(2026, 11, 3);
 final saturday = DateTime(2026, 11, 7);
 
+/// Sprint 3 review: only property managers book maintenance.
 const owner = AppUser(
   id: 'owner',
   email: 'owner@test.ch',
   emailVerified: true,
-  roles: {UserRole.homeowner},
+  roles: {UserRole.propertyManager},
 );
 
 Apartment flat(String id, String title) => Apartment(
@@ -165,7 +166,7 @@ void main() {
       fake.managed = []; // the assignment was removed meanwhile
 
       expect(await viewModel.book('No heating'), isFalse);
-      expect(viewModel.actionError, 'You do not own or manage this property.');
+      expect(viewModel.actionError, 'You do not manage this property.');
       expect(fake.booked, isEmpty);
     });
   });
@@ -359,13 +360,27 @@ void main() {
       expect(notifications.saved, isEmpty);
     });
 
-    test('nothing is saved when maintenance notifications are off', () async {
+    test('it is saved even when maintenance alerts are off', () async {
       await load(
         preferences: const NotificationPreferences(maintenance: false),
       );
-      expect(notifications.saved, isEmpty);
-      // The banner still reminds the user inside the app.
+      // Sprint 3 review: the inbox always gets it; only the badge is off.
+      expect(notifications.saved, hasLength(1));
       expect(viewModel.dueReminders, hasLength(1));
+    });
+
+    test('homeowners are no longer reminded (property managers only)',
+        () async {
+      auth.users.add(
+        const AppUser(
+          id: 'home',
+          email: 'home@test.ch',
+          emailVerified: true,
+          roles: {UserRole.homeowner},
+        ),
+      );
+      await settle();
+      expect(maintenance.live.hasListener, isFalse);
     });
 
     test('nothing is saved before the reminder time', () async {

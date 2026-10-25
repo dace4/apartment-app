@@ -236,7 +236,9 @@ void main() {
       expect(searches.current.single.seenApartmentIds, contains('a2'));
     });
 
-    test('"New listings" switched off (US-18): no alert', () async {
+    // Sprint 3 review: the US-18 switch only stops the red badge, so the
+    // alert is still stored in the inbox.
+    test('"New listings" switched off (US-18): alert still stored', () async {
       await signIn(
         search: _search(seen: {'a1'}),
         preferences: const NotificationPreferences(newListing: false),
@@ -244,7 +246,7 @@ void main() {
 
       apartments.apartments.add([_apartment('a1'), _apartment('a2')]);
       await _settle();
-      expect(searches.alerts, isEmpty);
+      expect(searches.alerts, hasLength(1));
     });
 
     test('saving a search does not alert the offers that exist', () async {

@@ -347,6 +347,12 @@ service cloud.firestore {
       function owner() {
         return resource.data.userId == request.auth.uid;
       }
+      // Sprint 3 review: only property managers, for the apartments they
+      // are assigned to.
+      function assigned(apartmentId) {
+        return hasRole('propertyManager') && request.auth.uid in
+          get(/databases/$(database)/documents/apartments/$(apartmentId)).data.get('managerIds', []);
+      }
       // Rescheduling and cancelling are possible until the service starts.
       function changeable() {
         return resource.data.status == 'scheduled' &&
@@ -367,11 +373,11 @@ service cloud.firestore {
       }
 
       // A missing document carries no private data.
-      allow get: if verified() && managementRole() && (resource == null || (owner() && manages(resource.data.apartmentId)));
+      allow get: if verified() && (resource == null || (hasRole('propertyManager') && owner() && assigned(resource.data.apartmentId)));
       // Queries must filter on userId == the current UID.
-      allow list: if verified() && managementRole() && owner() && manages(resource.data.apartmentId);
-      allow create: if verified() && managementRole() && manages(request.resource.data.apartmentId) && validNewRequest();
-      allow update: if verified() && managementRole() && owner() && manages(resource.data.apartmentId) && changeable() &&
+      allow list: if verified() && owner() && assigned(resource.data.apartmentId);
+      allow create: if verified() && assigned(request.resource.data.apartmentId) && validNewRequest();
+      allow update: if verified() && owner() && assigned(resource.data.apartmentId) && changeable() &&
         (validReschedule() || validCancel());
       allow delete: if false;
 

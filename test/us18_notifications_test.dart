@@ -69,7 +69,8 @@ void main() {
     expect(viewModel.notifications.map((n) => n.id), ['new', 'old']);
   });
 
-  test('hides the kinds the user opted out of', () async {
+  // Sprint 3 review: switched-off kinds stay in the inbox.
+  test('keeps every kind in the inbox, even when switched off', () async {
     service.notifications.add([
       _notification('listing', NotificationType.newListing, day: 1),
       _notification('news', NotificationType.announcement, day: 2),
@@ -77,10 +78,10 @@ void main() {
     service.preferences.add(const NotificationPreferences(announcement: false));
     await _flush();
 
-    expect(viewModel.notifications.map((n) => n.id), ['listing']);
+    expect(viewModel.notifications.map((n) => n.id), ['news', 'listing']);
   });
 
-  test('counts only visible unread notifications', () async {
+  test('the badge only alerts about switched-on kinds', () async {
     service.notifications.add([
       _notification('a', NotificationType.newListing, day: 1),
       _notification('b', NotificationType.newListing, day: 2, isRead: true),
@@ -89,7 +90,8 @@ void main() {
     service.preferences.add(const NotificationPreferences(announcement: false));
     await _flush();
 
-    expect(viewModel.unreadCount, 1);
+    expect(viewModel.unreadCount, 2); // inbox heading
+    expect(viewModel.alertCount, 1); // red badge
   });
 
   // US-20: unreadCount drives the red dot on the Profile tab and tile.
@@ -111,7 +113,9 @@ void main() {
     ]);
     service.preferences.add(const NotificationPreferences(visit: false));
     await _flush();
-    expect(viewModel.unreadCount, 0);
+    // Still in the inbox, but no longer alerts.
+    expect(viewModel.unreadCount, 1);
+    expect(viewModel.alertCount, 0);
   });
 
   test('saves an opt-out and an opt-in', () async {
