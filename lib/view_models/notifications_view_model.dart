@@ -24,14 +24,20 @@ class NotificationsViewModel extends ChangeNotifier {
   StreamSubscription<List<AppNotification>>? _notificationsSubscription;
   StreamSubscription<NotificationPreferences>? _preferencesSubscription;
 
-  /// Newest first, without the kinds the user switched off.
-  List<AppNotification> get notifications =>
-      _all.where((n) => preferences.isEnabled(n.type)).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  /// Sprint 3 review (PO): the inbox always shows every notification,
+  /// newest first. The switches only control the alerts.
+  List<AppNotification> get notifications => [..._all]
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-  /// US 18.3: shared by the Profile tab, the Notifications tile and this
-  /// page, and updated live.
+  /// Every unread notification, shown in the inbox heading.
   int get unreadCount => notifications.where((n) => !n.isRead).length;
+
+  /// US 18.3: the alert (red badge on the Profile tab and the Notifications
+  /// tile), shared and updated live. Only the kinds the user wants to be
+  /// alerted about count, so switched-off kinds do not "bing".
+  int get alertCount => notifications
+      .where((n) => !n.isRead && preferences.isEnabled(n.type))
+      .length;
 
   /// US 18.4: the page a notification opens, or null when it only informs.
   String? destinationFor(AppNotification notification) {

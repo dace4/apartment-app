@@ -49,10 +49,14 @@ class _NotificationsViewState extends State<NotificationsView> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Acceptance criterion: opt in / opt out at any time.
+              // Acceptance criterion: opt in / opt out at any time. Since the
+              // Sprint 3 review, the switches only control the alerts: the
+              // inbox below always shows everything.
+              Text('Alert me about', style: theme.textTheme.titleMedium),
               Text(
-                'Receive notifications about',
-                style: theme.textTheme.titleMedium,
+                'Every notification always appears in your inbox below. '
+                'Switch a kind off to stop its alerts (the red badge).',
+                style: theme.textTheme.bodySmall,
               ),
               for (final type in NotificationType.values)
                 SwitchListTile(

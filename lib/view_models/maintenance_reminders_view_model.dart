@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import '../models/app_notification.dart';
 import '../models/app_user.dart';
 import '../models/maintenance_request.dart';
-import '../models/notification_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/maintenance_service.dart';
 import '../services/notification_service.dart';
@@ -19,7 +18,8 @@ typedef DueReminder = ({
 /// US-17 acceptance criterion: "System sends notification before scheduled
 /// service". When a reminder is due, it is shown as a banner on every tab
 /// and saved once as a US 18 notification (type maintenance), so it is also
-/// in Profile → Notifications. Shared by every tab (ARCHITECTURE.md §4), so
+/// in Profile → Notifications. It is always saved: the "Maintenance" switch
+/// only controls the alert (Sprint 3 review). Shared by every tab (ARCHITECTURE.md §4), so
 /// it is created once in app.dart and shown by the bottom navigation shell.
 class MaintenanceRemindersViewModel extends ChangeNotifier {
   bool _disposed = false;
@@ -52,7 +52,6 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
   StreamSubscription<AppUser?>? _authSubscription;
   StreamSubscription<List<MaintenanceRequest>>? _subscription;
   StreamSubscription<List<AppNotification>>? _notificationsSubscription;
-  StreamSubscription<NotificationPreferences>? _preferencesSubscription;
   late final Timer _timer;
 
   String? _userId;
@@ -62,9 +61,6 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
   /// Ids of the user's stored notifications; null until loaded, so nothing
   /// is sent before we know which reminders already exist.
   Set<String>? _notificationIds;
-
-  /// null until loaded, so nothing is sent before we know the user's choice.
-  NotificationPreferences? _preferences;
 
   /// Reminder notifications being saved, so a tick does not send them twice.
   final Set<String> _sending = {};
@@ -102,15 +98,12 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Saves each due reminder once as a notification, unless the user
-  /// switched maintenance notifications off. The fixed document id and
-  /// firestore.rules prevent duplicates even across several phones.
+  /// Saves each due reminder once as a notification. The fixed document id
+  /// and firestore.rules prevent duplicates even across several phones.
   Future<void> _sendDueNotifications() async {
     final userId = _userId;
     final stored = _notificationIds;
-    final preferences = _preferences;
-    if (userId == null || stored == null || preferences == null) return;
-    if (!preferences.isEnabled(NotificationType.maintenance)) return;
+    if (userId == null || stored == null) return;
 
     for (final due in _latestDue) {
       final notification = AppNotification.maintenanceReminder(
@@ -137,7 +130,8 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
 
   /// Reads Firestore only for a verified user (firestore.rules require it).
   void _onUserChanged(AppUser? user) {
-    final userId = user?.isReady == true && user!.hasManagementRole
+    // Sprint 3 review: only property managers book maintenance.
+    final userId = user?.isReady == true && user!.isPropertyManager
         ? user.id
         : null;
     // userChanges also fires on token refresh; nothing changed then.
@@ -150,13 +144,10 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
   void _listen() {
     _subscription?.cancel();
     _notificationsSubscription?.cancel();
-    _preferencesSubscription?.cancel();
     _subscription = null;
     _notificationsSubscription = null;
-    _preferencesSubscription = null;
     _requests = [];
     _notificationIds = null;
-    _preferences = null;
     _loadFailed = false;
     if (_userId != null) {
       _subscription = service.watchMyRequests().listen(
@@ -180,13 +171,6 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
             };
             _sendDueNotifications();
           }, onError: (e) => _loadFailed = true);
-      _preferencesSubscription = notificationService.watchPreferences().listen(
-        (preferences) {
-          _preferences = preferences;
-          _sendDueNotifications();
-        },
-        onError: (e) => _loadFailed = true,
-      );
     }
     notifyListeners();
   }
@@ -197,7 +181,6 @@ class MaintenanceRemindersViewModel extends ChangeNotifier {
     _timer.cancel();
     _subscription?.cancel();
     _notificationsSubscription?.cancel();
-    _preferencesSubscription?.cancel();
     _authSubscription?.cancel();
     super.dispose();
   }
