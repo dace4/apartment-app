@@ -9,6 +9,8 @@ class ApplicationForm extends StatefulWidget {
   const ApplicationForm({
     super.key,
     this.initial,
+    this.defaultFullName,
+    this.defaultPhone,
     required this.submitLabel,
     required this.isSaving,
     required this.errorMessage,
@@ -17,6 +19,10 @@ class ApplicationForm extends StatefulWidget {
 
   /// Pre-fills the form when editing.
   final ApplicationDetails? initial;
+
+  /// US-06: the profile's name and phone, used when there is no [initial].
+  final String? defaultFullName;
+  final String? defaultPhone;
   final String submitLabel;
 
   /// Both come from the screen's ViewModel.
@@ -32,8 +38,12 @@ class ApplicationForm extends StatefulWidget {
 
 class _ApplicationFormState extends State<ApplicationForm> {
   final _formKey = GlobalKey<FormState>();
-  late final _fullName = TextEditingController(text: widget.initial?.fullName);
-  late final _phone = TextEditingController(text: widget.initial?.phone);
+  late final _fullName = TextEditingController(
+    text: widget.initial?.fullName ?? widget.defaultFullName,
+  );
+  late final _phone = TextEditingController(
+    text: widget.initial?.phone ?? widget.defaultPhone,
+  );
   late final _occupants = TextEditingController(
     text: widget.initial?.occupants.toString(),
   );

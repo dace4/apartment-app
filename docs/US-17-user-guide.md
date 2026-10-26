@@ -1,5 +1,11 @@
 # US-17 — Schedule repair and maintenance: user guide
 
+> **Retired.** Contractor booking was removed when the Property Manager role
+> became Admin. The Repair & maintenance page now schedules app maintenance
+> windows: see [admin-maintenance-user-guide.md](admin-maintenance-user-guide.md)
+> and [admin-maintenance-technical-guide.md](admin-maintenance-technical-guide.md).
+> This page is kept as a record.
+
 Property managers book repair and maintenance services for the apartments
 they manage, and the app reminds them before each service.
 

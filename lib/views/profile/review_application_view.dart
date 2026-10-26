@@ -123,6 +123,7 @@ class _ReviewApplicationViewState extends State<ReviewApplicationView> {
                             child: Text(_actionLabel(status)),
                           ),
                   ),
+              if (viewModel.stepNotice != null) Text(viewModel.stepNotice!),
               if (viewModel.actionError != null)
                 Text(
                   viewModel.actionError!,

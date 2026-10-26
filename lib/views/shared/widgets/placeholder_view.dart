@@ -16,10 +16,15 @@ class PlaceholderView extends StatelessWidget {
     super.key,
     required this.title,
     this.links = const [],
+    this.comingSoon = true,
   });
 
   final String title;
   final List<PageLink> links;
+
+  /// False on a finished page that only lists links (Services): no
+  /// "(coming soon)" heading.
+  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +33,13 @@ class PlaceholderView extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            '$title (coming soon)',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
+          if (comingSoon) ...[
+            Text(
+              '$title (coming soon)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+          ],
           for (final link in links)
             Card(
               child: ListTile(

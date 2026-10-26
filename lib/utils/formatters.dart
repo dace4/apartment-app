@@ -20,7 +20,12 @@ String formatDate(DateTime date) {
   return '${twoDigits(date.day)}.${twoDigits(date.month)}.${date.year}';
 }
 
-/// US-17: a time slot, e.g. "15.10.2026, 10:00–12:00".
+/// A date and time, e.g. "15.10.2026 22:30".
+String formatDateTime(DateTime value) =>
+    '${formatDate(value)} ${value.hour.toString().padLeft(2, '0')}:'
+    '${value.minute.toString().padLeft(2, '0')}';
+
+/// A time slot, e.g. "15.10.2026, 10:00–12:00".
 String formatTimeSlot(DateTime start, DateTime end) =>
     '${formatDate(start)}, ${formatTimeRange(start, end)}';
 

@@ -15,20 +15,25 @@ class NotificationService {
   String get _userId => FirebaseAuth.instance.currentUser!.uid;
 
   /// Live list of the user's notifications; the ViewModel sorts and filters it.
+  /// Kinds the app no longer has (the retired US-17 maintenance reminders)
+  /// are left out.
   Stream<List<AppNotification>> watchMyNotifications() => _notifications
       .where('userId', isEqualTo: _userId)
       .snapshots()
       .map(
         (snapshot) => snapshot.docs
+            .where((doc) => _knownTypes.contains(doc.data()['type']))
             .map((doc) => AppNotification.fromMap(doc.id, doc.data()))
             .toList(),
       );
+
+  static final _knownTypes = NotificationType.values.map((t) => t.name).toSet();
 
   /// Saves a notification for the current user (e.g. an application update).
   Future<void> add(AppNotification notification) =>
       _notifications.add({...notification.toMap(), 'userId': _userId});
 
-  /// US-17.3: saves a notification under the fixed id `<uid>_<id>`, so the
+  /// US 18.4: saves a notification under the fixed id `<uid>_<id>`, so the
   /// same reminder is stored at most once (firestore.rules refuse to
   /// overwrite it).
   Future<void> addWithFixedId(AppNotification notification) => _notifications

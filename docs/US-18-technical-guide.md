@@ -12,8 +12,8 @@ profile page**. Sprint 3 branch: `feature/US-18-notification-events`.
 | 18.1 Extend event types, recipients, destinations and profile preferences | `NotificationType.message` and `newApplication`; `AppNotification.applicationId` / `messageId`; optional `message` and `newApplication` preferences (missing means on) |
 | 18.2 Owner notifications for messages and new applications; applicant notifications for status changes | `MessageService.send` (batch) and `ApplicationService.submit` (transaction) notify the owner in the same write; status changes already notify the applicant (`ApplicationService.review`, US 16) |
 | 18.3 Shared unread count and red Profile badge | `NotificationsViewModel.alertCount` (shared, app.dart) shown as `Badge.count` on the Profile tab and the Notifications tile; `unreadCount` (all kinds) in the inbox heading |
-| 18.4 Upcoming-event notifications and read handling | `VisitRemindersViewModel` (shared, app.dart) saves "Visit tomorrow" once per visit; `NotificationsViewModel.destinationFor` / `open` mark as read and open the page. Maintenance reminders: US-17 |
-| 18.5 Tests | `test/us18_notification_events_test.dart`, plus `us18_notifications_test.dart` and `us17_maintenance_test.dart` |
+| 18.4 Upcoming-event notifications and read handling | `VisitRemindersViewModel` (shared, app.dart) saves "Visit tomorrow" once per visit; `NotificationsViewModel.destinationFor` / `open` mark as read and open the page. (US-17 maintenance reminders were retired with the admin change.) |
+| 18.5 Tests | `test/us18_notification_events_test.dart`, plus `us18_notifications_test.dart` |
 
 ## Switches (Sprint 3 review)
 
@@ -32,14 +32,12 @@ search's own "Alerts for new offers" switch still turns that search off.
 | `message` | Sender | `advertiserMessages.advertiserId` | `messageId` → `inboxMessage` |
 | `visit` (booked/cancelled) | Visitor (US-20) | Owner | `visitId` → `inboxVisit` |
 | `visit` (reminder) | Visitor's app | Visitor | `apartmentId` → `apartmentDetail` |
-| `maintenance` | Owner's/manager's app (US-17) | Same user | `maintenanceId` → `maintenanceDetail` |
 | `newListing` | Saved-search owner's app (US-23) | Same user | `apartmentId` → `apartmentDetail` |
 | `announcement` | Firebase console | Any user | — |
 
 ## Duplicate prevention and isolation
 
-- Reminders use fixed document ids (`<uid>_visitReminder_<visitId>`,
-  `<uid>_maintenance_<requestId>_<reminder>`); the app sends one only after
+- Reminders use fixed document ids (`<uid>_visitReminder_<visitId>`); the app sends one only after
   the user's notification ids and preferences are loaded, and the rules
   refuse to overwrite an existing notification.
 - Owner notifications are written in the same batch or transaction as the

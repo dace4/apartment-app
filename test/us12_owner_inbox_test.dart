@@ -14,7 +14,7 @@ const manager = AppUser(
   id: 'manager',
   email: 'manager@example.test',
   emailVerified: true,
-  roles: {UserRole.propertyManager},
+  roles: {UserRole.admin},
 );
 
 Map<String, dynamic> apartmentData(List<String> managerIds) => {

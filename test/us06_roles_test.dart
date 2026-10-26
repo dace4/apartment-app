@@ -10,10 +10,13 @@ import 'package:appartment_app_group_2/services/user_profile_service.dart';
 import 'package:appartment_app_group_2/view_models/auth_view_model.dart';
 import 'package:appartment_app_group_2/view_models/register_view_model.dart';
 import 'package:appartment_app_group_2/views/auth/choose_roles_view.dart';
+import 'package:appartment_app_group_2/views/auth/widgets/role_checkboxes.dart';
 
 class RoleAuth extends Fake implements AuthService {
   final users = StreamController<AppUser?>.broadcast();
   Set<UserRole>? saved;
+  String? savedName;
+  String? savedPhone;
   bool fail = false;
   int registrations = 0;
   @override
@@ -30,11 +33,26 @@ class RoleAuth extends Fake implements AuthService {
   Future<void> register(
     String email,
     String password,
-    Set<UserRole> roles,
-  ) async {
+    Set<UserRole> roles, {
+    required String fullName,
+    required String phone,
+  }) async {
     registrations++;
     if (roles.isEmpty) throw const AuthException('Choose at least one role.');
     await saveRoles(roles);
+    savedName = fullName;
+    savedPhone = phone;
+  }
+
+  @override
+  Future<void> saveContactDetails(String fullName, String phone) async {
+    if (fail) {
+      throw const AuthException(
+        'Could not save your contact details. Please try again.',
+      );
+    }
+    savedName = fullName;
+    savedPhone = phone;
   }
 
   @override
@@ -54,7 +72,9 @@ void main() {
         };
         await profiles.saveRoles('account', roles);
         expect(
-          await UserProfileService(firestore: db).watchRoles('account').first,
+          (await UserProfileService(
+            firestore: db,
+          ).watchProfile('account').first).roles,
           roles,
         );
       }
@@ -69,8 +89,8 @@ void main() {
     for (final value in [
       null,
       [],
-      ['admin'],
-      ['buyer', 'admin'],
+      ['propertyManager'],
+      ['buyer', 'propertyManager'],
       ['buyer', 'buyer'],
       'buyer',
     ]) {
@@ -111,12 +131,61 @@ void main() {
     final auth = RoleAuth();
     final vm = RegisterViewModel(service: auth);
     vm.setRole(UserRole.renter, true);
-    vm.setRole(UserRole.propertyManager, true);
-    await vm.register('a@test.ch', 'password');
-    expect(auth.saved, {UserRole.renter, UserRole.propertyManager});
+    vm.setRole(UserRole.homeowner, true);
+    // Admin is never granted at registration.
+    vm.setRole(UserRole.admin, true);
+    await vm.register(
+      'a@test.ch',
+      'password',
+      fullName: 'Ada Muster',
+      phone: '+41 79 123 45 67',
+    );
+    expect(auth.saved, {UserRole.renter, UserRole.homeowner});
+    expect(auth.savedName, 'Ada Muster');
+    expect(auth.savedPhone, '+41 79 123 45 67');
     expect(auth.registrations, 1);
     vm.dispose();
     await auth.users.close();
+  });
+
+  test('Admin cannot be chosen, and an admin keeps it on save', () async {
+    final auth = RoleAuth();
+    final vm = AuthViewModel(service: auth);
+    auth.users.add(
+      const AppUser(id: 'b', email: 'b@test.ch', emailVerified: true),
+    );
+    await Future<void>.delayed(Duration.zero);
+    vm.setRole(UserRole.admin, true);
+    expect(vm.selectedRoles, isEmpty);
+
+    auth.users.add(
+      const AppUser(
+        id: 'a',
+        email: 'a@test.ch',
+        emailVerified: true,
+        roles: {UserRole.admin},
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    vm.setRole(UserRole.admin, false);
+    vm.setRole(UserRole.buyer, true);
+    expect(await vm.saveRoles(), true);
+    expect(auth.saved, {UserRole.admin, UserRole.buyer});
+    vm.dispose();
+    await auth.users.close();
+  });
+
+  testWidgets('Admin is never offered as a checkbox', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RoleCheckboxes(selected: const {}, onChanged: (_, _) {}),
+        ),
+      ),
+    );
+    expect(find.byType(CheckboxListTile), findsNWidgets(3));
+    expect(find.text('Admin'), findsNothing);
+    expect(find.text('Homeowner'), findsOneWidget);
   });
 
   testWidgets('US-06 profile loading/error gate exposes recovery controls', (

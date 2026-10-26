@@ -53,6 +53,7 @@ test('US-24 publication rules', async t => {
   await status(await commit([
     write('users','tenant',{roles:['homeowner']}),
     write('users','renter',{roles:['renter']}),
+    // A retired Property Manager profile: invalid, so it cannot publish.
     write('users','manager',{roles:['propertyManager']}),
     write('apartments',`${prefix}-legacy`,{...listing(),imageUrls:[]})
   ],'owner'),200);

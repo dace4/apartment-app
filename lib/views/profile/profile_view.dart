@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../router/app_routes.dart';
-import '../auth/widgets/role_checkboxes.dart';
+import 'widgets/contact_details_card.dart';
+import 'widgets/roles_card.dart';
 import '../../view_models/auth_view_model.dart';
 import '../../view_models/notifications_view_model.dart';
 
@@ -35,29 +36,11 @@ class ProfileView extends StatelessWidget {
               // Signed-out users are redirected to the login page by the router.
               if (user != null) _SignedInCard(viewModel: viewModel),
               const SizedBox(height: 16),
-              RoleCheckboxes(
-                selected: viewModel.selectedRoles,
-                enabled: !viewModel.isSaving,
-                onChanged: viewModel.setRole,
-              ),
-              if (viewModel.actionError != null)
-                Text(
-                  viewModel.actionError!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              FilledButton(
-                onPressed: viewModel.isSaving
-                    ? null
-                    : () async {
-                        final saved = await viewModel.saveRoles();
-                        if (saved && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Roles saved.')),
-                          );
-                        }
-                      },
-                child: Text(viewModel.isSaving ? 'Saving…' : 'Save roles'),
-              ),
+              // US-06: sections that open on tap. A new contact card per
+              // account, so its fields start from it.
+              if (user != null)
+                ContactDetailsCard(key: ValueKey(user.id), user: user),
+              RolesCard(viewModel: viewModel),
               const SizedBox(height: 16),
               // US-11: manage one reusable signature.
               if (viewModel.canAccess(AppRoutes.signature))

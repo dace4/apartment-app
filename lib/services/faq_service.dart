@@ -26,10 +26,11 @@ class FaqService {
       category: FaqCategory.searching,
       question: 'What do Available, Reserved and Unavailable mean?',
       answer:
-          'Available: you can schedule a visit and apply. Reserved: the '
-          'apartment is promised to someone else, so it cannot be visited or '
-          'applied for. Unavailable: it is not on the market at the moment. '
-          'You can still contact the advertiser in every case.',
+          'Available: you can schedule a visit and apply. Reserved: the owner '
+          'is reviewing an application, so it cannot be visited or applied '
+          'for; it becomes Available again if that application is rejected or '
+          'withdrawn. Unavailable: an application was accepted, or it is not '
+          'on the market. You can still contact the advertiser in every case.',
     ),
     FaqEntry(
       id: 'new-offers',
@@ -82,8 +83,9 @@ class FaqService {
       category: FaqCategory.applying,
       question: 'How do I apply for an apartment?',
       answer:
-          'Open an available apartment and select Apply. Fill in your name, '
-          'phone, move-in date and number of occupants. You can attach up to '
+          'Open an available apartment and select Apply. Your name and phone '
+          'come from your profile; add the move-in date and number of '
+          'occupants. You can attach up to '
           '5 documents. You can have one open application per apartment.',
       linkLabel: 'My applications',
       linkLocation: AppRoutes.applications,
@@ -166,22 +168,10 @@ class FaqService {
       category: FaqCategory.owners,
       question: 'Where do I see applications and messages for my apartment?',
       answer:
-          'Owners and assigned property managers find them in Profile → '
+          'Owners and assigned admins find them in Profile → '
           'Inbox, where they can review applications and read messages.',
       linkLabel: 'Inbox',
       linkLocation: AppRoutes.inbox,
-    ),
-    FaqEntry(
-      id: 'maintenance',
-      category: FaqCategory.owners,
-      question: 'How do I book a repair or maintenance service?',
-      answer:
-          'Property managers can book plumbing, electrical, heating or '
-          'appliance services for the apartments they are assigned to, on '
-          'weekdays between 08:00 and 17:00, and reschedule or cancel them '
-          'before they start.',
-      linkLabel: 'Repair & maintenance',
-      linkLocation: AppRoutes.maintenance,
     ),
     // Account
     FaqEntry(
@@ -191,10 +181,22 @@ class FaqService {
       answer:
           'Features depend on your roles: renters and buyers apply and visit, '
           'homeowners publish apartments, owners and managers handle '
-          'applications, and property managers book maintenance. You choose '
-          'your roles in your profile.',
+          'applications, and admins maintain the app. You choose your roles '
+          'in your profile; the Admin role is given by the project.',
       linkLabel: 'Profile',
       linkLocation: AppRoutes.profile,
+    ),
+    FaqEntry(
+      id: 'maintenance',
+      category: FaqCategory.account,
+      question: 'Why is the app unavailable?',
+      answer:
+          'Admins schedule maintenance windows. A banner at the top of every '
+          'page shows when the maintenance starts and ends. During it, only '
+          'admins can use the app; it opens again by itself when it ends. '
+          'Admins schedule it in Services → Repair & maintenance.',
+      linkLabel: 'Repair & maintenance',
+      linkLocation: AppRoutes.maintenance,
     ),
     FaqEntry(
       id: 'notifications',

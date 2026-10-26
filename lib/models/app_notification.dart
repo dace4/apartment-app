@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'maintenance_request.dart';
 import 'visit.dart';
 
 /// US 18: the kinds of notification a user can receive.
@@ -11,9 +10,6 @@ enum NotificationType {
 
   /// US-20: a visit of the user's apartment was booked or cancelled.
   visit('Visits'),
-
-  /// US-17: a reminder before a scheduled repair or maintenance service.
-  maintenance('Maintenance'),
 
   /// US 18.2: an owner received a message about their apartment.
   message('Messages'),
@@ -36,7 +32,6 @@ class AppNotification {
     this.isRead = false,
     this.apartmentId,
     this.visitId,
-    this.maintenanceId,
     this.applicationId,
     this.messageId,
   });
@@ -69,35 +64,6 @@ class AppNotification {
       '${time.hour.toString().padLeft(2, '0')}:'
       '${time.minute.toString().padLeft(2, '0')}';
 
-  /// US-17.3: the reminder for [request]. Its [id] is fixed per request and
-  /// reminder, so the same reminder is never stored twice.
-  factory AppNotification.maintenanceReminder(
-    MaintenanceRequest request,
-    MaintenanceReminder reminder, {
-    required DateTime createdAt,
-  }) {
-    return AppNotification(
-      id: maintenanceReminderId(request.id, reminder),
-      type: NotificationType.maintenance,
-      title: '${request.category.label} service ${_when(reminder)}',
-      body: '${request.apartmentTitle}: ${request.description}',
-      createdAt: createdAt,
-      maintenanceId: request.id,
-    );
-  }
-
-  /// The part of the document id after the user id (`<uid>_<this>`).
-  static String maintenanceReminderId(
-    String requestId,
-    MaintenanceReminder reminder,
-  ) => 'maintenance_${requestId}_${reminder.name}';
-
-  static String _when(MaintenanceReminder reminder) => switch (reminder) {
-    MaintenanceReminder.oneDay => 'tomorrow',
-    MaintenanceReminder.oneHour => 'in 1 hour',
-    MaintenanceReminder.fiveMinutes => 'in 5 minutes',
-  };
-
   final String id;
   final NotificationType type;
   final String title;
@@ -109,9 +75,6 @@ class AppNotification {
 
   /// US-20: the visit that was booked or cancelled; opens its details.
   final String? visitId;
-
-  /// US-17: the maintenance service of a reminder; opens its details.
-  final String? maintenanceId;
 
   /// US 16 / 18.2: the application whose status changed (for the applicant)
   /// or that was received (for the owner).
@@ -130,7 +93,6 @@ class AppNotification {
       isRead: map['isRead'] as bool? ?? false,
       apartmentId: map['apartmentId'] as String?,
       visitId: map['visitId'] as String?,
-      maintenanceId: map['maintenanceId'] as String?,
       applicationId: map['applicationId'] as String?,
       messageId: map['messageId'] as String?,
     );
@@ -145,7 +107,6 @@ class AppNotification {
       'isRead': isRead,
       if (apartmentId != null) 'apartmentId': apartmentId,
       if (visitId != null) 'visitId': visitId,
-      if (maintenanceId != null) 'maintenanceId': maintenanceId,
       if (applicationId != null) 'applicationId': applicationId,
       if (messageId != null) 'messageId': messageId,
     };

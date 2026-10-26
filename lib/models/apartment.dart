@@ -42,6 +42,7 @@ class Apartment {
     this.imageUrls = const [],
     this.ownerId,
     this.managerIds = const {},
+    this.applicationId,
   });
 
   final String id;
@@ -49,6 +50,10 @@ class Apartment {
   // US-24: set to the creator; existing assignments remain immutable.
   final String? ownerId;
   final Set<String> managerIds;
+
+  /// The application that reserved it (In review) or won it (Accepted).
+  /// Written only together with that application's review (firestore.rules).
+  final String? applicationId;
 
   final String address;
   final String city;
@@ -97,6 +102,7 @@ class Apartment {
     amenities: amenities,
     ownerId: ownerId,
     managerIds: managerIds,
+    applicationId: applicationId,
     availability: availability ?? this.availability,
   );
 
@@ -108,6 +114,7 @@ class Apartment {
       managerIds: map['managerIds'] is List
           ? Set.unmodifiable((map['managerIds'] as List).whereType<String>())
           : const {},
+      applicationId: map['applicationId'] as String?,
       address: map['address'] as String,
       city: map['city'] as String,
       // Enums are stored by name, e.g. "rent" or "available".

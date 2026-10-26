@@ -23,7 +23,9 @@ Never derive ownership from advertiserContacts or a user's selected role. The cl
 cannot create/delete listings or change assignments. Listing creation and assignment
 screens belong to future stories, which must extend these rules explicitly.
 
-Maintenance reads and writes require the correct role + property assignment + the
+(Retired: US-17 maintenance booking was removed when Property Manager became Admin;
+see admin-maintenance-technical-guide.md. The following described it.) Maintenance
+reads and writes required the correct role + property assignment + the
 existing request userId restriction. Services query owned/assigned apartments, merge
 results, then query the creator's requests with apartmentId IN chunks of five. This
 lets rules prove assignment, bounds rule document access calls, and supports more

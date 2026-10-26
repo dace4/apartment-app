@@ -14,12 +14,11 @@ do not create a second account.
 | Mortgage, market trends | Buyer |
 | Insurance | Renter |
 | Contractors | Homeowner |
-| Maintenance | Homeowner owning that property, or assigned Property Manager |
+| Repair & maintenance (app maintenance windows) | Admin |
 
-A selected role never proves property ownership. Ask the project administrator to
-assign the correct property to your Firebase account. Only assigned properties appear
-in the maintenance form. Existing requests remain private to their creator, and
-losing the role or property assignment removes access to those requests.
+A selected role never proves property ownership. Ask the project team to assign the
+correct property to your Firebase account. The Admin role is also given by the project
+team; an admin can open every page (see admin-maintenance-user-guide.md).
 
 Saving a different set of roles returns you to the homepage and clears the previous
 screens and in-memory selections. Your stored records remain in your account and

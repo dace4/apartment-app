@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../models/maintenance_request.dart';
-import '../../router/app_routes.dart';
-import '../../utils/formatters.dart';
+import '../../view_models/app_maintenance_view_model.dart';
 import '../../view_models/maintenance_view_model.dart';
-import '../shared/widgets/message_view.dart';
-import 'widgets/maintenance_status_chip.dart';
 
-/// US-17: the user's repair and maintenance services.
+/// Admins only: schedule an app maintenance window. Every user sees a
+/// banner as soon as it is saved; during the window only admins can use
+/// the app.
 class MaintenanceView extends StatefulWidget {
-  const MaintenanceView({super.key});
+  const MaintenanceView({super.key, required this.appMaintenanceViewModel});
+
+  /// The current window, shared with the banner and the router.
+  final AppMaintenanceViewModel appMaintenanceViewModel;
 
   @override
   State<MaintenanceView> createState() => _MaintenanceViewState();
@@ -20,106 +20,118 @@ class _MaintenanceViewState extends State<MaintenanceView> {
   final viewModel = MaintenanceViewModel();
 
   @override
-  void initState() {
-    super.initState();
-    viewModel.listenToRequests();
-  }
-
-  @override
   void dispose() {
     viewModel.dispose();
     super.dispose();
   }
 
+  /// A date, then a time on the clock dial.
+  Future<DateTime?> _pickDateTime(DateTime? current) async {
+    final now = DateTime.now();
+    final initial = current == null || current.isBefore(now) ? now : current;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      initialEntryMode: TimePickerEntryMode.dial,
+    );
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  Future<void> _pickStart() async {
+    final picked = await _pickDateTime(viewModel.start);
+    if (picked != null) viewModel.setStart(picked);
+  }
+
+  Future<void> _pickEnd() async {
+    final picked = await _pickDateTime(viewModel.end);
+    if (picked != null) viewModel.setEnd(picked);
+  }
+
+  Future<void> _schedule() async {
+    final saved = await viewModel.schedule();
+    if (saved && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Maintenance scheduled.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final current = widget.appMaintenanceViewModel;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Repair & maintenance')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go(AppRoutes.maintenanceNew),
-        icon: const Icon(Icons.add),
-        label: const Text('Schedule service'),
-      ),
       body: ListenableBuilder(
-        listenable: viewModel,
-        builder: (context, _) {
-          // 1. Loading
-          if (viewModel.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // 2. Error
-          if (viewModel.errorMessage != null) {
-            return MessageView(
-              icon: Icons.cloud_off,
-              message: viewModel.errorMessage!,
-              actionLabel: 'Retry',
-              onAction: viewModel.listenToRequests,
-            );
-          }
-
-          // 3. Empty
-          if (viewModel.requests.isEmpty) {
-            // The floating button is the only way to schedule a service.
-            return const MessageView(
-              icon: Icons.home_repair_service_outlined,
-              message: 'No maintenance scheduled yet.',
-            );
-          }
-
-          // 4. Data
-          final upcoming = viewModel.upcoming;
-          final past = viewModel.past;
-          return ListView(
-            // Room for the floating button below the last card.
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 88),
-            children: [
-              if (upcoming.isNotEmpty) ...[
-                const _SectionTitle('Upcoming'),
-                for (final request in upcoming) _RequestTile(request),
-              ],
-              if (past.isNotEmpty) ...[
-                const _SectionTitle('Past & cancelled'),
-                for (final request in past) _RequestTile(request),
-              ],
+        listenable: Listenable.merge([viewModel, current]),
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('Current maintenance', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  current.isActive ? Icons.construction : Icons.event,
+                ),
+                title: Text(
+                  current.bannerMessage ?? 'No maintenance scheduled.',
+                ),
+                trailing: current.bannerMessage == null
+                    ? null
+                    : TextButton(
+                        onPressed: viewModel.isSaving ? null : viewModel.endNow,
+                        child: Text(current.isActive ? 'End now' : 'Cancel'),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('Schedule maintenance', style: theme.textTheme.titleMedium),
+            const Text(
+              'Every user sees a banner as soon as you save. From the start '
+              'until the end, only admins can use the app.',
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.schedule),
+              title: const Text('From'),
+              subtitle: Text(viewModel.startLabel),
+              onTap: viewModel.isSaving ? null : _pickStart,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.update),
+              title: const Text('Till'),
+              subtitle: Text(viewModel.endLabel),
+              onTap: viewModel.isSaving ? null : _pickEnd,
+            ),
+            if (viewModel.actionError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                viewModel.actionError!,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
             ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-      child: Text(text, style: Theme.of(context).textTheme.titleMedium),
-    );
-  }
-}
-
-class _RequestTile extends StatelessWidget {
-  const _RequestTile(this.request);
-
-  final MaintenanceRequest request;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text('${request.category.label} · ${request.apartmentTitle}'),
-        subtitle: Text(formatTimeSlot(request.slotStart, request.slotEnd)),
-        trailing: MaintenanceStatusChip(
-          isCancelled: request.isCancelled,
-          isDone: request.isDone(DateTime.now()),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: viewModel.isSaving ? null : _schedule,
+              icon: const Icon(Icons.construction),
+              label: Text(
+                viewModel.isSaving ? 'Saving…' : 'Schedule maintenance',
+              ),
+            ),
+          ],
         ),
-        onTap: () => context.go(AppRoutes.maintenanceDetail(request.id)),
       ),
     );
   }

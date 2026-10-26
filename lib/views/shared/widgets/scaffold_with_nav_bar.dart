@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../view_models/maintenance_reminders_view_model.dart';
 import '../../../view_models/auth_view_model.dart';
 import '../../../view_models/notifications_view_model.dart';
 import '../../../router/app_routes.dart';
-import '../../services/widgets/maintenance_reminder_banner.dart';
 
 /// Bottom navigation shell. Each tab keeps its own navigation stack.
 class ScaffoldWithNavBar extends StatelessWidget {
@@ -13,15 +11,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
     super.key,
     required this.navigationShell,
     required this.authViewModel,
-    required this.remindersViewModel,
     required this.notificationsViewModel,
   });
 
   final StatefulNavigationShell navigationShell;
   final AuthViewModel authViewModel;
-
-  /// US-17: due maintenance reminders, shown above the tabs on every page.
-  final MaintenanceRemindersViewModel remindersViewModel;
 
   /// US-20: unread notifications put a red dot on the Profile tab.
   final NotificationsViewModel notificationsViewModel;
@@ -30,13 +24,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MaintenanceReminderBanner(viewModel: remindersViewModel),
-          _navigationBar(),
-        ],
-      ),
+      bottomNavigationBar: _navigationBar(),
     );
   }
 

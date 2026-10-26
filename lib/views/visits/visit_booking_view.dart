@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/visit.dart';
 import '../../router/app_routes.dart';
+import '../../router/tab_navigation.dart';
 import '../../utils/formatters.dart';
 import '../../view_models/visit_booking_view_model.dart';
 import '../shared/widgets/message_view.dart';
@@ -229,7 +230,11 @@ class _Confirmation extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: () => context.go(AppRoutes.visits),
+              // The Home tab returns to the apartment, not to this page.
+              onPressed: () => context.goToOtherTab(
+                back: AppRoutes.apartmentDetail(visit.apartmentId),
+                to: AppRoutes.visits,
+              ),
               child: const Text('My visits'),
             ),
             const SizedBox(height: 8),

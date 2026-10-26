@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/app_user.dart';
+import '../models/user_profile.dart';
 import '../models/user_role.dart';
 import 'user_profile_service.dart';
 
@@ -26,7 +27,7 @@ class AuthService {
 
   /// Emits on log in, log out and when the user changes (e.g. email verified).
   Stream<AppUser?> userChanges() => Stream.multi((controller) {
-    StreamSubscription<Set<UserRole>>? profileSubscription;
+    StreamSubscription<UserProfile>? profileSubscription;
     var generation = 0;
     final authSubscription = _auth.userChanges().listen((firebaseUser) async {
       final current = ++generation;
@@ -37,24 +38,26 @@ class AuthService {
         return;
       }
       AppUser account({
-        Set<UserRole> roles = const {},
+        UserProfile profile = const UserProfile(roles: {}),
         bool loaded = false,
         String? error,
       }) => AppUser(
         id: firebaseUser.uid,
         email: firebaseUser.email ?? '',
         emailVerified: firebaseUser.emailVerified,
-        roles: roles,
+        roles: profile.roles,
         rolesLoaded: loaded,
         profileError: error,
+        fullName: profile.fullName,
+        phone: profile.phone,
       );
       controller.add(account());
       profileSubscription = profiles
-          .watchRoles(firebaseUser.uid)
+          .watchProfile(firebaseUser.uid)
           .listen(
-            (roles) {
+            (profile) {
               if (current == generation) {
-                controller.add(account(roles: roles, loaded: true));
+                controller.add(account(profile: profile, loaded: true));
               }
             },
             onError: (Object error) {
@@ -79,14 +82,16 @@ class AuthService {
   Future<AppUser?> loadUser() async {
     final user = _auth.currentUser;
     if (user == null) return null;
-    final roles = await profiles.watchRoles(user.uid).first;
+    final profile = await profiles.watchProfile(user.uid).first;
     // Do not return a previous account after an asynchronous profile read.
     if (_auth.currentUser?.uid != user.uid) return null;
     return AppUser(
       id: user.uid,
       email: user.email ?? '',
       emailVerified: user.emailVerified,
-      roles: roles,
+      roles: profile.roles,
+      fullName: profile.fullName,
+      phone: profile.phone,
     );
   }
 
@@ -94,6 +99,15 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) throw const AuthException('Log in to choose your roles.');
     await profiles.saveRoles(user.uid, roles);
+  }
+
+  /// US-06: the name and phone that pre-fill the forms.
+  Future<void> saveContactDetails(String fullName, String phone) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw const AuthException('Log in to save your contact details.');
+    }
+    await profiles.saveContactDetails(user.uid, fullName, phone);
   }
 
   Future<void> signIn(String email, String password) async {
@@ -111,8 +125,10 @@ class AuthService {
   Future<void> register(
     String email,
     String password,
-    Set<UserRole> roles,
-  ) async {
+    Set<UserRole> roles, {
+    required String fullName,
+    required String phone,
+  }) async {
     if (roles.isEmpty) throw const AuthException('Choose at least one role.');
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -121,8 +137,12 @@ class AuthService {
       );
       await credential.user?.sendEmailVerification();
       // If this write fails, Auth already exists. The verified account completes
-      // its profile on the role-selection screen rather than registering again.
-      await saveRoles(roles);
+      // its profile on the role-selection screen rather than registering again
+      // (name and phone can then be added in Profile).
+      await profiles.createProfile(
+        credential.user!.uid,
+        UserProfile(roles: roles, fullName: fullName, phone: phone),
+      );
     } on FirebaseAuthException catch (e) {
       throw AuthException(_messageFor(e.code));
     }

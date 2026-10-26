@@ -71,8 +71,10 @@ void main() {
           if (mask & (1 << i) != 0) UserRole.values[i],
       };
       await emit(account(roles));
-      final consumer =
-          roles.contains(UserRole.buyer) || roles.contains(UserRole.renter);
+      // The admin has every role.
+      bool has(UserRole role) =>
+          roles.contains(role) || roles.contains(UserRole.admin);
+      final consumer = has(UserRole.buyer) || has(UserRole.renter);
       for (final path in [
         AppRoutes.apartments,
         AppRoutes.profile,
@@ -96,31 +98,19 @@ void main() {
       }
       expect(
         vm.canAccess(AppRoutes.applyImmediately('p')),
-        roles.contains(UserRole.renter),
+        has(UserRole.renter),
       );
-      expect(vm.canAccess(AppRoutes.mortgage), roles.contains(UserRole.buyer));
+      expect(vm.canAccess(AppRoutes.mortgage), has(UserRole.buyer));
+      expect(vm.canAccess(AppRoutes.marketTrends), has(UserRole.buyer));
+      expect(vm.canAccess(AppRoutes.insurance), has(UserRole.renter));
+      expect(vm.canAccess(AppRoutes.contractors), has(UserRole.homeowner));
+      expect(vm.canAccess(AppRoutes.createApartment), has(UserRole.homeowner));
+      // App maintenance is for admins only.
       expect(
-        vm.canAccess(AppRoutes.marketTrends),
-        roles.contains(UserRole.buyer),
+        vm.canAccess(AppRoutes.maintenance),
+        roles.contains(UserRole.admin),
       );
-      expect(
-        vm.canAccess(AppRoutes.insurance),
-        roles.contains(UserRole.renter),
-      );
-      expect(
-        vm.canAccess(AppRoutes.contractors),
-        roles.contains(UserRole.homeowner),
-      );
-      // Sprint 3 review: maintenance is for property managers only.
-      expect(
-        vm.canAccess(AppRoutes.maintenanceNew),
-        roles.contains(UserRole.propertyManager),
-      );
-      expect(
-        vm.canAccess(AppRoutes.inbox),
-        roles.contains(UserRole.homeowner) ||
-            roles.contains(UserRole.propertyManager),
-      );
+      expect(vm.canAccess(AppRoutes.inbox), has(UserRole.homeowner));
     }
   });
 
@@ -149,16 +139,44 @@ void main() {
   );
 
   test(
+    'during app maintenance only admins pass, after the email gate',
+    () async {
+      await emit(null);
+      expect(vm.redirectFor(AppRoutes.login, appDown: true), null);
+      await emit(account({UserRole.renter}, verified: false));
+      expect(
+        vm.redirectFor(AppRoutes.apartments, appDown: true),
+        AppRoutes.verifyEmail,
+      );
+      await emit(account({UserRole.renter, UserRole.homeowner}));
+      expect(
+        vm.redirectFor(AppRoutes.apartments, appDown: true),
+        AppRoutes.appMaintenance,
+      );
+      expect(vm.redirectFor(AppRoutes.appMaintenance, appDown: true), null);
+      // When the window ends, the maintenance page sends the user back.
+      expect(vm.redirectFor(AppRoutes.appMaintenance), AppRoutes.apartments);
+      await emit(account({UserRole.admin}));
+      expect(vm.redirectFor(AppRoutes.maintenance, appDown: true), null);
+      expect(
+        vm.redirectFor(AppRoutes.appMaintenance, appDown: true),
+        AppRoutes.apartments,
+      );
+    },
+  );
+
+  test(
     'US-07 property relationships require the matching role and UID',
     () async {
       await emit(account({UserRole.homeowner}));
       expect(vm.canManage(property(ownerId: 'account')), true);
       expect(vm.canManage(property(managers: {'account'})), false);
       expect(vm.canManage(property()), false);
-      await emit(account({UserRole.propertyManager}));
-      expect(vm.canManage(property(ownerId: 'account')), false);
+      // The admin manages the apartments they own or are assigned to.
+      await emit(account({UserRole.admin}));
+      expect(vm.canManage(property(ownerId: 'account')), true);
       expect(vm.canManage(property(managers: {'account'})), true);
-      await emit(account({UserRole.homeowner, UserRole.propertyManager}));
+      await emit(account({UserRole.homeowner, UserRole.admin}));
       expect(
         vm.canManage(property(ownerId: 'other', managers: {'other'})),
         false,
@@ -246,6 +264,10 @@ void main() {
       auth.users.add(account({UserRole.renter}));
       await tester.pump();
       await tester.pumpWidget(MaterialApp(home: ProfileView(viewModel: vm)));
+      // US-06: the roles are in a section that opens on tap.
+      expect(find.text('Buyer'), findsNothing);
+      await tester.tap(find.text('Your roles'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Buyer'));
       await tester.pump();
       expect(auth.saved, null);
