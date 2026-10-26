@@ -10,6 +10,8 @@ class RegisterViewModel extends ChangeNotifier {
   Set<UserRole> roles = {};
 
   void setRole(UserRole role, bool selected) {
+    // Admin is granted in the Firebase console, never at registration.
+    if (!UserRole.selectable.contains(role)) return;
     roles = {...roles};
     if (selected) {
       roles.add(role);
@@ -28,13 +30,26 @@ class RegisterViewModel extends ChangeNotifier {
   bool isLoading = false;
   String? errorMessage;
 
-  Future<void> register(String email, String password) async {
+  /// US-06: [fullName] and [phone] are saved in the profile and pre-fill
+  /// the forms that ask for them.
+  Future<void> register(
+    String email,
+    String password, {
+    required String fullName,
+    required String phone,
+  }) async {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      await service.register(email, password, roles);
+      await service.register(
+        email,
+        password,
+        roles,
+        fullName: fullName,
+        phone: phone,
+      );
       // Success: the router opens the Verify email page.
     } on AuthException catch (e) {
       errorMessage = e.message;

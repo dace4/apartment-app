@@ -49,8 +49,6 @@ class NotificationsViewModel extends ChangeNotifier {
         AppRoutes.inboxApplication(n.applicationId!),
       NotificationType.applicationStatus when n.applicationId != null =>
         AppRoutes.applicationDetail(n.applicationId!),
-      NotificationType.maintenance when n.maintenanceId != null =>
-        AppRoutes.maintenanceDetail(n.maintenanceId!),
       // US-20: the owner's visit; the visitor's reminder opens the apartment.
       _ when n.visitId != null => AppRoutes.inboxVisit(n.visitId!),
       _ when n.apartmentId != null => AppRoutes.apartmentDetail(

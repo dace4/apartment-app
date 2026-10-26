@@ -1,10 +1,10 @@
 import '../../view_models/auth_view_model.dart';
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../models/rental_application.dart';
 import '../../router/app_routes.dart';
+import '../../router/tab_navigation.dart';
 import '../../utils/formatters.dart';
 import '../shared/widgets/message_view.dart';
 import '../../view_models/apply_view_model.dart';
@@ -66,7 +66,11 @@ class _ApplyViewState extends State<ApplyView> {
           ),
         ),
       );
-      context.go(AppRoutes.applications);
+      // The Home tab returns to the apartment, not to the sent form.
+      context.goToOtherTab(
+        back: AppRoutes.apartmentDetail(widget.apartmentId),
+        to: AppRoutes.applications,
+      );
     }
   }
 
@@ -171,6 +175,9 @@ class _ApplyViewState extends State<ApplyView> {
                       ),
                     const SizedBox(height: 24),
                     ApplicationForm(
+                      // US-06: pre-filled from the profile, still editable.
+                      defaultFullName: widget.authViewModel?.user?.fullName,
+                      defaultPhone: widget.authViewModel?.user?.phone,
                       submitLabel: widget.applyImmediately
                           ? 'Apply immediately'
                           : 'Submit application',

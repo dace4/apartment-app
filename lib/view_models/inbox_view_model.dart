@@ -8,7 +8,7 @@ import '../services/application_service.dart';
 import '../services/message_service.dart';
 
 /// US 16 / US 12: the applications and messages received for the apartments
-/// the user owns (Homeowner) or manages (Property Manager).
+/// the user owns (Homeowner) or is assigned to (Admin).
 class InboxViewModel extends ChangeNotifier {
   InboxViewModel(
     this._user, {
@@ -42,7 +42,7 @@ class InboxViewModel extends ChangeNotifier {
   Future<void> fetchInbox() async {
     final user = _user();
     if (user == null || !user.isReady || !user.hasManagementRole) {
-      errorMessage = 'Choose Homeowner or Property Manager to see the inbox.';
+      errorMessage = 'Choose the Homeowner role to see the inbox.';
       notifyListeners();
       return;
     }

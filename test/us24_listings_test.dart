@@ -232,9 +232,10 @@ void main() {
           AppUser(id: 'u', email: '', emailVerified: true, roles: {role}),
         );
         await Future<void>.delayed(Duration.zero);
+        // The admin has every role.
         expect(
           vm.canAccess(AppRoutes.createApartment),
-          role == UserRole.homeowner,
+          role == UserRole.homeowner || role == UserRole.admin,
         );
       }
       auth.users.add(

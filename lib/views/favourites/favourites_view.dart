@@ -20,7 +20,7 @@ class FavouritesView extends StatelessWidget {
       viewModel: viewModel,
       compareViewModel: compareViewModel,
       favouritesViewModel: viewModel,
-      title: 'favourites',
+      title: 'Favourites',
       emptyMessage: 'No favourites added',
     );
   }

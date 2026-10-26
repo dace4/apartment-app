@@ -19,6 +19,8 @@ class RegisterView extends StatefulWidget {
 class _RegisterViewState extends State<RegisterView> {
   final viewModel = RegisterViewModel();
   final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -26,6 +28,8 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   void dispose() {
     viewModel.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -34,7 +38,12 @@ class _RegisterViewState extends State<RegisterView> {
 
   void _submit() {
     if (viewModel.isLoading || !_formKey.currentState!.validate()) return;
-    viewModel.register(_emailController.text, _passwordController.text);
+    viewModel.register(
+      _emailController.text,
+      _passwordController.text,
+      fullName: _fullNameController.text,
+      phone: _phoneController.text,
+    );
   }
 
   @override
@@ -68,6 +77,32 @@ class _RegisterViewState extends State<RegisterView> {
                         style: theme.textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 24),
+                      // US-06: saved in the profile to pre-fill forms.
+                      TextFormField(
+                        controller: _fullNameController,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.name],
+                        maxLength: Validators.nameLimit,
+                        validator: Validators.fullName,
+                        decoration: const InputDecoration(
+                          labelText: 'Full name',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.telephoneNumber],
+                        validator: Validators.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,

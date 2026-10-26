@@ -9,34 +9,77 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if request.auth != null && request.auth.uid == userId;
       allow create, update: if request.auth != null && request.auth.uid == userId &&
-        request.resource.data.keys().hasOnly(['roles']) &&
+        request.resource.data.keys().hasOnly(['roles', 'fullName', 'phone']) &&
+        validContact(request.resource.data) &&
         request.resource.data.roles is list && request.resource.data.roles.size() >= 1 &&
         request.resource.data.roles.size() <= 4 &&
         request.resource.data.roles.toSet().size() == request.resource.data.roles.size() &&
-        request.resource.data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+        request.resource.data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'admin']) &&
+        // Admin is granted in the Firebase console only: a user can keep it,
+        // never give it to themselves.
+        (!request.resource.data.roles.hasAny(['admin']) ||
+          (resource != null && resource.data.roles.hasAny(['admin'])));
       allow list, delete: if false;
+
+      // US-06: optional name and phone that pre-fill the forms, with the
+      // same limits as an application (validDetails).
+      function validContact(data) {
+        return (!data.keys().hasAny(['fullName']) ||
+            (data.fullName is string && data.fullName.size() <= 100 &&
+             data.fullName.matches('.*\\S.*'))) &&
+          (!data.keys().hasAny(['phone']) ||
+            (data.phone is string && data.phone.matches('[+0-9 ()\\-]{6,20}')));
+      }
     }
     function verified() {
       // Rules use the signed token claim, not a value supplied by the contact form.
-      return request.auth != null && request.auth.token.email_verified == true && hasRoles();
+      // During an app maintenance window only admins get through.
+      return request.auth != null && request.auth.token.email_verified == true && hasRoles() &&
+        !appDown();
+    }
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin']);
+    }
+    function appDown() {
+      return exists(/databases/$(database)/documents/appConfig/maintenance) &&
+        request.time >= get(/databases/$(database)/documents/appConfig/maintenance).data.start &&
+        request.time < get(/databases/$(database)/documents/appConfig/maintenance).data.end &&
+        !isAdmin();
     }
     // US-07: profiles grant personas, never property assignment.
     function hasRoles() {
       let data = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return data.keys().hasOnly(['roles']) && data.roles is list &&
+      return data.keys().hasOnly(['roles', 'fullName', 'phone']) && data.roles is list &&
         data.roles.size() >= 1 && data.roles.size() <= 4 &&
         data.roles.toSet().size() == data.roles.size() &&
-        data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'propertyManager']);
+        data.roles.hasOnly(['buyer', 'renter', 'homeowner', 'admin']);
     }
+    // The admin has every role.
     function hasRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role]);
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny([role, 'admin']);
     }
     function consumer() { return hasRole('buyer') || hasRole('renter'); }
-    function managementRole() { return hasRole('homeowner') || hasRole('propertyManager'); }
+    function managementRole() { return hasRole('homeowner'); }
     function manages(apartmentId) {
       let apartment = get(/databases/$(database)/documents/apartments/$(apartmentId)).data;
       return (hasRole('homeowner') && apartment.get('ownerId', '') == request.auth.uid) ||
-        (hasRole('propertyManager') && request.auth.uid in apartment.get('managerIds', []));
+        (isAdmin() && request.auth.uid in apartment.get('managerIds', []));
+    }
+    // Admin app maintenance: one window, readable by everyone (the banner is
+    // shown before log in), changed by admins only.
+    match /appConfig/maintenance {
+      allow get: if true;
+      allow create, update: if verified() && isAdmin() && validWindow();
+      allow delete: if verified() && isAdmin();
+
+      function validWindow() {
+        let data = request.resource.data;
+        let fields = ['start', 'end', 'updatedBy', 'updatedAt'];
+        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
+          data.start is timestamp && data.end is timestamp &&
+          data.end > data.start && data.end > request.time &&
+          data.updatedBy == request.auth.uid && data.updatedAt == request.time;
+      }
     }
     function participant() {
       // Only the sender and the addressed advertiser can read a stored message.
@@ -45,13 +88,53 @@ service cloud.firestore {
     }
     match /apartments/{apartmentId} {
       allow read: if verified();
-      // US 10: applying never reserves an apartment, so the app cannot change
-      // availability. Existing reserved listings stay as they are.
-      allow update: if false;
+      // Applying never reserves an apartment (US 10). Only an application's
+      // review changes availability, in the same batch as that application:
+      // In review → reserved, Accepted → unavailable, and rejected or
+      // withdrawn while it held the apartment → available again.
+      allow update: if verified() && validAvailabilityChange();
       // US-24: creation grants ownership only of the new listing.
       allow create: if verified() && hasRole('homeowner') && validListing();
       allow delete: if false;
 
+      function applicationBefore(id) {
+        return get(/databases/$(database)/documents/applications/$(id)).data;
+      }
+      function applicationAfter(id) {
+        return getAfter(/databases/$(database)/documents/applications/$(id)).data;
+      }
+      // [id]'s status changes from [from] to [to] in this batch, for this apartment.
+      function moves(id, from, to) {
+        return id is string && applicationBefore(id).status == from &&
+          applicationAfter(id).status == to &&
+          applicationAfter(id).apartmentId == apartmentId;
+      }
+      function validAvailabilityChange() {
+        let data = request.resource.data;
+        let held = resource.data.get('applicationId', '');
+        return data.diff(resource.data).affectedKeys()
+            .hasOnly(['availability', 'applicationId']) &&
+          (
+            // Start review: one application at a time reserves it.
+            (manages(apartmentId) && resource.data.availability == 'available' &&
+              held == '' && data.availability == 'reserved' &&
+              moves(data.get('applicationId', ''), 'received', 'underReview')) ||
+            // Accepted: the reserving application, or one already in review
+            // before reservations existed.
+            (manages(apartmentId) && data.availability == 'unavailable' &&
+              moves(data.get('applicationId', ''), 'underReview', 'accepted') &&
+              (held == data.applicationId ||
+                (held == '' && resource.data.availability == 'available'))) ||
+            // Released: the reserving application is rejected by the owner,
+            // or withdrawn by its applicant.
+            (resource.data.availability == 'reserved' && held != '' &&
+              data.availability == 'available' &&
+              !data.keys().hasAny(['applicationId']) &&
+              ((manages(apartmentId) && moves(held, 'underReview', 'rejected')) ||
+               (applicationAfter(held).userId == request.auth.uid &&
+                moves(held, 'underReview', 'withdrawn'))))
+          );
+      }
       function validPhoto(photos, index) {
         return photos.size() <= index ||
           (photos[index] is string && photos[index].size() <= 131095 &&
@@ -291,7 +374,15 @@ service cloud.firestore {
         return resource != null && managementRole() &&
           manages(resource.data.apartmentId);
       }
-      // Applied → Received → In review → Accepted or Rejected.
+      // The apartment once this batch is written.
+      function apartmentAfter() {
+        return getAfter(/databases/$(database)/documents/apartments/$(resource.data.apartmentId)).data;
+      }
+      function holdsApartment() {
+        return apartmentAfter().get('applicationId', '') == applicationId;
+      }
+      // Applied → Received → In review → Accepted or Rejected, and the
+      // apartment changes in the same batch (see apartments).
       function validReview() {
         let data = request.resource.data;
         let from = resource.data.status;
@@ -299,8 +390,16 @@ service cloud.firestore {
             .hasOnly(['status', 'updatedAt']) &&
           data.updatedAt == request.time &&
           ((from == 'submitted' && data.status == 'received') ||
-           (from == 'received' && data.status == 'underReview') ||
-           (from == 'underReview' && data.status in ['accepted', 'rejected']));
+           (from == 'received' && data.status == 'underReview' &&
+             holdsApartment() && apartmentAfter().availability == 'reserved') ||
+           (from == 'underReview' && data.status == 'accepted' &&
+             holdsApartment() && apartmentAfter().availability == 'unavailable') ||
+           // A rejected review frees the apartment it reserved.
+           (from == 'underReview' && data.status == 'rejected' &&
+             !holdsApartment()) ||
+           // Once the apartment is taken, the other open ones are rejected.
+           (from in ['submitted', 'received'] && data.status == 'rejected' &&
+             apartmentAfter().availability == 'unavailable'));
       }
 
       function validNewApplication() {
@@ -334,83 +433,13 @@ service cloud.firestore {
           // A kept move-in date may lie in the past; a new one may not.
           (!changed.hasAny(['moveInDate']) || moveInNotPast(data));
       }
+      // Withdrawing a review that reserved the apartment frees it.
       function validWithdraw() {
         let data = request.resource.data;
         return data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'updatedAt']) &&
-          data.status == 'withdrawn' && data.updatedAt == request.time;
-      }
-    }
-    // US-17: each property manager only sees and changes their own
-    // repair and maintenance services.
-    match /maintenanceRequests/{requestId} {
-      function owner() {
-        return resource.data.userId == request.auth.uid;
-      }
-      // Sprint 3 review: only property managers, for the apartments they
-      // are assigned to.
-      function assigned(apartmentId) {
-        return hasRole('propertyManager') && request.auth.uid in
-          get(/databases/$(database)/documents/apartments/$(apartmentId)).data.get('managerIds', []);
-      }
-      // Rescheduling and cancelling are possible until the service starts.
-      function changeable() {
-        return resource.data.status == 'scheduled' &&
-          request.time < resource.data.slotStart;
-      }
-      // The app also enforces weekdays, fixed slots and booking from the
-      // next day; the server checks that the slot is in the future and
-      // within 60 days.
-      function validSlot(data) {
-        return data.slotStart is timestamp &&
-          data.slotStart > request.time &&
-          data.slotStart < request.time + duration.value(61, 'd');
-      }
-      function validReminders(data) {
-        return data.reminders is list && data.reminders.size() >= 1 &&
-          data.reminders.size() <= 3 &&
-          data.reminders.hasOnly(['oneDay', 'oneHour', 'fiveMinutes']);
-      }
-
-      // A missing document carries no private data.
-      allow get: if verified() && (resource == null || (hasRole('propertyManager') && owner() && assigned(resource.data.apartmentId)));
-      // Queries must filter on userId == the current UID.
-      allow list: if verified() && owner() && assigned(resource.data.apartmentId);
-      allow create: if verified() && assigned(request.resource.data.apartmentId) && validNewRequest();
-      allow update: if verified() && owner() && assigned(resource.data.apartmentId) && changeable() &&
-        (validReschedule() || validCancel());
-      allow delete: if false;
-
-      function validNewRequest() {
-        let data = request.resource.data;
-        let fields = ['userId', 'apartmentId', 'apartmentTitle', 'category',
-          'description', 'slotStart', 'reminders', 'status', 'createdAt',
-          'updatedAt'];
-        return data.keys().hasAll(fields) && data.keys().hasOnly(fields) &&
-          data.userId == request.auth.uid &&
-          data.apartmentId is string && data.apartmentId.size() > 0 &&
-          data.apartmentTitle is string && data.apartmentTitle.size() > 0 &&
-          data.apartmentTitle.size() <= 200 &&
-          data.category in ['plumbing', 'electrical', 'heating', 'appliances',
-            'other'] &&
-          data.description is string && data.description.size() >= 5 &&
-          data.description.size() <= 500 &&
-          validSlot(data) && validReminders(data) &&
-          data.status == 'scheduled' &&
-          data.createdAt == request.time && data.updatedAt == request.time;
-      }
-      function validReschedule() {
-        let data = request.resource.data;
-        return data.diff(resource.data).affectedKeys()
-            .hasOnly(['slotStart', 'reminders', 'updatedAt']) &&
-          validSlot(data) && validReminders(data) &&
-          data.updatedAt == request.time;
-      }
-      function validCancel() {
-        let data = request.resource.data;
-        return data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'updatedAt']) &&
-          data.status == 'cancelled' && data.updatedAt == request.time;
+          data.status == 'withdrawn' && data.updatedAt == request.time &&
+          !holdsApartment();
       }
     }
     // US-20: a visit belongs to its visitor (a renter or buyer). The slot it
@@ -567,19 +596,17 @@ service cloud.firestore {
         let fields = ['userId', 'type', 'title', 'body', 'createdAt', 'isRead'];
         return data.keys().hasAll(fields) &&
           data.keys().hasOnly(fields.concat(['apartmentId', 'applicationId',
-            'visitId', 'maintenanceId', 'messageId'])) &&
+            'visitId', 'messageId'])) &&
           (
             (data.userId == request.auth.uid &&
               !data.keys().hasAny(['applicationId', 'visitId', 'messageId']) &&
               (
                 (data.type == 'applicationStatus' &&
-                  !data.keys().hasAny(['apartmentId', 'maintenanceId'])) ||
+                  !data.keys().hasAny(['apartmentId'])) ||
                 // US-23: new-offer alerts a user creates for themselves, with the
                 // fixed id uid_search_apartment so an alert never exists twice.
                 (data.type == 'newListing' && data.apartmentId is string &&
-                  !data.keys().hasAny(['maintenanceId']) &&
                   notificationId.matches(request.auth.uid + '_.+')) ||
-                validMaintenanceNotification(data) ||
                 validVisitReminder(data)
               )) ||
             validReviewNotification(data) ||
@@ -596,8 +623,7 @@ service cloud.firestore {
       // that changes the application's status (updatedAt == request.time).
       function validReviewNotification(data) {
         return data.type == 'applicationStatus' &&
-          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
-            'messageId']) &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'messageId']) &&
           data.applicationId is string &&
           reviewed(data.applicationId).userId == data.userId &&
           reviewed(data.applicationId).updatedAt == request.time &&
@@ -610,7 +636,7 @@ service cloud.firestore {
       // write that books or cancels the visit (updatedAt == request.time).
       function validVisitNotification(data) {
         return data.type == 'visit' && data.visitId is string &&
-          !data.keys().hasAny(['applicationId', 'maintenanceId', 'messageId']) &&
+          !data.keys().hasAny(['applicationId', 'messageId']) &&
           visited(data.visitId).visitorId == request.auth.uid &&
           visited(data.visitId).ownerId == data.userId &&
           visited(data.visitId).apartmentId == data.apartmentId &&
@@ -619,24 +645,10 @@ service cloud.firestore {
       function visited(visitId) {
         return getAfter(/databases/$(database)/documents/visits/$(visitId)).data;
       }
-      // US-17.3: a reminder before the user's own maintenance service. The
-      // fixed id uid_maintenance_request_reminder means each reminder is
-      // stored once; an existing one cannot be overwritten (update rule).
-      function validMaintenanceNotification(data) {
-        return data.type == 'maintenance' && data.maintenanceId is string &&
-          !data.keys().hasAny(['apartmentId']) &&
-          notificationId in [
-            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneDay',
-            request.auth.uid + '_maintenance_' + data.maintenanceId + '_oneHour',
-            request.auth.uid + '_maintenance_' + data.maintenanceId +
-              '_fiveMinutes'] &&
-          get(/databases/$(database)/documents/maintenanceRequests/$(data.maintenanceId)).data.userId == request.auth.uid;
-      }
       // US 18.4: the visitor's reminder the day before their own visit, with
       // the fixed id uid_visitReminder_visitId so it is stored once.
       function validVisitReminder(data) {
         return data.type == 'visit' && data.apartmentId is string &&
-          !data.keys().hasAny(['maintenanceId']) &&
           notificationId.matches(request.auth.uid + '_visitReminder_[A-Za-z0-9]+') &&
           get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.visitorId == request.auth.uid &&
           get(/databases/$(database)/documents/visits/$(notificationId.split('_visitReminder_')[1])).data.apartmentId == data.apartmentId;
@@ -645,8 +657,7 @@ service cloud.firestore {
       // that stores the message (createdAt == request.time).
       function validMessageNotification(data) {
         return data.type == 'message' && data.messageId is string &&
-          !data.keys().hasAny(['apartmentId', 'applicationId', 'visitId',
-            'maintenanceId']) &&
+          !data.keys().hasAny(['apartmentId', 'applicationId', 'visitId']) &&
           sentMessage(data.messageId).senderId == request.auth.uid &&
           sentMessage(data.messageId).advertiserId == data.userId &&
           sentMessage(data.messageId).createdAt == request.time;
@@ -658,8 +669,7 @@ service cloud.firestore {
       // same write that submits the application (submittedAt == request.time).
       function validNewApplicationNotification(data) {
         return data.type == 'newApplication' && data.applicationId is string &&
-          !data.keys().hasAny(['apartmentId', 'visitId', 'maintenanceId',
-            'messageId']) &&
+          !data.keys().hasAny(['apartmentId', 'visitId', 'messageId']) &&
           reviewed(data.applicationId).userId == request.auth.uid &&
           reviewed(data.applicationId).submittedAt == request.time &&
           data.userId == get(/databases/$(database)/documents/apartments/$(reviewed(data.applicationId).apartmentId)).data.get('ownerId', '');
@@ -674,8 +684,9 @@ service cloud.firestore {
       function validPreferences() {
         let data = request.resource.data;
         let fields = ['newListing', 'applicationStatus', 'announcement'];
-        // US-20 'visit', US-17 'maintenance' and US 18 'message' and
-        // 'newApplication' are optional, so older documents stay valid.
+        // US-20 'visit' and US 18 'message' and 'newApplication' are
+        // optional, so older documents stay valid. 'maintenance' (retired
+        // US-17 reminders) stays allowed for the same reason.
         return data.keys().hasAll(fields) &&
           data.keys().hasOnly(fields.concat(['visit', 'maintenance', 'message',
             'newApplication'])) &&

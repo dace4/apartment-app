@@ -1,11 +1,11 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 
+import '../view_models/app_maintenance_view_model.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/compare_view_model.dart';
 import '../view_models/apartments_view_model.dart';
 import '../view_models/favourites_view_model.dart';
-import '../view_models/maintenance_reminders_view_model.dart';
 import '../view_models/notifications_view_model.dart';
 import '../view_models/saved_searches_view_model.dart';
 import '../views/apartments/apartment_detail_view.dart';
@@ -22,6 +22,7 @@ import '../views/auth/choose_roles_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/auth/verify_email_view.dart';
 import '../views/favourites/favourites_view.dart';
+import '../views/maintenance/app_maintenance_view.dart';
 import '../views/documents/documents_view.dart';
 import '../views/documents/document_review_view.dart';
 import '../views/signatures/signature_view.dart';
@@ -37,8 +38,6 @@ import '../views/services/contractors_view.dart';
 import '../views/services/insurance_contact_view.dart';
 import '../views/services/insurance_coverage_view.dart';
 import '../views/services/insurance_view.dart';
-import '../views/services/maintenance_booking_view.dart';
-import '../views/services/maintenance_detail_view.dart';
 import '../views/services/maintenance_view.dart';
 import '../views/services/market_trends_view.dart';
 import '../views/services/mortgage_calculator_view.dart';
@@ -54,17 +53,28 @@ GoRouter createAppRouter({
   required ApartmentsViewModel apartmentsViewModel,
   required CompareViewModel compareViewModel,
   required FavouritesViewModel favouritesViewModel,
-  required MaintenanceRemindersViewModel maintenanceRemindersViewModel,
+  required AppMaintenanceViewModel appMaintenanceViewModel,
   required SavedSearchesViewModel savedSearchesViewModel,
   required NotificationsViewModel notificationsViewModel,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.apartments,
-    // Re-runs the redirect whenever the signed-in user changes.
-    refreshListenable: authViewModel,
-    redirect: (context, state) =>
-        authViewModel.redirectFor(state.matchedLocation),
+    // Re-runs the redirect whenever the signed-in user or the app
+    // maintenance window changes.
+    refreshListenable: Listenable.merge([
+      authViewModel,
+      appMaintenanceViewModel,
+    ]),
+    redirect: (context, state) => authViewModel.redirectFor(
+      state.matchedLocation,
+      appDown: appMaintenanceViewModel.isActive,
+    ),
     routes: [
+      GoRoute(
+        path: AppRoutes.appMaintenance,
+        builder: (context, state) =>
+            AppMaintenanceView(authViewModel: authViewModel),
+      ),
       GoRoute(
         path: AppRoutes.chooseRoles,
         builder: (context, state) => ChooseRolesView(viewModel: authViewModel),
@@ -87,7 +97,6 @@ GoRouter createAppRouter({
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => ScaffoldWithNavBar(
           navigationShell: navigationShell,
-          remindersViewModel: maintenanceRemindersViewModel,
           notificationsViewModel: notificationsViewModel,
           authViewModel: authViewModel,
         ),
@@ -225,31 +234,12 @@ GoRouter createAppRouter({
                       ),
                     ),
                   ),
+                  // Admins only (canAccess).
                   GoRoute(
                     path: 'maintenance',
-                    builder: (context, state) => const MaintenanceView(),
-                    routes: [
-                      // US-17. 'new' must come before ':id' to be matched.
-                      GoRoute(
-                        path: 'new',
-                        builder: (context, state) =>
-                            const MaintenanceBookingView(),
-                      ),
-                      GoRoute(
-                        path: ':id',
-                        builder: (context, state) => MaintenanceDetailView(
-                          requestId: state.pathParameters['id']!,
-                        ),
-                        routes: [
-                          GoRoute(
-                            path: 'reschedule',
-                            builder: (context, state) => MaintenanceBookingView(
-                              rescheduleId: state.pathParameters['id']!,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    builder: (context, state) => MaintenanceView(
+                      appMaintenanceViewModel: appMaintenanceViewModel,
+                    ),
                   ),
                   GoRoute(
                     path: 'insurance',
@@ -266,6 +256,7 @@ GoRouter createAppRouter({
                             path: 'contact',
                             builder: (context, state) => InsuranceContactView(
                               coverageId: state.pathParameters['id']!,
+                              authViewModel: authViewModel,
                             ),
                           ),
                         ],

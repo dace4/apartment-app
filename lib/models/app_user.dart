@@ -9,6 +9,8 @@ class AppUser {
     this.roles = const {},
     this.rolesLoaded = true,
     this.profileError,
+    this.fullName,
+    this.phone,
   });
 
   final String id;
@@ -18,13 +20,20 @@ class AppUser {
   final bool rolesLoaded;
   final String? profileError;
 
-  bool get isBuyer => roles.contains(UserRole.buyer);
-  bool get isRenter => roles.contains(UserRole.renter);
+  /// US-06: pre-fill the forms; null on accounts that never gave them.
+  final String? fullName;
+  final String? phone;
+
+  /// The admin has every role, so every feature lets them in.
+  bool get isAdmin => roles.contains(UserRole.admin);
+  bool get isBuyer => isAdmin || roles.contains(UserRole.buyer);
+  bool get isRenter => isAdmin || roles.contains(UserRole.renter);
   bool get isConsumer => isBuyer || isRenter;
-  bool get isHomeowner => roles.contains(UserRole.homeowner);
-  bool get isPropertyManager => roles.contains(UserRole.propertyManager);
-  bool get hasManagementRole => isHomeowner || isPropertyManager;
+  bool get isHomeowner => isAdmin || roles.contains(UserRole.homeowner);
+  bool get hasManagementRole => isHomeowner;
   bool get isReady => emailVerified && hasRoles;
 
   bool get hasRoles => rolesLoaded && profileError == null && roles.isNotEmpty;
+
+  bool get hasContactDetails => fullName != null && phone != null;
 }

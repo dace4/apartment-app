@@ -3,10 +3,16 @@ enum UserRole {
   buyer('Buyer'),
   renter('Renter'),
   homeowner('Homeowner'),
-  propertyManager('Property Manager');
+
+  /// Maintains the app and can open every feature. Granted only in the
+  /// Firebase console: firestore.rules refuse it from the app.
+  admin('Admin');
 
   const UserRole(this.label);
   final String label;
+
+  /// The roles a user may choose themselves (never Admin).
+  static const selectable = [buyer, renter, homeowner];
 
   /// Invalid legacy profiles require selection again, never partial privileges.
   static Set<UserRole> fromNames(Object? value) {

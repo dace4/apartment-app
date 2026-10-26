@@ -6,7 +6,6 @@ class NotificationPreferences {
     this.applicationStatus = true,
     this.announcement = true,
     this.visit = true,
-    this.maintenance = true,
     this.message = true,
     this.newApplication = true,
   });
@@ -17,9 +16,6 @@ class NotificationPreferences {
   /// US-20: visits of the user's apartments.
   final bool visit;
 
-  /// US-17: reminders before repair and maintenance services.
-  final bool maintenance;
-
   /// US 18.2: messages and applications an owner receives.
   final bool message;
   final bool newApplication;
@@ -29,7 +25,6 @@ class NotificationPreferences {
     NotificationType.applicationStatus => applicationStatus,
     NotificationType.announcement => announcement,
     NotificationType.visit => visit,
-    NotificationType.maintenance => maintenance,
     NotificationType.message => message,
     NotificationType.newApplication => newApplication,
   };
@@ -45,9 +40,6 @@ class NotificationPreferences {
           ? enabled
           : announcement,
       visit: type == NotificationType.visit ? enabled : visit,
-      maintenance: type == NotificationType.maintenance
-          ? enabled
-          : maintenance,
       message: type == NotificationType.message ? enabled : message,
       newApplication: type == NotificationType.newApplication
           ? enabled
@@ -62,7 +54,6 @@ class NotificationPreferences {
       applicationStatus: map?['applicationStatus'] as bool? ?? true,
       announcement: map?['announcement'] as bool? ?? true,
       visit: map?['visit'] as bool? ?? true,
-      maintenance: map?['maintenance'] as bool? ?? true,
       message: map?['message'] as bool? ?? true,
       newApplication: map?['newApplication'] as bool? ?? true,
     );
@@ -74,7 +65,6 @@ class NotificationPreferences {
       'applicationStatus': applicationStatus,
       'announcement': announcement,
       'visit': visit,
-      'maintenance': maintenance,
       'message': message,
       'newApplication': newApplication,
     };

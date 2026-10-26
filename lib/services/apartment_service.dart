@@ -55,7 +55,9 @@ class ApartmentService {
           _db.collection('users').doc(user.id),
         );
         final roles = profile.data()?['roles'];
-        if (roles is! List || !roles.contains('homeowner')) {
+        // Admins have every role (firestore.rules hasRole).
+        if (roles is! List ||
+            !(roles.contains('homeowner') || roles.contains('admin'))) {
           throw const ListingException(
             'Only homeowners can publish apartments.',
           );
@@ -113,13 +115,13 @@ class ApartmentService {
     });
   }
 
-  /// US 16: the apartments [user] owns (Homeowner) or manages (Property
-  /// Manager).
+  /// US 16: the apartments [user] owns (Homeowner) or is assigned to
+  /// (Admin).
   Future<List<Apartment>> getManagedApartments(AppUser user) async {
     final snapshots = await Future.wait([
       if (user.isHomeowner)
         _collection.where('ownerId', isEqualTo: user.id).get(),
-      if (user.isPropertyManager)
+      if (user.isAdmin)
         _collection.where('managerIds', arrayContains: user.id).get(),
     ]);
     // An apartment both owned and managed appears once.

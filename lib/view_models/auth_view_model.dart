@@ -25,9 +25,14 @@ class AuthViewModel extends ChangeNotifier {
 
   void _listen() {
     _subscription = service.userChanges().listen((value) {
+      // US-06: a new name or phone must not undo roles ticked but not saved.
+      final rolesChanged =
+          value?.id != _user?.id || !setEquals(value?.roles, _user?.roles);
       _user = value;
-      selectedRoles = {...?value?.roles};
-      actionError = null;
+      if (rolesChanged) {
+        selectedRoles = {...?value?.roles};
+        actionError = null;
+      }
       notifyListeners();
     });
   }
@@ -38,6 +43,8 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   void setRole(UserRole role, bool selected) {
+    // Admin is granted in the Firebase console and kept on every save.
+    if (!UserRole.selectable.contains(role)) return;
     selectedRoles = {...selectedRoles};
     if (selected) {
       selectedRoles.add(role);
@@ -108,8 +115,8 @@ class AuthViewModel extends ChangeNotifier {
     }
     if (under(AppRoutes.insurance)) return account.isRenter;
     if (under(AppRoutes.contractors)) return account.isHomeowner;
-    // Sprint 3 review: repair and maintenance is for property managers only.
-    if (under(AppRoutes.maintenance)) return account.isPropertyManager;
+    // Repair & maintenance schedules app downtime: admins only.
+    if (under(AppRoutes.maintenance)) return account.isAdmin;
     if (under(AppRoutes.inbox)) return account.hasManagementRole;
     return true;
   }
@@ -117,9 +124,11 @@ class AuthViewModel extends ChangeNotifier {
   bool canManage(Apartment apartment) =>
       user?.isReady == true &&
       ((user!.isHomeowner && apartment.ownerId == user!.id) ||
-          (user!.isPropertyManager && apartment.managerIds.contains(user!.id)));
+          (user!.isAdmin && apartment.managerIds.contains(user!.id)));
 
-  String? redirectFor(String location) {
+  /// [appDown]: an app maintenance window is in progress. Only admins keep
+  /// using the app; everyone else waits on the maintenance page.
+  String? redirectFor(String location, {bool appDown = false}) {
     final onAuthPage =
         location == AppRoutes.login || location == AppRoutes.register;
     if (user == null) return onAuthPage ? null : AppRoutes.login;
@@ -129,7 +138,13 @@ class AuthViewModel extends ChangeNotifier {
     if (!user!.hasRoles) {
       return location == AppRoutes.chooseRoles ? null : AppRoutes.chooseRoles;
     }
+    if (appDown && !user!.isAdmin) {
+      return location == AppRoutes.appMaintenance
+          ? null
+          : AppRoutes.appMaintenance;
+    }
     if (onAuthPage ||
+        location == AppRoutes.appMaintenance ||
         location == AppRoutes.verifyEmail ||
         location == AppRoutes.chooseRoles ||
         !canAccess(location)) {

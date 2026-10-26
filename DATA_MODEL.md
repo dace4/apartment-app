@@ -25,7 +25,9 @@ erDiagram
 
     users {
         string uid PK, FK
-        array roles "buyer | renter | homeowner | propertyManager"
+        array roles "buyer | renter | homeowner | admin (console only)"
+        string fullName "US-06, optional: 1-100, pre-fills forms"
+        string phone "US-06, optional: +0-9 ()- 6-20, pre-fills forms"
     }
 
     apartments {
@@ -44,6 +46,7 @@ erDiagram
         timestamp createdAt "US-24 server publication time"
         string description
         string availability "available | reserved | unavailable"
+        string applicationId FK "US 16: the application In review (reserved) or accepted (unavailable)"
         array amenities "balcony, garden, parking, elevator, furnished, cellar"
     }
 
@@ -71,17 +74,11 @@ erDiagram
         array documentIds FK "0-5 uploadedDocuments IDs, set once; missing on older ones"
     }
 
-    maintenanceRequests {
-        string id PK "auto ID"
-        string userId FK "property manager"
-        string apartmentId FK
-        string apartmentTitle "copy of the title, max 200"
-        string category "plumbing | electrical | heating | appliances | other"
-        string description "5-500"
-        timestamp slotStart "start of a 30-minute slot"
-        array reminders "1-3 of oneDay, oneHour, fiveMinutes"
-        string status "scheduled | cancelled"
-        timestamp createdAt "server time"
+    appConfig {
+        string id PK "maintenance: the one app maintenance window"
+        timestamp start "the app goes down for non-admins"
+        timestamp end "after start; in the future when saved"
+        string updatedBy FK "the admin who saved it"
         timestamp updatedAt "server time"
     }
 
@@ -106,7 +103,7 @@ erDiagram
     notifications {
         string id PK "auto ID"
         string userId FK
-        string type "newListing | applicationStatus | announcement | visit | maintenance | message | newApplication"
+        string type "newListing | applicationStatus | announcement | visit | message | newApplication"
         string title "max 120"
         string body "max 500"
         timestamp createdAt
@@ -114,7 +111,6 @@ erDiagram
         string applicationId FK "US 16: set when an owner or manager changed the status"
         string apartmentId FK "US 23 new offer, US-20 visit: opens the apartment"
         string visitId FK "US-20: the visit that was booked or cancelled"
-        string maintenanceId FK "US-17: the service of a reminder; id = userId_maintenance_requestId_reminder"
         string messageId FK "US 18: the message an owner received"
     }
 
@@ -124,7 +120,7 @@ erDiagram
         bool applicationStatus
         bool announcement
         bool visit "US-20, optional: missing means on"
-        bool maintenance "US-17, optional: missing means on"
+        bool maintenance "retired US-17 reminders, still accepted on old documents"
         bool message "US 18, optional: missing means on"
         bool newApplication "US 18, optional: missing means on"
     }
@@ -204,8 +200,7 @@ erDiagram
     apartments ||--o{ favourites : "saved as"
     AUTH_USER ||--o{ applications : submits
     apartments ||--o{ applications : receives
-    AUTH_USER ||--o{ maintenanceRequests : books
-    apartments ||--o{ maintenanceRequests : "serviced by"
+    AUTH_USER ||--o| appConfig : "schedules (admin)"
     apartments ||--o| advertiserContacts : "advertised by"
     AUTH_USER ||--o{ advertiserContacts : advertises
     AUTH_USER ||--o{ advertiserMessages : sends
@@ -229,14 +224,14 @@ erDiagram
 
 | Collection | Story | Written by | What the app may do |
 | --- | --- | --- | --- |
-| `users` | US-06/07 | App | Get and replace own role profile; no list or delete |
-| `apartments` | US 4, 5, 8, 24 | Firebase console or verified homeowner (US-24) | Read; create own listing (US-24) |
+| `users` | US-06/07 | App; `admin` in the Firebase console | Get and replace own profile (roles, optional full name and phone), never adding `admin` (an admin keeps it); no list or delete |
+| `apartments` | US 4, 5, 8, 16, 24 | Firebase console or verified homeowner (US-24) | Read; create own listing (US-24); change only `availability` and `applicationId`, in the same batch as an application review (US 16: In review → reserved, Accepted → unavailable, rejected or withdrawn review → available) |
 | `favourites` | US 22 | App | Create and delete the user's own; no update |
-| `applications` | US 16 | App | Applicant: create; edit or withdraw within 5 days while `submitted`, `received` or `underReview`. Owner or assigned manager of the apartment (US 16): read and move the status submitted → received → underReview → accepted or rejected; no delete |
-| `maintenanceRequests` | US-17 | App | Create; reschedule or cancel until `slotStart`; no delete |
+| `applications` | US 16 | App | Applicant: create; edit or withdraw within 5 days while `submitted`, `received` or `underReview`. Owner or assigned manager of the apartment (US 16): read and move the status submitted → received → underReview → accepted or rejected, with the apartment's availability in the same batch; reject the other open ones once the apartment is unavailable; no delete |
+| `appConfig` | Admin maintenance | App (admins) | Everyone, even signed out, gets `maintenance`; admins create, replace or delete it. During its window every other collection refuses non-admins (`verified()`) |
 | `advertiserContacts` | US 12 | Firebase console | Read |
 | `advertiserMessages` | US 12 | App | Create; read by the sender, the advertiser, and the apartment's owner or assigned managers (inbox); no update or delete |
-| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); create `visit` for the apartment's owner in the same write that books or cancels a visit (US-20); create `maintenance` reminders for one's own service, once per reminder (US-17); create `visit` reminders for one's own visit, once (id `userId_visitReminder_visitId`, US 18); create `message` for the advertiser in the same batch as the message, and `newApplication` for the apartment's owner in the same write as the application (US 18); set `isRead` to true; no delete |
+| `notifications` | US 18 | App and Firebase console | Create `applicationStatus` for oneself, or for the applicant in the same batch as a review (US 16); create `visit` for the apartment's owner in the same write that books or cancels a visit (US-20); create `visit` reminders for one's own visit, once (id `userId_visitReminder_visitId`, US 18); create `message` for the advertiser in the same batch as the message, and `newApplication` for the apartment's owner in the same write as the application (US 18); set `isRead` to true; no delete |
 | `notificationPreferences` | US 18 | App | Read and write the user's own document |
 | `userSignatures` | US-11 | App | Read, create and replace the user's own; no list or delete |
 | `uploadedDocuments` | US-15, US-11 | App | Create; set `firstApplicationId` once; sign once (`unsigned` to `signed`); delete only while unsigned and never attached |
@@ -282,19 +277,23 @@ no rule above allows.
   seeds the emulator). A renter's request copies the coverage's name and agent
   so the agent can read it on its own in the console; nobody is notified in
   the app.
-- **Copied fields:** `apartmentTitle` is copied into `applications`,
-  `maintenanceRequests` and `visits` so their lists do not load every apartment. It is not
+- **Copied fields:** `apartmentTitle` is copied into `applications` and
+  `visits` so their lists do not load every apartment. It is not
   updated if the apartment's title changes later.
-- **Computed, not stored:** a maintenance service's "Done" status and a
-  visit's "past" state (their slot has ended), an apartment's price per m², and the mortgage calculator's results
+- **Computed, not stored:** a visit's "past" state (its slot has ended),
+  whether the app maintenance window is upcoming or in progress, an apartment's price per m², and the mortgage calculator's results
   (`MortgageEstimate`, US-09).
 - **Defaults:** a user without a `notificationPreferences` document receives
   every kind of notification.
 
 ## US-06 role profile
 
-`users/{uid}` stores only `roles`: one or more unique names from `buyer`, `renter`,
-`homeowner`, `propertyManager`. Missing or invalid profiles require role selection.
+`users/{uid}` stores `roles`: one or more unique names from `buyer`, `renter`,
+`homeowner`, `admin`, and optionally `fullName` and `phone` (asked at registration,
+editable in Profile, same limits as an application). They pre-fill new applications
+and insurance requests. Missing or invalid profiles (including the retired
+`propertyManager`) require role selection. `admin` is added only in the Firebase
+console; the rules refuse it from the app. An admin has every role (`hasRole`).
 Only that account may read or replace its profile, including before verification.
 
 ## US-07 access and property assignment
@@ -308,10 +307,11 @@ Notifications and preferences remain available to any completed, verified accoun
 US-24 creation assigns ownerId to the verified homeowner creator and starts managerIds
 empty. Only trusted console/admin operations change existing assignments. General model
 serialization omits both fields; the creation service supplies them and copyWith
-preserves them in memory. Missing assignments grant no
-maintenance permissions. Maintenance requires Homeowner + matching ownerId, or
-Property Manager + membership of managerIds, in addition to existing request-creator
-restrictions. See docs/US-07-access-technical-guide.md for queries and validation.
+preserves them in memory. Missing assignments grant no management rights.
+Managing an apartment (inbox, reviews) requires Homeowner + matching ownerId, or
+Admin + membership of managerIds. See docs/US-07-access-technical-guide.md for
+queries and validation, and docs/admin-maintenance-technical-guide.md for the
+admin role and app maintenance windows.
 
 
 ## US-24 publication contract

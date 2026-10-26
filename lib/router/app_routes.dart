@@ -5,6 +5,8 @@ abstract final class AppRoutes {
   static const register = '/register';
   static const chooseRoles = '/choose-roles';
   static const verifyEmail = '/verify-email';
+  // Shown to everyone but admins while an app maintenance window runs.
+  static const appMaintenance = '/maintenance';
 
   // Tab 1: Home
   static const apartments = '/apartments';
@@ -33,12 +35,8 @@ abstract final class AppRoutes {
   static const mortgage = '/services/mortgage';
   // US-09: opens the calculator with the apartment's price filled in.
   static String mortgageForPrice(int price) => '$mortgage?price=$price';
+  // Admins schedule app maintenance windows (replaces US-17 booking).
   static const maintenance = '/services/maintenance';
-  // US-17: book, view and reschedule repair and maintenance services.
-  static const maintenanceNew = '$maintenance/new';
-  static String maintenanceDetail(String id) => '$maintenance/$id';
-  static String maintenanceReschedule(String id) =>
-      '$maintenance/$id/reschedule';
   static const insurance = '/services/insurance';
   // US-19: a coverage's details and the request to its agent (renters only).
   static String insuranceCoverage(String id) => '$insurance/$id';

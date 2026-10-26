@@ -55,7 +55,6 @@ AppNotification notification(
   String? messageId,
   String? apartmentId,
   String? visitId,
-  String? maintenanceId,
 }) => AppNotification(
   id: id,
   type: type,
@@ -67,7 +66,6 @@ AppNotification notification(
   messageId: messageId,
   apartmentId: apartmentId,
   visitId: visitId,
-  maintenanceId: maintenanceId,
 );
 
 Visit visit({required DateTime slotStart, String id = 'v1'}) => Visit(
@@ -263,12 +261,6 @@ void main() {
               applicationId: 'app'),
         ),
         AppRoutes.applicationDetail('app'),
-      );
-      expect(
-        viewModel.destinationFor(
-          notification('4', NotificationType.maintenance, maintenanceId: 'r1'),
-        ),
-        AppRoutes.maintenanceDetail('r1'),
       );
       expect(
         viewModel.destinationFor(

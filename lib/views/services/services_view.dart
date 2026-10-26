@@ -10,6 +10,7 @@ class ServicesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PlaceholderView(
     title: 'Services',
+    comingSoon: false,
     links: [
       if (viewModel.canAccess(AppRoutes.mortgage))
         const PageLink('Mortgage calculator', AppRoutes.mortgage),

@@ -23,4 +23,5 @@ and retry. Avoid closing the form before retrying; the draft is kept only while
 that screen stays open. Retrying from the same form does not duplicate a listing.
 
 If Add apartment is missing, verify your email and check the Homeowner role.
-Renters, buyers and property managers without that role cannot publish.
+Renters and buyers without that role cannot publish. Admins can (they have
+every role).

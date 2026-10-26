@@ -1,57 +1,105 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
-import '../models/maintenance_request.dart';
-import '../services/maintenance_service.dart';
+import '../models/app_maintenance.dart';
+import '../services/app_maintenance_service.dart';
+import '../utils/formatters.dart';
 
-/// US-17: the user's maintenance requests, updated live, split into
-/// upcoming and past or cancelled.
+/// The admin's Repair & maintenance page: the form that schedules an app
+/// maintenance window ("from" and "till"). The current window itself comes
+/// from the shared AppMaintenanceViewModel.
 class MaintenanceViewModel extends ChangeNotifier {
-  final MaintenanceService service = MaintenanceService();
-  StreamSubscription<List<MaintenanceRequest>>? _subscription;
+  // Tests pass a fake service and clock; the app uses Firebase and the time.
+  MaintenanceViewModel({
+    AppMaintenanceService? service,
+    DateTime Function()? clock,
+  }) : service = service ?? AppMaintenanceService(),
+       _clock = clock ?? DateTime.now;
 
-  /// Soonest first.
-  List<MaintenanceRequest> requests = [];
-  bool isLoading = false;
-  String? errorMessage;
+  final AppMaintenanceService service;
+  final DateTime Function() _clock;
 
-  bool _isUpcoming(MaintenanceRequest request) =>
-      !request.isCancelled && !request.isDone(DateTime.now());
+  /// Null means "now": the window starts as soon as it is saved.
+  DateTime? start;
+  DateTime? end;
+  bool isSaving = false;
+  String? actionError;
 
-  /// Scheduled services that have not ended, soonest first.
-  List<MaintenanceRequest> get upcoming => requests.where(_isUpcoming).toList();
+  String get startLabel => start == null ? 'Now' : formatDateTime(start!);
+  String get endLabel => end == null ? 'Choose a time' : formatDateTime(end!);
 
-  /// Done and cancelled services, most recent first.
-  List<MaintenanceRequest> get past => requests
-      .where((request) => !_isUpcoming(request))
-      .toList()
-      .reversed
-      .toList();
-
-  void listenToRequests() {
-    isLoading = true;
-    errorMessage = null;
+  void setStart(DateTime value) {
+    start = value;
+    actionError = null;
     notifyListeners();
+  }
 
-    _subscription?.cancel();
-    _subscription = service.watchMyRequests().listen(
-      (newRequests) {
-        requests = newRequests;
-        isLoading = false;
-        notifyListeners();
-      },
-      onError: (e) {
-        errorMessage = 'Could not load your maintenance services.';
-        isLoading = false;
-        notifyListeners();
-      },
-    );
+  void setEnd(DateTime value) {
+    end = value;
+    actionError = null;
+    notifyListeners();
+  }
+
+  /// The reason the window cannot be saved, or null when it is valid.
+  String? validate() {
+    final now = _clock();
+    final from = start ?? now;
+    if (end == null) return 'Choose when the maintenance ends.';
+    if (!end!.isAfter(now)) return 'The end must be in the future.';
+    if (!end!.isAfter(from)) return 'The end must be after the start.';
+    return null;
+  }
+
+  Future<bool> schedule() async {
+    final error = validate();
+    if (error != null) {
+      actionError = error;
+      notifyListeners();
+      return false;
+    }
+    isSaving = true;
+    actionError = null;
+    notifyListeners();
+    try {
+      await service.schedule(
+        AppMaintenance(start: start ?? _clock(), end: end!),
+      );
+      start = null;
+      end = null;
+      return true;
+    } catch (e) {
+      actionError = 'Could not schedule the maintenance. Please try again.';
+      return false;
+    } finally {
+      isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> endNow() async {
+    isSaving = true;
+    actionError = null;
+    notifyListeners();
+    try {
+      await service.endNow();
+      return true;
+    } catch (e) {
+      actionError = 'Could not end the maintenance. Please try again.';
+      return false;
+    } finally {
+      isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _disposed = true;
     super.dispose();
   }
 }

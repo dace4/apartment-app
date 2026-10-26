@@ -1,5 +1,11 @@
 # US-17 — Schedule repair and maintenance: technical guide
 
+> **Retired.** Contractor booking was removed when the Property Manager role
+> became Admin. The Repair & maintenance page now schedules app maintenance
+> windows: see [admin-maintenance-user-guide.md](admin-maintenance-user-guide.md)
+> and [admin-maintenance-technical-guide.md](admin-maintenance-technical-guide.md).
+> This page is kept as a record.
+
 ## Requirements
 
 US-17 (Property Manager): "Schedule repair and maintenance, so that I can

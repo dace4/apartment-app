@@ -232,18 +232,6 @@ class _ApartmentDetails extends StatelessWidget {
                   label: const Text('Apply'),
                 ),
               const SizedBox(height: 8),
-              if (authViewModel.canAccess(
-                AppRoutes.applyImmediately(apartment.id),
-              ))
-                FilledButton.icon(
-                  onPressed: apartment.canApply
-                      ? () =>
-                            context.go(AppRoutes.applyImmediately(apartment.id))
-                      : null,
-                  icon: const Icon(Icons.bolt),
-                  label: const Text('Apply immediately'),
-                ),
-              const SizedBox(height: 8),
               // Availability does not prevent asking the advertiser a question.
               if (authViewModel.canAccess(
                 AppRoutes.contactAdvertiser(apartment.id),

@@ -1,5 +1,9 @@
 # US-10 — Apply immediately: user guide
 
+> **Removed from the app.** The **Apply immediately** button is no longer shown
+> on apartments; use **Apply**. Applications already sent this way still appear
+> in My applications. This page is kept as a record.
+
 **Apply immediately** sends your application to the owner right away. It does
 **not** reserve the apartment: the apartment stays available until the owner
 accepts an application.

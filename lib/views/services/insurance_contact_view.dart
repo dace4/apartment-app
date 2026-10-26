@@ -4,14 +4,22 @@ import 'package:go_router/go_router.dart';
 import '../../models/insurance_request.dart';
 import '../../router/app_routes.dart';
 import '../../utils/validators.dart';
+import '../../view_models/auth_view_model.dart';
 import '../../view_models/insurance_contact_view_model.dart';
 import '../shared/widgets/message_view.dart';
 
 /// US-19: sends a request to a coverage's agent and shows a confirmation.
 class InsuranceContactView extends StatefulWidget {
-  const InsuranceContactView({super.key, required this.coverageId});
+  const InsuranceContactView({
+    super.key,
+    required this.coverageId,
+    this.authViewModel,
+  });
 
   final String coverageId;
+
+  /// US-06: the profile's phone pre-fills the phone field.
+  final AuthViewModel? authViewModel;
 
   @override
   State<InsuranceContactView> createState() => _InsuranceContactViewState();
@@ -20,7 +28,9 @@ class InsuranceContactView extends StatefulWidget {
 class _InsuranceContactViewState extends State<InsuranceContactView> {
   final viewModel = InsuranceContactViewModel();
   final _formKey = GlobalKey<FormState>();
-  final _phone = TextEditingController();
+  late final _phone = TextEditingController(
+    text: widget.authViewModel?.user?.phone,
+  );
   final _message = TextEditingController();
 
   @override

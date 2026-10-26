@@ -172,13 +172,23 @@ class ApplicationService {
 
   /// US 16: the owner or manager moves the application to its next status.
   /// The applicant is notified in the same batch: both are saved, or neither.
-  Future<void> review(RentalApplication application, ApplicationStatus status) {
+  /// With [availability], the apartment changes in the same batch too:
+  /// Reserved (In review) or Unavailable (Accepted) for this application,
+  /// or Available again when it no longer holds it.
+  Future<void> review(
+    RentalApplication application,
+    ApplicationStatus status, {
+    ApartmentAvailability? availability,
+  }) {
     final title = 'Application update: ${application.apartmentTitle}';
     final batch = _db.batch();
     batch.update(_collection.doc(application.id), {
       'status': status.name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    if (availability != null) {
+      _updateAvailability(batch, application, availability);
+    }
     batch.set(_db.collection('notifications').doc(), {
       'userId': application.userId,
       'type': 'applicationStatus',
@@ -192,10 +202,33 @@ class ApplicationService {
     return batch.commit();
   }
 
-  Future<void> withdraw(String id) {
-    return _collection.doc(id).update({
+  /// With [releaseApartment], the apartment this application reserved
+  /// becomes Available again in the same batch.
+  Future<void> withdraw(
+    RentalApplication application, {
+    bool releaseApartment = false,
+  }) {
+    final batch = _db.batch();
+    batch.update(_collection.doc(application.id), {
       'status': ApplicationStatus.withdrawn.name,
       'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (releaseApartment) {
+      _updateAvailability(batch, application, ApartmentAvailability.available);
+    }
+    return batch.commit();
+  }
+
+  void _updateAvailability(
+    WriteBatch batch,
+    RentalApplication application,
+    ApartmentAvailability availability,
+  ) {
+    batch.update(_db.collection('apartments').doc(application.apartmentId), {
+      'availability': availability.name,
+      'applicationId': availability == ApartmentAvailability.available
+          ? FieldValue.delete()
+          : application.id,
     });
   }
 

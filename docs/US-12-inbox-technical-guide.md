@@ -24,7 +24,7 @@ apartment's `ownerId`. `ContactAdvertiserViewModel` falls back to the owner and
 | View | `views/profile/message_detail_view.dart` | route `/profile/inbox/messages/:id` |
 
 Access: `AuthViewModel.canAccess` allows everything under `/profile/inbox` for
-Homeowner and Property Manager only.
+Homeowner and Admin only.
 
 ## Firestore rules
 

@@ -1,7 +1,7 @@
 # US 18 — Receive notifications: user guide
 
 HomeFlow keeps you updated inside the app on new listings, your
-applications, visits, maintenance and messages.
+applications, visits and messages.
 
 ## See your notifications
 
@@ -20,7 +20,6 @@ as read** to clear the count.
 | New applications | The apartment's owner, when someone applies | The application in the inbox |
 | Messages | The advertiser, when someone sends a message | The message in the inbox |
 | Visits | The owner, when a visit is booked or cancelled; the visitor, the day before the visit ("Visit tomorrow") | The visit, or the apartment |
-| Maintenance | Property managers, before a booked service (US-17) | The service |
 | Announcements | Everyone; written by the HomeFlow team | — |
 
 ## Opt in or out of alerts at any time

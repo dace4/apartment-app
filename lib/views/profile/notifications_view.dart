@@ -123,7 +123,6 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.applicationStatus => Icons.assignment_outlined,
     NotificationType.announcement => Icons.campaign_outlined,
     NotificationType.visit => Icons.event_available,
-    NotificationType.maintenance => Icons.build_outlined,
     NotificationType.message => Icons.mail_outline,
     NotificationType.newApplication => Icons.inbox_outlined,
   };
