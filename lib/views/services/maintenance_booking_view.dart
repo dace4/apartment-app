@@ -96,15 +96,15 @@ class _MaintenanceBookingViewState extends State<MaintenanceBookingView> {
             );
           }
 
-          // 3. Empty: nothing to book for (US-17.1: only the properties the
-          // user owns or is assigned to manage can be chosen).
+          // 3. Empty: nothing to book for (only the apartments the property
+          // manager is assigned to can be chosen).
           if (!viewModel.isRescheduling && viewModel.apartments.isEmpty) {
             return const MessageView(
               icon: Icons.home_work_outlined,
               message:
-                  'You do not own or manage any property yet. Homeowners '
-                  'can book for the apartments they published; property '
-                  'managers for the apartments they are assigned to.',
+                  'You are not assigned to any apartment yet. Property '
+                  'managers book services for the apartments their owners '
+                  'assigned to them.',
             );
           }
 

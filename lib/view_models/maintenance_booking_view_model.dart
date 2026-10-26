@@ -21,8 +21,8 @@ enum SlotState {
 }
 
 /// US-17: book a new repair or maintenance service, or reschedule one.
-/// US-17.1: only homeowners and assigned property managers, for the
-/// properties they own or manage.
+/// US-17.1: only property managers, for the apartments they are assigned
+/// to (Sprint 3 review).
 class MaintenanceBookingViewModel extends ChangeNotifier {
   // Tests pass fakes and a fixed clock; the app uses Firebase and now().
   MaintenanceBookingViewModel({
@@ -230,7 +230,7 @@ class MaintenanceBookingViewModel extends ChangeNotifier {
       if (_disposed ||
           account?.isReady != true ||
           !managed.any((item) => item.id == propertyId)) {
-        actionError = 'You do not own or manage this property.';
+        actionError = 'You do not manage this property.';
         notifyListeners();
         return false;
       }

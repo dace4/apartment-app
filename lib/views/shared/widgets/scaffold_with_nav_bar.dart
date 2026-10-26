@@ -94,8 +94,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget _withUnreadDot(Widget icon) => ListenableBuilder(
     listenable: notificationsViewModel,
     builder: (context, _) => Badge.count(
-      count: notificationsViewModel.unreadCount,
-      isLabelVisible: notificationsViewModel.unreadCount > 0,
+      count: notificationsViewModel.alertCount,
+      isLabelVisible: notificationsViewModel.alertCount > 0,
       child: icon,
     ),
   );
