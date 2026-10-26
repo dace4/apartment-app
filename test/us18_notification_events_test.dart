@@ -228,13 +228,11 @@ void main() {
       await settle();
       expect(viewModel.unreadCount, 3);
 
-      // Opt-out (Sprint 3 review): messages stay in the inbox but no
-      // longer count in the red badge.
+      // Opt-out hides messages and their count.
       fake.preferences.add(const NotificationPreferences(message: false));
       await settle();
-      expect(viewModel.alertCount, 2);
-      expect(viewModel.unreadCount, 3);
-      expect(viewModel.notifications.map((n) => n.id), contains('m'));
+      expect(viewModel.unreadCount, 2);
+      expect(viewModel.notifications.map((n) => n.id), isNot(contains('m')));
 
       viewModel.dispose();
     });
@@ -343,7 +341,7 @@ void main() {
       reminders.dispose();
     });
 
-    test('a visit reminder is stored even when its alerts are off', () async {
+    test('no visit reminder when visit notifications are off', () async {
       final auth = FakeAuth();
       final visits = FakeVisits();
       final notifications = FakeNotifications();
@@ -362,8 +360,7 @@ void main() {
         const NotificationPreferences(visit: false),
       );
       await settle();
-      // Sprint 3 review: the inbox always gets it; only the badge is off.
-      expect(notifications.saved, hasLength(1));
+      expect(notifications.saved, isEmpty);
 
       reminders.dispose();
     });

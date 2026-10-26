@@ -86,16 +86,15 @@ class SavedSearchesView extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // US 18's "New listings" switch only stops the red badge: new
-              // offers still appear in the inbox (Sprint 3 review).
+              // US 18's "New listings" switch overrides every search.
               if (!viewModel.newListingAlertsEnabled)
                 Card(
                   color: theme.colorScheme.tertiaryContainer,
                   child: ListTile(
                     leading: const Icon(Icons.notifications_off_outlined),
                     title: const Text(
-                      'New listing alerts are switched off: new offers are '
-                      'in your inbox, without a red badge.',
+                      'New listing notifications are switched off, so no '
+                      'alert is shown.',
                     ),
                     trailing: TextButton(
                       onPressed: () => context.go(AppRoutes.notifications),

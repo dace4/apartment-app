@@ -11,17 +11,9 @@ profile page**. Sprint 3 branch: `feature/US-18-notification-events`.
 | --- | --- |
 | 18.1 Extend event types, recipients, destinations and profile preferences | `NotificationType.message` and `newApplication`; `AppNotification.applicationId` / `messageId`; optional `message` and `newApplication` preferences (missing means on) |
 | 18.2 Owner notifications for messages and new applications; applicant notifications for status changes | `MessageService.send` (batch) and `ApplicationService.submit` (transaction) notify the owner in the same write; status changes already notify the applicant (`ApplicationService.review`, US 16) |
-| 18.3 Shared unread count and red Profile badge | `NotificationsViewModel.alertCount` (shared, app.dart) shown as `Badge.count` on the Profile tab and the Notifications tile; `unreadCount` (all kinds) in the inbox heading |
+| 18.3 Shared unread count and red Profile badge | `NotificationsViewModel.unreadCount` (shared, app.dart) shown as `Badge.count` on the Profile tab and the Notifications tile |
 | 18.4 Upcoming-event notifications and read handling | `VisitRemindersViewModel` (shared, app.dart) saves "Visit tomorrow" once per visit; `NotificationsViewModel.destinationFor` / `open` mark as read and open the page. Maintenance reminders: US-17 |
 | 18.5 Tests | `test/us18_notification_events_test.dart`, plus `us18_notifications_test.dart` and `us17_maintenance_test.dart` |
-
-## Switches (Sprint 3 review)
-
-The Product Owner decided that the inbox always shows **every**
-notification. The switches ("Alert me about") only control the alert: the
-red badge counts unread notifications of the kinds that are switched on
-(`alertCount`). Reminders and new-offer alerts are always stored; a saved
-search's own "Alerts for new offers" switch still turns that search off.
 
 ## Recipients and destinations
 

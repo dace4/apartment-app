@@ -1,13 +1,13 @@
 # US-17 — Schedule repair and maintenance: user guide
 
-Property managers book repair and maintenance services for the apartments
-they manage, and the app reminds them before each service.
+Homeowners and property managers book repair and maintenance services for
+their properties, and the app reminds them before each service.
 
 ## Who can book
 
+- A **Homeowner** can book for the apartments they published.
 - A **Property Manager** can book for the apartments they are assigned to.
-- Homeowners, renters and buyers do not see **Repair & maintenance**
-  (decided at the Sprint 3 review).
+- Renters and buyers do not see **Repair & maintenance**.
 
 If you own or manage no apartment yet, the booking page says so.
 
@@ -39,7 +39,7 @@ When a reminder time comes:
   (with a red dot on the Profile tab). Tap it to open the service.
 
 If several reminders became due while the app was closed, only the one
-closest to the service is shown. The notification always stays in your
-inbox; switching **Maintenance** off in **Profile → Notifications** only
-stops its red badge. Reminders are created while the app is running, at or after the
+closest to the service is shown. Switch **Maintenance** off in
+**Profile → Notifications** to stop these notifications; the banner still
+appears. Reminders are created while the app is running, at or after the
 reminder time and before the service starts.

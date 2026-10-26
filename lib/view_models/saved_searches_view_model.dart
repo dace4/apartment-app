@@ -217,10 +217,8 @@ class SavedSearchesViewModel extends ChangeNotifier {
         final newOffers = search.findNewOffers(_apartments);
         if (newOffers.isEmpty) continue;
 
-        // Sprint 3 review: the inbox always gets new-offer alerts of an
-        // active search; the US-18 "New listings" switch only controls the
-        // red badge. The search's own switch still turns its alerts off.
-        final notify = search.alertsEnabled;
+        final notify =
+            search.alertsEnabled && _notificationPreferences.newListing;
         await searchService.recordNewOffers(
           search,
           [for (final apartment in newOffers) apartment.id],

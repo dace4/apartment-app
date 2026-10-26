@@ -176,10 +176,9 @@ class FaqService {
       category: FaqCategory.owners,
       question: 'How do I book a repair or maintenance service?',
       answer:
-          'Property managers can book plumbing, electrical, heating or '
-          'appliance services for the apartments they are assigned to, on '
-          'weekdays between 08:00 and 17:00, and reschedule or cancel them '
-          'before they start.',
+          'Homeowners and assigned property managers can book plumbing, '
+          'electrical, heating or appliance services on weekdays between '
+          '08:00 and 17:00, and reschedule or cancel them before they start.',
       linkLabel: 'Repair & maintenance',
       linkLocation: AppRoutes.maintenance,
     ),
@@ -190,9 +189,9 @@ class FaqService {
       question: 'Why can I not see some features?',
       answer:
           'Features depend on your roles: renters and buyers apply and visit, '
-          'homeowners publish apartments, owners and managers handle '
-          'applications, and property managers book maintenance. You choose '
-          'your roles in your profile.',
+          'homeowners publish apartments, and owners and managers handle '
+          'applications and maintenance. You choose your roles in your '
+          'profile.',
       linkLabel: 'Profile',
       linkLocation: AppRoutes.profile,
     ),

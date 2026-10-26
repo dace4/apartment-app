@@ -9,7 +9,7 @@ Branch: `feature/US-17-maintenance-notifications`.
 
 | Task | Implementation |
 | --- | --- |
-| 17.1 Restrict scheduling to homeowners and assigned property managers | Since the Sprint 3 review: **property managers only**, for their assigned apartments. Route access (`AuthViewModel.canAccess`: `isPropertyManager`), assigned apartments only (`MaintenanceService.getManageableApartments`: `managerIds`), re-check before every save (`MaintenanceBookingViewModel._save`), and `firestore.rules` (`assigned(apartmentId)`: property manager listed in `managerIds`). Explanatory empty state when the user is assigned to no apartment |
+| 17.1 Restrict scheduling to homeowners and assigned property managers | Route access (`AuthViewModel.canAccess`, US-07), manageable properties only (`MaintenanceService.getManageableApartments`), re-check before every save (`MaintenanceBookingViewModel._save`), and `firestore.rules` (`managementRole() && manages(apartmentId)`). New: explanatory empty state when the user owns or manages nothing |
 | 17.2 Replace time dropdown with a scrolling wheel using valid slots | `CupertinoPicker` in `maintenance_booking_view.dart`, fed by `availableSlots` (free, bookable slots only); choosing a date selects its first free time |
 | 17.3 Connect upcoming maintenance and reminders to in-app notifications | `MaintenanceRemindersViewModel` saves each due reminder once as a US 18 notification of type `maintenance` |
 | 17.4 Test booking, rescheduling, cancellation, permissions and reminder timing | `test/us17_maintenance_test.dart` |
@@ -32,7 +32,7 @@ Branch: `feature/US-17-maintenance-notifications`.
 | Which | Per service, only the due reminder closest to the service (`latestDueReminder`), as for the banner |
 | Who sends | The app of the user who booked, while it runs: on new data and every minute (`Timer.periodic`). There is no server push |
 | Duplicates | Document id `<uid>_maintenance_<requestId>_<reminder>`; sent only once the user's notification ids are loaded; the rules refuse to overwrite an existing notification |
-| Opt-out | Always saved to the inbox (Sprint 3 review); the `maintenance` switch only hides it from the red badge |
+| Opt-out | Not sent when the user's `maintenance` preference is off (the banner still shows); the preference is loaded before anything is sent |
 | Opening | Tapping the notification opens `AppRoutes.maintenanceDetail(maintenanceId)` |
 
 ### Firestore rules

@@ -7,8 +7,8 @@ applications, visits, maintenance and messages.
 
 Open **Profile → Notifications**. The newest notification is first; unread
 ones are bold. The red badge on the **Profile** tab and on the
-**Notifications** tile shows how many unread notifications you want to be
-alerted about, and updates as soon as one arrives or is read.
+**Notifications** tile shows how many are unread and updates as soon as a
+notification arrives or is read.
 
 Tap a notification to mark it as read and open its page. Select **Mark all
 as read** to clear the count.
@@ -20,12 +20,12 @@ as read** to clear the count.
 | New applications | The apartment's owner, when someone applies | The application in the inbox |
 | Messages | The advertiser, when someone sends a message | The message in the inbox |
 | Visits | The owner, when a visit is booked or cancelled; the visitor, the day before the visit ("Visit tomorrow") | The visit, or the apartment |
-| Maintenance | Property managers, before a booked service (US-17) | The service |
+| Maintenance | Owners and managers, before a booked service (US-17) | The service |
 | Announcements | Everyone; written by the HomeFlow team | — |
 
-## Opt in or out of alerts at any time
+## Opt in or out at any time
 
-At the top of **Profile → Notifications** (**Alert me about**), switch each
-kind on or off. Your choice is saved to your account and applies on every
-phone. Every notification always appears in your inbox; a switched-off kind
-just no longer counts in the red badge, so it does not alert you.
+At the top of **Profile → Notifications**, switch each kind on or off. Your
+choice is saved to your account and applies on every phone. Switched-off
+notifications are hidden and do not count as unread; switch the kind back
+on to see them again.

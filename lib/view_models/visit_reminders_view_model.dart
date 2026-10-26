@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
 import '../models/app_user.dart';
+import '../models/notification_preferences.dart';
 import '../models/visit.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -43,6 +44,7 @@ class VisitRemindersViewModel extends ChangeNotifier {
   StreamSubscription<AppUser?>? _authSubscription;
   StreamSubscription<List<Visit>>? _visitsSubscription;
   StreamSubscription<List<AppNotification>>? _notificationsSubscription;
+  StreamSubscription<NotificationPreferences>? _preferencesSubscription;
   late final Timer _timer;
 
   String? _userId;
@@ -50,8 +52,9 @@ class VisitRemindersViewModel extends ChangeNotifier {
   List<Visit> _visits = [];
 
   /// null until loaded, so nothing is sent before we know which reminders
-  /// exist.
+  /// exist and whether the user wants visit notifications.
   Set<String>? _notificationIds;
+  NotificationPreferences? _preferences;
   final Set<String> _sending = {};
 
   /// The visits whose reminder is due now.
@@ -65,13 +68,14 @@ class VisitRemindersViewModel extends ChangeNotifier {
     _sendDueReminders();
   }
 
-  /// Saves each due reminder once; the "Visits" switch only controls the
-  /// alert (Sprint 3 review). The fixed document id and firestore.rules
-  /// prevent duplicates.
+  /// Saves each due reminder once, unless visit notifications are off. The
+  /// fixed document id and firestore.rules prevent duplicates.
   Future<void> _sendDueReminders() async {
     final userId = _userId;
     final stored = _notificationIds;
-    if (userId == null || stored == null) return;
+    final preferences = _preferences;
+    if (userId == null || stored == null || preferences == null) return;
+    if (!preferences.isEnabled(NotificationType.visit)) return;
 
     for (final visit in dueVisits) {
       final notification = AppNotification.visitReminder(
@@ -105,10 +109,13 @@ class VisitRemindersViewModel extends ChangeNotifier {
   void _listen() {
     _visitsSubscription?.cancel();
     _notificationsSubscription?.cancel();
+    _preferencesSubscription?.cancel();
     _visitsSubscription = null;
     _notificationsSubscription = null;
+    _preferencesSubscription = null;
     _visits = [];
     _notificationIds = null;
+    _preferences = null;
     _loadFailed = false;
     if (_userId != null) {
       _visitsSubscription = visitService.watchMyVisits().listen((visits) {
@@ -124,6 +131,13 @@ class VisitRemindersViewModel extends ChangeNotifier {
             };
             _sendDueReminders();
           }, onError: (e) => _loadFailed = true);
+      _preferencesSubscription = notificationService.watchPreferences().listen(
+        (preferences) {
+          _preferences = preferences;
+          _sendDueReminders();
+        },
+        onError: (e) => _loadFailed = true,
+      );
     }
     notifyListeners();
   }
@@ -134,6 +148,7 @@ class VisitRemindersViewModel extends ChangeNotifier {
     _timer.cancel();
     _visitsSubscription?.cancel();
     _notificationsSubscription?.cancel();
+    _preferencesSubscription?.cancel();
     _authSubscription?.cancel();
     super.dispose();
   }

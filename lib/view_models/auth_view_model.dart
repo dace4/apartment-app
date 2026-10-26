@@ -108,9 +108,9 @@ class AuthViewModel extends ChangeNotifier {
     }
     if (under(AppRoutes.insurance)) return account.isRenter;
     if (under(AppRoutes.contractors)) return account.isHomeowner;
-    // Sprint 3 review: repair and maintenance is for property managers only.
-    if (under(AppRoutes.maintenance)) return account.isPropertyManager;
-    if (under(AppRoutes.inbox)) return account.hasManagementRole;
+    if (under(AppRoutes.maintenance) || under(AppRoutes.inbox)) {
+      return account.hasManagementRole;
+    }
     return true;
   }
 

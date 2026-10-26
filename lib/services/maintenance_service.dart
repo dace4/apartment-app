@@ -8,10 +8,8 @@ import 'auth_service.dart';
 import '../models/maintenance_request.dart';
 
 /// US-17: maintenance requests are stored in the Firestore collection
-/// `maintenanceRequests`. Since the Sprint 3 review, only property managers
-/// book them, for the apartments they are assigned to. firestore.rules only
-/// let users read and change their own requests, and only before the service
-/// starts.
+/// `maintenanceRequests`. firestore.rules only lets users read and change
+/// their own requests, and only before the service starts.
 class MaintenanceService {
   final _collection = FirebaseFirestore.instance.collection(
     'maintenanceRequests',
@@ -32,11 +30,13 @@ class MaintenanceService {
       propertySubscriptions.clear();
       if (current != generation) return;
       output.add([]);
-      // Sprint 3 review: only property managers, for their assigned
-      // apartments.
-      if (user == null || !user.isReady || !user.isPropertyManager) return;
+      if (user == null || !user.isReady || !user.hasManagementRole) return;
       final collection = FirebaseFirestore.instance.collection('apartments');
-      final queries = [collection.where('managerIds', arrayContains: user.id)];
+      final queries = [
+        if (user.isHomeowner) collection.where('ownerId', isEqualTo: user.id),
+        if (user.isPropertyManager)
+          collection.where('managerIds', arrayContains: user.id),
+      ];
       final parts = <int, List<Apartment>>{};
       for (var index = 0; index < queries.length; index++) {
         final key = index;
@@ -69,10 +69,13 @@ class MaintenanceService {
 
   Future<List<Apartment>> getManageableApartments() async {
     final user = await AuthService().loadUser();
-    if (user == null || !user.isReady || !user.isPropertyManager) return [];
+    if (user == null || !user.isReady || !user.hasManagementRole) return [];
     final collection = FirebaseFirestore.instance.collection('apartments');
     final snapshots = await Future.wait([
-      collection.where('managerIds', arrayContains: user.id).get(),
+      if (user.isHomeowner)
+        collection.where('ownerId', isEqualTo: user.id).get(),
+      if (user.isPropertyManager)
+        collection.where('managerIds', arrayContains: user.id).get(),
     ]);
     return {
       for (final snapshot in snapshots)

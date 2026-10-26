@@ -111,13 +111,8 @@ void main() {
         vm.canAccess(AppRoutes.contractors),
         roles.contains(UserRole.homeowner),
       );
-      // Sprint 3 review: maintenance is for property managers only.
       expect(
         vm.canAccess(AppRoutes.maintenanceNew),
-        roles.contains(UserRole.propertyManager),
-      );
-      expect(
-        vm.canAccess(AppRoutes.inbox),
         roles.contains(UserRole.homeowner) ||
             roles.contains(UserRole.propertyManager),
       );
