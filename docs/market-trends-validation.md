@@ -15,3 +15,5 @@ It uses the existing apartment stream and existing access rules; it does not req
 - No new Firebase rules deployment is required: the feature now uses the existing `apartments` read policy. The unused legacy catalogue read rule is no longer included in this branch's source.
 The earlier Android run was blocked by Java's `Unable to establish loopback connection` error before Gradle compilation.
 No Android acceptance pass, peer review, integration or PO acceptance is claimed.
+
+Services wording follow-up: removed the Services coming-soon heading using the same option already present on main. Analysis passed with no issues and all 129 Flutter tests passed. No Firebase change was needed.
