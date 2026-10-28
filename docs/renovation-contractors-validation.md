@@ -16,3 +16,6 @@ The two feature branches remain separate and unmerged. Root working-tree changes
 
 Architecture review: data conversion stays in Models; Firebase access stays in Services;
 ViewModels own state/filtering/calculations; Views render and navigate. Existing auth and router code is unchanged.
+
+Services wording follow-up: removed the Services coming-soon heading using the same option already present on main. Analysis passed with no issues and all 128 Flutter tests passed. No Firebase change was needed.
+The directory intro and email accessibility label now use neutral wording, as explicitly requested by the user. Existing contractor data is unchanged.

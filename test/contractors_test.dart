@@ -105,7 +105,10 @@ void main() {
         MaterialApp(home: ContractorsView(viewModel: vm)),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Demo directory'), findsOneWidget);
+      expect(
+        find.text('Find renovation contractors by city and trade.'),
+        findsOneWidget,
+      );
       expect(find.byType(SelectableText), findsWidgets);
       await tester.tap(find.byType(DropdownButtonFormField<String>));
       await tester.pumpAndSettle();
@@ -132,7 +135,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ContractorsView(viewModel: vm)));
     await tester.pumpAndSettle();
     expect(find.text('No contractors found.'), findsOneWidget);
-    expect(find.text('Demo directory'), findsOneWidget);
+    expect(
+      find.text('Find renovation contractors by city and trade.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Firebase failure offers retry', (tester) async {
@@ -150,7 +156,10 @@ void main() {
     fail = false;
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
-    expect(find.text('Demo directory'), findsOneWidget);
+    expect(
+      find.text('Find renovation contractors by city and trade.'),
+      findsOneWidget,
+    );
   });
 
   for (final width in [360.0, 800.0]) {

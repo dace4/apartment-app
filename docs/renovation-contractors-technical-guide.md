@@ -9,7 +9,7 @@ The View owns and disposes its ViewModel unless injected by a test. Late reads i
 ## Firebase schema and access
 
 `name`, `city`, `trade`, `description`, `email` (strings); document ID identifies the contractor.
-These are demo records. The screen explicitly discloses fictional content.
+The current seed records are fictional and use reserved .example email addresses. At the user's request, the screen uses neutral directory wording and no demo banner.
 Reads require a verified account with `homeowner` role. Client create/update/delete are denied.
 Trusted Firebase operators maintain records. Existing routes/access gates are unchanged; no composite index is needed.
 

@@ -52,14 +52,7 @@ class _ContractorsViewState extends State<ContractorsView> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Demo directory',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'These contractors are fictional. Sample email addresses cannot be used to contact a real business.',
-              ),
+              const Text('Find renovation contractors by city and trade.'),
               const SizedBox(height: 24),
               DropdownButtonFormField<String>(
                 key: ValueKey(viewModel.selectedCity),
@@ -92,7 +85,7 @@ class _ContractorsViewState extends State<ContractorsView> {
                 const SizedBox(height: 8),
                 SelectableText(
                   contractor.email,
-                  semanticsLabel: 'Sample email: ${contractor.email}',
+                  semanticsLabel: 'Email: ${contractor.email}',
                 ),
                 const SizedBox(height: 16),
                 const Divider(),
