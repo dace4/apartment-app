@@ -1,0 +1,50 @@
+[
+  {
+    "id": "leman-paint",
+    "name": "Leman Colour Studio",
+    "city": "Lausanne",
+    "trade": "Painting",
+    "description": "Interior painting and wall preparation for apartment renovations.",
+    "email": "hello@leman-colour.example"
+  },
+  {
+    "id": "lausanne-wood",
+    "name": "Lausanne Wood Workshop",
+    "city": "Lausanne",
+    "trade": "Carpentry",
+    "description": "Fitted cupboards, shelving and interior wood repairs.",
+    "email": "hello@lausanne-wood.example"
+  },
+  {
+    "id": "rhone-bath",
+    "name": "Rhone Bathroom Studio",
+    "city": "Geneva",
+    "trade": "Bathroom renovation",
+    "description": "Bathroom refurbishment, tiling and fixture replacement.",
+    "email": "hello@rhone-bath.example"
+  },
+  {
+    "id": "geneva-floor",
+    "name": "Geneva Floor Workshop",
+    "city": "Geneva",
+    "trade": "Flooring",
+    "description": "Parquet restoration and replacement of apartment flooring.",
+    "email": "hello@geneva-floor.example"
+  },
+  {
+    "id": "limmat-kitchen",
+    "name": "Limmat Kitchen Studio",
+    "city": "Zurich",
+    "trade": "Kitchen renovation",
+    "description": "Kitchen layouts, cabinet fitting and worktop replacement.",
+    "email": "hello@limmat-kitchen.example"
+  },
+  {
+    "id": "zurich-refresh",
+    "name": "Zurich Home Refresh",
+    "city": "Zurich",
+    "trade": "General renovation",
+    "description": "Small apartment refurbishments and interior finishing.",
+    "email": "hello@zurich-refresh.example"
+  }
+]

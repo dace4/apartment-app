@@ -86,6 +86,11 @@ service cloud.firestore {
       return resource.data.senderId == request.auth.uid ||
         resource.data.advertiserId == request.auth.uid;
     }
+    // Read-only service catalogue, maintained by trusted Firebase operators.
+    match /contractors/{entryId} {
+      allow read: if verified() && hasRole('homeowner');
+      allow write: if false;
+    }
     match /apartments/{apartmentId} {
       allow read: if verified();
       // Applying never reserves an apartment (US 10). Only an application's
