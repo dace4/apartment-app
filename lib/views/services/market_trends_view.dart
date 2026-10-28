@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../router/app_routes.dart';
 import '../../utils/formatters.dart';
 import '../../view_models/market_trends_view_model.dart';
 
@@ -17,7 +19,7 @@ class _MarketTrendsViewState extends State<MarketTrendsView> {
   @override
   void initState() {
     super.initState();
-    viewModel.fetchPrices();
+    viewModel.listenToApartments();
   }
 
   @override
@@ -27,96 +29,105 @@ class _MarketTrendsViewState extends State<MarketTrendsView> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Market trends')),
-      body: ListenableBuilder(
-        listenable: viewModel,
-        builder: (context, _) {
-          if (viewModel.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (viewModel.errorMessage != null) {
-            return Center(
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Market trends')),
+    body: ListenableBuilder(
+      listenable: viewModel,
+      builder: (context, _) {
+        if (viewModel.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (viewModel.errorMessage != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(viewModel.errorMessage!),
                   TextButton(
-                    onPressed: viewModel.fetchPrices,
+                    onPressed: viewModel.listenToApartments,
                     child: const Text('Try again'),
                   ),
                 ],
               ),
-            );
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text(
-                'Illustrative data',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Current sale listings',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Based on available and reserved apartments for sale in this app. These are asking prices, not completed sales.',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Price history is not recorded, so changes over time are unavailable.',
+            ),
+            const SizedBox(height: 24),
+            DropdownButtonFormField<String>(
+              key: ValueKey(viewModel.selectedCity),
+              initialValue: viewModel.selectedCity ?? '',
+              decoration: const InputDecoration(
+                labelText: 'City',
+                border: OutlineInputBorder(),
+              ),
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(value: '', child: Text('All cities')),
+                for (final city in viewModel.cities)
+                  DropdownMenuItem(value: city, child: Text(city)),
+              ],
+              onChanged: (city) =>
+                  viewModel.selectCity(city == '' ? null : city),
+            ),
+            const SizedBox(height: 24),
+            if (viewModel.apartments.isEmpty)
+              const Text('No sale listings with valid price and surface data.')
+            else ...[
+              Text('Listings included: ${viewModel.listingCount}'),
+              const SizedBox(height: 12),
+              Text(
+                'Average asking price: ${formatChf(viewModel.averagePrice!)}',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Average price per m²: ${formatChf(viewModel.averagePricePerSquareMetre!)} / m²',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Asking price range: ${formatChf(viewModel.minimumPrice!)} – ${formatChf(viewModel.maximumPrice!)}',
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Sample apartment sale prices per m². These figures are fictional, not live market data or a property valuation.',
+              const Text('Each apartment has equal weight in the averages.'),
+              const SizedBox(height: 24),
+              Text(
+                'Apartments behind these figures',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 24),
-              if (viewModel.cities.isNotEmpty)
-                DropdownButtonFormField<String>(
-                  key: ValueKey(viewModel.selectedCity),
-                  initialValue: viewModel.selectedCity,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              for (final apartment in viewModel.apartments) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(apartment.title),
+                  subtitle: Text(
+                    '${apartment.city} · ${formatChf(apartment.price)} · ${apartment.surface} m²',
                   ),
-                  isExpanded: true,
-                  items: [
-                    for (final city in viewModel.cities)
-                      DropdownMenuItem(value: city, child: Text(city)),
-                  ],
-                  onChanged: viewModel.selectCity,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () =>
+                      context.push(AppRoutes.apartmentDetail(apartment.id)),
                 ),
-              const SizedBox(height: 24),
-              if (viewModel.prices.isEmpty)
-                const Text('No market trends available.')
-              else ...[
-                Text(
-                  viewModel.periodLabel,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Latest sample price: ${formatChf(viewModel.latestPrice!)} / m²',
-                ),
-                const SizedBox(height: 8),
-                Text(viewModel.changeLabel),
-                const SizedBox(height: 24),
-                const Text(
-                  'Monthly sample prices',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                for (final price in viewModel.prices) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 24,
-                      runSpacing: 4,
-                      children: [
-                        Text(price.monthLabel),
-                        Text('${formatChf(price.pricePerSquareMetre)} / m²'),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                ],
+                const Divider(height: 1),
               ],
             ],
-          );
-        },
-      ),
-    );
-  }
+          ],
+        );
+      },
+    ),
+  );
 }

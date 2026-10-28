@@ -501,11 +501,6 @@ service cloud.firestore {
     }
     // US-19: the insurance coverage catalogue, with each coverage's agent.
     // Only edited in the Firebase console; renters read it.
-    // Read-only service catalogue, maintained by trusted Firebase operators.
-    match /marketTrends/{entryId} {
-      allow read: if verified() && hasRole('buyer');
-      allow write: if false;
-    }
     match /insuranceCoverages/{coverageId} {
       allow read: if verified() && hasRole('renter');
       allow write: if false;

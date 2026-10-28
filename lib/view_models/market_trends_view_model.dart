@@ -1,65 +1,83 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../models/market_price.dart';
-import '../services/market_trends_service.dart';
+import '../models/apartment.dart';
+import '../services/apartment_service.dart';
 
+/// Current asking-price statistics from the same listings as the Home screen.
+/// Listing creation dates are not historical price observations.
 class MarketTrendsViewModel extends ChangeNotifier {
-  MarketTrendsViewModel({MarketTrendsService? service})
-    : _service = service ?? MarketTrendsService();
+  MarketTrendsViewModel({ApartmentService? service})
+    : _service = service ?? ApartmentService();
 
-  final MarketTrendsService _service;
-  List<MarketPrice> _prices = const [];
+  final ApartmentService _service;
+  StreamSubscription<List<Apartment>>? _subscription;
+  List<Apartment> _apartments = const [];
   String? selectedCity;
   bool isLoading = false;
   String? errorMessage;
   bool _disposed = false;
 
   List<String> get cities =>
-      _prices.map((p) => p.city).toSet().toList()..sort();
-  List<MarketPrice> get prices =>
-      _prices.where((p) => p.city == selectedCity).toList()
-        ..sort((a, b) => a.month.compareTo(b.month));
-  int? get latestPrice =>
-      prices.isEmpty ? null : prices.last.pricePerSquareMetre;
-  String get periodLabel => prices.isEmpty
-      ? ''
-      : '${prices.first.monthLabel} – ${prices.last.monthLabel}';
+      _apartments.map((a) => a.city).toSet().toList()..sort();
+  List<Apartment> get apartments => _apartments
+      .where((a) => selectedCity == null || a.city == selectedCity)
+      .toList();
+  int get listingCount => apartments.length;
+  int? get averagePrice => apartments.isEmpty
+      ? null
+      : (apartments.fold<double>(0, (total, a) => total + a.price) /
+                listingCount)
+            .round();
+  int? get averagePricePerSquareMetre => apartments.isEmpty
+      ? null
+      : (apartments.fold<double>(0, (total, a) => total + a.price / a.surface) /
+                listingCount)
+            .round();
+  int? get minimumPrice => apartments.isEmpty
+      ? null
+      : apartments.map((a) => a.price).reduce((a, b) => a < b ? a : b);
+  int? get maximumPrice => apartments.isEmpty
+      ? null
+      : apartments.map((a) => a.price).reduce((a, b) => a > b ? a : b);
 
-  double? get percentageChange {
-    final values = prices;
-    if (values.length < 2 || values.first.pricePerSquareMetre <= 0) return null;
-    return (values.last.pricePerSquareMetre -
-            values.first.pricePerSquareMetre) /
-        values.first.pricePerSquareMetre *
-        100;
-  }
-
-  String get changeLabel {
-    final change = percentageChange;
-    if (change == null) return 'Change unavailable';
-    final rounded = change.toStringAsFixed(1);
-    if (rounded == '0.0' || rounded == '-0.0') return '0.0% over this period';
-    return '${change > 0 ? '+' : ''}$rounded% over this period';
-  }
-
-  Future<void> fetchPrices() async {
+  void listenToApartments() {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
-    try {
-      final entries = await _service.getPrices();
-      if (_disposed) return;
-      _prices = List.unmodifiable(entries);
-      if (!cities.contains(selectedCity)) selectedCity = cities.firstOrNull;
-    } catch (_) {
-      if (_disposed) return;
-      errorMessage = 'Could not load market trends from Firebase. Check your connection and try again.';
-    } finally {
-      if (!_disposed) {
+    _subscription?.cancel();
+    _subscription = _service.watchApartments().listen(
+      (entries) {
+        if (_disposed) return;
+        _apartments = List.unmodifiable(
+          entries
+              .where(
+                (a) =>
+                    a.listingType == ListingType.sale &&
+                    a.availability != ApartmentAvailability.unavailable &&
+                    a.price > 0 &&
+                    a.surface > 0 &&
+                    a.city.trim().isNotEmpty,
+              )
+              .toList()
+            ..sort((a, b) {
+              final city = a.city.compareTo(b.city);
+              return city == 0 ? a.title.compareTo(b.title) : city;
+            }),
+        );
+        if (!cities.contains(selectedCity)) selectedCity = null;
         isLoading = false;
+        errorMessage = null;
         notifyListeners();
-      }
-    }
+      },
+      onError: (Object error) {
+        if (_disposed) return;
+        isLoading = false;
+        errorMessage = 'Could not load apartment statistics. Check your connection and try again.';
+        notifyListeners();
+      },
+    );
   }
 
   void selectCity(String? city) {
@@ -70,6 +88,7 @@ class MarketTrendsViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _subscription?.cancel();
     super.dispose();
   }
 }

@@ -1,18 +1,17 @@
-# Market Trends validation
+# Market trends validation
 
-Date: 28 October 2026. Base: local `develop` at `2536539`; remote freshness not verified.
-The two feature branches remain separate and unmerged. Root working-tree changes were preserved.
+28 October 2026: revised at the user's request to use actual apartments in the app.
+Base remains local `develop` at `2536539`; no push or merge is authorized.
 
-- Initial full `flutter test --no-pub`: passed (128 tests), including US-06/07 auth and role checks.
-- Final targeted feature tests: passed (11 tests), covering city selection, empty/error/retry, disposal, model/seed checks and enlarged text at 360/800 logical pixels.
-- `flutter analyze --no-pub`: passed, no issues.
-- Visual inspection: 390 x 844 logical pixels at text scale 1.5, readable fonts loaded in a temporary test-only capture harness; passed. Preview in `build/qa/market_trends.png` (not a tracked deliverable).
-- Seed dry run: passed; no production documents written.
-- Node syntax checks for seed and rule tests: passed.
-- Firestore rule execution: blocked. Installed Java runtimes fail to establish a loopback connection (`SocketException: Invalid argument: connect`) before emulator startup. Tests are supplied but not claimed to have run.
-- Android `flutter run -d emulator-5554 --debug --no-pub --no-resident`: attempted; Gradle failed before compilation with `Unable to establish loopback connection`. No Android acceptance pass is claimed.
-- Firebase deployment: explicitly approved and completed on 28 October 2026. Published both catalogue rules on top of the verified live rules in `homeflow-a106f`; compiled through the Firebase Rules API with no issues. Seeded 18 documents in `marketTrends` using create-only preconditions and verified every field by reading back the remote records. Existing data was not overwritten. Live ruleset: `0fdc40d9-f569-42c2-9081-61dbd772fdd4`.
-- Peer review, integration and PO acceptance: outstanding.
+Firebase read-only inspection found 18 apartment records with current price, surface, city, listing type and availability.
+No price-history field was present. The screen therefore shows current asking-price statistics rather than fabricated historical change.
+It uses the existing apartment stream and existing access rules; it does not require a new deployment.
 
-Architecture review: data conversion stays in Models; Firebase access stays in Services;
-ViewModels own state/filtering/calculations; Views render and navigate. Existing auth and router code is unchanged.
+- `flutter analyze --no-pub`: passed with no issues.
+- `flutter test --no-pub`: all 129 tests passed, including existing verified-email/access tests.
+- Revised market tests cover live changes/removals, city reset, sale/availability selection, invalid price/surface data, exact averages, loading/error/retry and subscription disposal.
+- Widget tests verify actual listing-detail navigation and 360/800 logical-pixel layouts with 1.5x text. A temporary readable-font capture at 390x844 was visually inspected; no layout issue was found.
+- Remote cleanup: backed up and removed only the 18 exact demo `marketTrends` records previously seeded. All 18 were read first and compared field-by-field; deletion used update-time preconditions. Subsequent reads confirmed all 18 were absent. No apartment or contractor record was changed.
+- No new Firebase rules deployment is required: the feature now uses the existing `apartments` read policy. The unused legacy catalogue read rule is no longer included in this branch's source.
+The earlier Android run was blocked by Java's `Unable to establish loopback connection` error before Gradle compilation.
+No Android acceptance pass, peer review, integration or PO acceptance is claimed.

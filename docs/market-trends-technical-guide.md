@@ -1,34 +1,23 @@
-# Market Trends technical guide
+# Market trends technical guide
 
 Unnumbered addition assigned by the user. Follow ARCHITECTURE.md.
-Model -> Service -> screen-specific ChangeNotifier -> View.
-The service reads `marketTrends` from Firestore using `Source.server`; no local runtime catalogue,
-fallback or automatic seeding exists. Selection and calculations belong in the ViewModel.
-The View owns and disposes its ViewModel unless injected by a test. Late reads ignore completion after disposal.
 
-## Firebase schema and access
+Reuse `Apartment` and `ApartmentService.watchApartments()`; there is no separate market-data service or collection.
+`MarketTrendsViewModel` subscribes to Firebase listings, owns city selection and computes current asking-price statistics.
+It cancels its subscription on retry and disposal. The View renders the state and opens the existing apartment detail route.
+Routing, role restrictions, and the verified-email gate are unchanged. No dependency, index, or new Firebase rule is required.
 
-`city` (string), `month` (ISO-8601 first-of-month string), `pricePerSquareMetre` (positive integer CHF/m²). Use one record per city/month. The ViewModel sorts months and compares the earliest and latest values; a missing or zero baseline has no percentage.
-These are demo records. The screen explicitly discloses fictional content.
-Reads require a verified account with `buyer` role. Client create/update/delete are denied.
-Trusted Firebase operators maintain records. Existing routes/access gates are unchanged; no composite index is needed.
+Include sale listings with availability Available or Reserved, price > 0, surface > 0 and a nonblank city.
+Use the stored city labels as they appear in Home. Do not merge or invent locations.
+Average price is sum(price)/count. Average price per m² is sum(price/surface)/count, with equal weight per listing.
+Round final displayed averages to whole CHF; minimum and maximum are the actual asking prices.
+Do not round individual price/m² values before averaging.
 
-## Rollout after approval
+Creation dates are not historical price observations. The app has no recorded price history, so it shows a current overview
+and explicitly says changes over time are unavailable. Do not infer historical movements from listing creation dates.
+The former invented catalogue model, fixture, seed script and dedicated read rule have been retired.
+Only the 18 exact synthetic documents previously uploaded are eligible for remote cleanup; no apartment or contractor records are changed.
 
-1. Review this feature's rules addition against the current integration baseline. Do not deploy an older branch's whole rules file over newer rules.
-2. Deploy the reviewed rules to the intended project only after approval.
-3. Preview the seed: `node test/firestore/market_trends_seed.mjs --project=homeflow-a106f`.
-4. Obtain a short-lived operator OAuth token outside the repository. Set `FIRESTORE_ACCESS_TOKEN` in the shell and repeat with `--apply` only after approval. Remove the token after use; never commit it or print it in logs.
-5. Verify the screen with the correct role. Until rules deployment and seeding, permission errors or empty results are expected.
-
-The JSON under `test/fixtures/` is operator seed input, never read by the app.
-Seeds use one atomic create-only commit: if any ID exists, the commit fails without overwriting data.
-For local tests set `FIRESTORE_EMULATOR_HOST=127.0.0.1:PORT` and run
-`node --test test/firestore/market_trends_rules_test.mjs` with this branch's rules loaded.
-To seed a local emulator, use `--project=demo-service-market-trends --apply`.
-
-## Validation
-
-Run `flutter analyze`, `flutter test`, and Android `flutter run`.
-Record automated checks, Android execution, review and PO acceptance separately in
-`docs/market-trends-validation.md`. No backlog story number was invented.
+Run `flutter analyze` and `flutter test`. Tests cover live changes, filtering, precise averages, invalid data,
+empty/error/retry states, subscription disposal, actual detail navigation and enlarged text layouts.
+Record Android execution, team review and PO acceptance separately from automated results.

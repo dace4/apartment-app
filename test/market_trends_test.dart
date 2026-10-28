@@ -1,178 +1,218 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:appartment_app_group_2/models/market_price.dart';
-import 'package:appartment_app_group_2/services/market_trends_service.dart';
+import 'package:go_router/go_router.dart';
+import 'package:appartment_app_group_2/models/apartment.dart';
+import 'package:appartment_app_group_2/services/apartment_service.dart';
 import 'package:appartment_app_group_2/view_models/market_trends_view_model.dart';
 import 'package:appartment_app_group_2/views/services/market_trends_view.dart';
 
-class FakeMarketTrendsService extends MarketTrendsService {
-  FakeMarketTrendsService(this.load);
-  final Future<List<MarketPrice>> Function() load;
+class ListingSource extends Fake implements ApartmentService {
+  final controller = StreamController<List<Apartment>>.broadcast();
   @override
-  Future<List<MarketPrice>> getPrices() => load();
+  Stream<List<Apartment>> watchApartments() => controller.stream;
 }
 
-List<MarketPrice> fixtures() =>
-    (jsonDecode(File('test/fixtures/market_trends.json').readAsStringSync())
-            as List)
-        .map((row) => MarketPrice.fromMap(Map<String, dynamic>.from(row)))
-        .toList();
+Apartment listing(
+  String id, {
+  String city = 'Sion',
+  int price = 600000,
+  int surface = 100,
+  ListingType type = ListingType.sale,
+  ApartmentAvailability availability = ApartmentAvailability.available,
+}) => Apartment(
+  id: id,
+  title: 'Apartment $id',
+  address: 'Test address',
+  city: city,
+  listingType: type,
+  price: price,
+  rooms: 3,
+  surface: surface,
+  imageUrl: '',
+  description: 'Test listing',
+  availability: availability,
+);
 
 void main() {
-  test('Firebase seed has six monthly prices for each city', () {
-    final entries = fixtures();
-    expect(entries.length, 18);
-    for (final city in ['Lausanne', 'Geneva', 'Zurich']) {
-      final prices = entries.where((p) => p.city == city).toList();
-      expect(prices.length, 6);
-      expect(prices.map((p) => p.month.month), [4, 5, 6, 7, 8, 9]);
-      expect(prices.every((p) => p.pricePerSquareMetre > 0), isTrue);
-    }
-    final first = entries.first;
-    expect(MarketPrice.fromMap(first.toMap()).month, first.month);
+  late ListingSource source;
+  late MarketTrendsViewModel vm;
+  setUp(() {
+    source = ListingSource();
+    vm = MarketTrendsViewModel(service: source);
   });
-
-  test('selecting a city changes latest price and six-month period', () async {
-    final vm = MarketTrendsViewModel(
-      service: FakeMarketTrendsService(
-        () async => fixtures().reversed.toList(),
-      ),
-    );
-    addTearDown(vm.dispose);
-    await vm.fetchPrices();
-    expect(vm.selectedCity, 'Geneva');
-    expect(vm.latestPrice, 14800);
-    vm.selectCity('Zurich');
-    expect(vm.prices.length, 6);
-    expect(vm.latestPrice, 16300);
-    expect(vm.periodLabel, 'April 2026 – September 2026');
-    expect(vm.percentageChange, closeTo(1.875, 0.00001));
-    expect(vm.changeLabel, '+1.9% over this period');
+  tearDown(() async {
+    vm.dispose();
+    await source.controller.close();
   });
-
-  for (final last in [11000, 10000, 9000]) {
-    test('percentage calculation from 10000 to $last', () async {
-      final vm = MarketTrendsViewModel(
-        service: FakeMarketTrendsService(
-          () async => [
-            MarketPrice(
-              city: 'Test',
-              month: DateTime(2026, 4),
-              pricePerSquareMetre: 10000,
-            ),
-            MarketPrice(
-              city: 'Test',
-              month: DateTime(2026, 9),
-              pricePerSquareMetre: last,
-            ),
-          ],
-        ),
-      );
-      addTearDown(vm.dispose);
-      await vm.fetchPrices();
-      expect(vm.percentageChange, (last - 10000) / 10000 * 100);
-      expect(
-        vm.changeLabel,
-        last == 11000
-            ? '+10.0% over this period'
-            : last == 10000
-            ? '0.0% over this period'
-            : '-10.0% over this period',
-      );
-    });
+  Future<void> emit(List<Apartment> data) async {
+    source.controller.add(data);
+    await Future<void>.delayed(Duration.zero);
   }
 
-  test('zero baseline and missing data do not invent a change', () async {
-    final vm = MarketTrendsViewModel(
-      service: FakeMarketTrendsService(
-        () async => [
-          MarketPrice(
-            city: 'Test',
-            month: DateTime(2026, 4),
-            pricePerSquareMetre: 0,
-          ),
-          MarketPrice(
-            city: 'Test',
-            month: DateTime(2026, 9),
-            pricePerSquareMetre: 10000,
-          ),
-        ],
-      ),
-    );
-    addTearDown(vm.dispose);
-    await vm.fetchPrices();
-    expect(vm.percentageChange, isNull);
-    vm.selectCity('Unknown');
-    expect(vm.prices, isEmpty);
-    expect(vm.latestPrice, isNull);
-    expect(vm.changeLabel, 'Change unavailable');
-  });
-
-  test('loading, failure, retry and disposal while loading', () async {
-    var fail = true;
-    final pending = Completer<List<MarketPrice>>();
-    final vm = MarketTrendsViewModel(
-      service: FakeMarketTrendsService(
-        () => fail ? Future.error(Exception('offline')) : pending.future,
-      ),
-    );
-    await vm.fetchPrices();
-    expect(vm.errorMessage, contains('Firebase'));
-    expect(vm.prices, isEmpty);
-    fail = false;
-    final request = vm.fetchPrices();
-    expect(vm.isLoading, isTrue);
-    vm.dispose();
-    pending.complete(fixtures());
-    await request;
-  });
-
-  testWidgets(
-    'city selector updates illustrative latest price and monthly list',
-    (tester) async {
-      final vm = MarketTrendsViewModel(
-        service: FakeMarketTrendsService(() async => fixtures()),
-      );
-      addTearDown(vm.dispose);
-      await tester.pumpWidget(
-        MaterialApp(home: MarketTrendsView(viewModel: vm)),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Illustrative data'), findsOneWidget);
-      expect(find.text("Latest sample price: CHF 14'800 / m²"), findsOneWidget);
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Zurich').last);
-      await tester.pumpAndSettle();
-      expect(find.text("Latest sample price: CHF 16'300 / m²"), findsOneWidget);
-      expect(find.text('+1.9% over this period'), findsOneWidget);
-      expect(find.text('April 2026'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+  test(
+    'statistics use sale listings and exclude unavailable or invalid entries',
+    () async {
+      vm.listenToApartments();
+      expect(vm.isLoading, isTrue);
+      await emit([
+        listing('a', price: 600000, surface: 100),
+        listing(
+          'b',
+          price: 900000,
+          surface: 50,
+          availability: ApartmentAvailability.reserved,
+        ),
+        listing('rental', type: ListingType.rent, price: 2000),
+        listing('sold', availability: ApartmentAvailability.unavailable),
+        listing('zero-surface', surface: 0),
+        listing('zero-price', price: 0),
+        listing('negative', surface: -1),
+        listing('blank-city', city: '  '),
+      ]);
+      expect(vm.isLoading, isFalse);
+      expect(vm.listingCount, 2);
+      expect(vm.averagePrice, 750000);
+      // Equal-weight average of 6000 and 18000, not total price / total area.
+      expect(vm.averagePricePerSquareMetre, 12000);
+      expect(vm.minimumPrice, 600000);
+      expect(vm.maximumPrice, 900000);
     },
   );
 
-  testWidgets('empty collection and failure are distinct from sample prices', (
+  test('city filter and reset always use current source apartments', () async {
+    vm.listenToApartments();
+    await emit([listing('a'), listing('b', city: 'Martigny', price: 800000)]);
+    expect(vm.cities, ['Martigny', 'Sion']);
+    vm.selectCity('Martigny');
+    expect(vm.apartments.single.id, 'b');
+    expect(vm.averagePrice, 800000);
+    vm.selectCity(null);
+    expect(vm.listingCount, 2);
+    vm.selectCity('Sion');
+    await emit([listing('b', city: 'Martigny', price: 820000)]);
+    expect(vm.selectedCity, isNull);
+    expect(vm.averagePrice, 820000);
+  });
+
+  test(
+    'live edits and removals recalculate; no invented history or fallback',
+    () async {
+      vm.listenToApartments();
+      await emit([listing('a')]);
+      expect(vm.averagePrice, 600000);
+      await emit([listing('a', price: 650000)]);
+      expect(vm.averagePrice, 650000);
+      await emit([]);
+      expect(vm.listingCount, 0);
+      expect(vm.averagePrice, isNull);
+      expect(vm.averagePricePerSquareMetre, isNull);
+      expect(vm.minimumPrice, isNull);
+      expect(vm.maximumPrice, isNull);
+    },
+  );
+
+  test(
+    'stream errors and retry recover; retry replaces its subscription',
+    () async {
+      vm.listenToApartments();
+      source.controller.addError(Exception('permission denied'));
+      await Future<void>.delayed(Duration.zero);
+      expect(vm.errorMessage, contains('Could not load'));
+      expect(vm.isLoading, isFalse);
+      vm.listenToApartments();
+      expect(vm.errorMessage, isNull);
+      await emit([listing('retry')]);
+      expect(vm.listingCount, 1);
+      expect(vm.errorMessage, isNull);
+    },
+  );
+
+  test('disposal cancels the Firebase subscription', () async {
+    final own = MarketTrendsViewModel(service: source);
+    own.listenToApartments();
+    expect(source.controller.hasListener, isTrue);
+    own.dispose();
+    expect(source.controller.hasListener, isFalse);
+    await emit([listing('late')]);
+  });
+
+  testWidgets(
+    'screen identifies its source, shows values and filters real listings',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: MarketTrendsView(viewModel: vm)),
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      source.controller.add([
+        listing('a'),
+        listing('b', city: 'Martigny', price: 800000),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('Current sale listings'), findsOneWidget);
+      expect(
+        find.textContaining('Price history is not recorded'),
+        findsOneWidget,
+      );
+      expect(find.text('Listings included: 2'), findsOneWidget);
+      expect(find.text("Average asking price: CHF 700'000"), findsOneWidget);
+      expect(find.textContaining('Illustrative'), findsNothing);
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Martigny').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Listings included: 1'), findsOneWidget);
+      expect(find.text("Average asking price: CHF 800'000"), findsOneWidget);
+      expect(vm.apartments.single.id, 'b');
+    },
+  );
+
+  testWidgets('source apartments open their existing detail route', (
     tester,
   ) async {
-    var fail = true;
-    final vm = MarketTrendsViewModel(
-      service: FakeMarketTrendsService(() async {
-        if (fail) throw Exception('offline');
-        return [];
-      }),
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => MarketTrendsView(viewModel: vm),
+        ),
+        GoRoute(
+          path: '/apartments/:id',
+          builder: (_, state) =>
+              Scaffold(body: Text('Detail ${state.pathParameters['id']}')),
+        ),
+      ],
     );
-    addTearDown(vm.dispose);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    source.controller.add([listing('a')]);
+    await tester.pumpAndSettle();
+    final tile = find.text('Apartment a');
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(find.text('Detail a'), findsOneWidget);
+  });
+
+  testWidgets('empty and error states show no fabricated prices; retry works', (
+    tester,
+  ) async {
     await tester.pumpWidget(MaterialApp(home: MarketTrendsView(viewModel: vm)));
+    source.controller.add([]);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No sale listings with valid price and surface data.'),
+      findsOneWidget,
+    );
+    source.controller.addError(Exception('offline'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Could not load'), findsOneWidget);
-    fail = false;
     await tester.tap(find.text('Try again'));
+    await tester.pump();
+    source.controller.add([listing('recovered')]);
     await tester.pumpAndSettle();
-    expect(find.text('No market trends available.'), findsOneWidget);
+    expect(find.text('Listings included: 1'), findsOneWidget);
   });
 
   for (final width in [360.0, 800.0]) {
@@ -181,10 +221,6 @@ void main() {
       tester.view.physicalSize = Size(width, 844);
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final vm = MarketTrendsViewModel(
-        service: FakeMarketTrendsService(() async => fixtures()),
-      );
-      addTearDown(vm.dispose);
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(
@@ -195,6 +231,7 @@ void main() {
           home: MarketTrendsView(viewModel: vm),
         ),
       );
+      source.controller.add([listing('a'), listing('b', city: 'Martigny')]);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

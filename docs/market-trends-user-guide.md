@@ -1,9 +1,14 @@
 # Market trends
 
 Sign in with a verified email and a Buyer role, then open **Services > Market trends**.
-Choose Geneva, Lausanne or Zurich. Review the latest sample sale price in CHF per m²,
-percentage change from the first to last month, and six monthly prices (April–September 2026).
-These Firebase records are fictional illustrations, not live market observations or valuations.
+The screen reads the same Firebase apartments as Home and updates when those records change.
+It includes available and reserved sale listings with a positive asking price, positive surface and a city.
+Rentals and unavailable listings are excluded. Choose a city or **All cities**.
 
-An internet connection is required. If loading fails, resolve the connection or access issue and tap **Try again**.
-An empty collection shows **No market trends available.** No local sample data is substituted.
+Review the number of included listings, average asking price, average price per m², and asking-price range.
+Each listing has equal weight in the averages. Tap an apartment below the figures to open its detail page.
+These figures describe asking prices in this app; they do not represent completed sales or the whole property market.
+No price history is recorded, so historical changes and six-month percentage trends are not displayed.
+
+An empty result shows **No sale listings with valid price and surface data.**
+If loading fails, check your connection and account access, then tap **Try again**.
