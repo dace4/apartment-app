@@ -10,7 +10,7 @@ See [the contractor user guide](../renovation-contractors-user-guide.md).
 
 ## Market trends
 
-The separate `feature/market-trends` branch adds a Firebase-backed sample price history for buyers.
+The separate `feature/market-trends` branch adds statistics calculated from the actual Firebase apartment listings for buyers.
 After that branch is integrated, see `docs/market-trends-user-guide.md` for usage.
 
-Both new catalogues require approved Firebase rules deployment and demo-data seeding before they contain data.
+The contractor demo catalogue has been seeded in Firebase. Market trends reads the existing apartment listings and requires no separate catalogue or seed data.
