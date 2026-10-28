@@ -11,7 +11,7 @@ The two feature branches remain separate and unmerged. Root working-tree changes
 - Node syntax checks for seed and rule tests: passed.
 - Firestore rule execution: blocked. Installed Java runtimes fail to establish a loopback connection (`SocketException: Invalid argument: connect`) before emulator startup. Tests are supplied but not claimed to have run.
 - Android `flutter run -d emulator-5554 --debug --no-pub --no-resident`: attempted; Gradle failed before compilation with `Unable to establish loopback connection`. No Android acceptance pass is claimed.
-- Firebase rules deployment and initial remote data upload: pending approval. Until then the page may show an empty collection or access error.
+- Firebase deployment: explicitly approved and completed on 28 October 2026. Published both catalogue rules on top of the verified live rules in `homeflow-a106f`; compiled through the Firebase Rules API with no issues. Seeded 18 documents in `marketTrends` using create-only preconditions and verified every field by reading back the remote records. Existing data was not overwritten. Live ruleset: `0fdc40d9-f569-42c2-9081-61dbd772fdd4`.
 - Peer review, integration and PO acceptance: outstanding.
 
 Architecture review: data conversion stays in Models; Firebase access stays in Services;
