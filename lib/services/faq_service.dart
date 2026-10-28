@@ -201,10 +201,12 @@ class FaqService {
     FaqEntry(
       id: 'notifications',
       category: FaqCategory.account,
-      question: 'How do I choose which notifications I receive?',
+      question: 'How do I choose which notifications alert me?',
       answer:
-          'Open Profile → Notifications and switch each kind of notification '
-          'on or off. Unread notifications put a red dot on the Profile tab.',
+          'Every notification always appears in Profile → Notifications. '
+          'Under Alert me about, switch a kind off to stop its alerts: its '
+          'unread notifications no longer add to the red badge on the '
+          'Profile tab.',
       linkLabel: 'Notifications',
       linkLocation: AppRoutes.notifications,
     ),
