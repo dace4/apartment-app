@@ -12,6 +12,9 @@ class MortgageCalculatorViewModel extends ChangeNotifier {
   static const maxRate = 20.0;
   static const maxYears = 50;
 
+  /// Swiss amounts are rounded to 5 Rappen (0.05 CHF), in centimes.
+  static const _rappenStep = 5;
+
   /// The last result, or null before the first calculation or after an
   /// input changed.
   MortgageEstimate? estimate;
@@ -91,20 +94,28 @@ class MortgageCalculatorViewModel extends ChangeNotifier {
     final months = parseYears(years)! * 12;
 
     // Annuity formula; without interest the loan is split evenly.
-    final monthlyPayment = monthlyRate == 0
+    final exactPayment = monthlyRate == 0
         ? loan / months
         : loan * monthlyRate / (1 - pow(1 + monthlyRate, -months));
-    final totalPaid = monthlyPayment * months;
-    final firstInterest = loan * monthlyRate;
+
+    // Amounts are rounded to 5 Rappen, as usual in Switzerland. The payment
+    // is rounded up so the loan is always fully repaid, and every other
+    // amount is derived from it in centimes so the shown figures add up. The
+    // small tolerance ignores floating-point noise such as 2400.0000000001.
+    final paymentCents =
+        ((exactPayment * 100 - 1e-6) / _rappenStep).ceil() * _rappenStep;
+    final totalCents = paymentCents * months;
+    final firstInterestCents =
+        (loan * monthlyRate * 100 / _rappenStep).round() * _rappenStep;
 
     estimate = MortgageEstimate(
       loanAmount: loan,
-      monthlyPayment: monthlyPayment,
+      monthlyPayment: paymentCents / 100,
       numberOfPayments: months,
-      totalPaid: totalPaid,
-      totalInterest: totalPaid - loan,
-      firstPaymentInterest: firstInterest,
-      firstPaymentPrincipal: monthlyPayment - firstInterest,
+      totalPaid: totalCents / 100,
+      totalInterest: (totalCents - loan * 100) / 100,
+      firstPaymentInterest: firstInterestCents / 100,
+      firstPaymentPrincipal: (paymentCents - firstInterestCents) / 100,
     );
     notifyListeners();
   }

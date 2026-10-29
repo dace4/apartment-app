@@ -14,6 +14,13 @@ String formatChf(int amount) {
   return 'CHF $buffer';
 }
 
+/// US-09: a positive amount with centimes, e.g. 3194.5 => CHF 3'194.50
+String formatChfCents(double amount) {
+  final cents = (amount * 100).round();
+  final centimes = (cents % 100).toString().padLeft(2, '0');
+  return '${formatChf(cents ~/ 100)}.$centimes';
+}
+
 // Format a date the Swiss way, e.g. 03.11.2026
 String formatDate(DateTime date) {
   String twoDigits(int value) => value.toString().padLeft(2, '0');
