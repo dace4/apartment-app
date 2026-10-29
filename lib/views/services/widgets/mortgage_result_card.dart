@@ -25,7 +25,7 @@ class MortgageResultCard extends StatelessWidget {
             Text('Monthly payment', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              _chf(estimate.monthlyPayment),
+              formatChfCents(estimate.monthlyPayment),
               style: theme.textTheme.headlineMedium?.copyWith(
                 color: theme.colorScheme.primary,
               ),
@@ -41,8 +41,8 @@ class MortgageResultCard extends StatelessWidget {
             const Divider(height: 32),
             Text('First payment', style: theme.textTheme.titleSmall),
             const SizedBox(height: 4),
-            _Row('Interest', _chf(estimate.firstPaymentInterest)),
-            _Row('Repayment', _chf(estimate.firstPaymentPrincipal)),
+            _Row('Interest', formatChfCents(estimate.firstPaymentInterest)),
+            _Row('Repayment', formatChfCents(estimate.firstPaymentPrincipal)),
           ],
         ),
       ),
