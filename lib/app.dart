@@ -127,6 +127,7 @@ class _SessionAppState extends State<_SessionApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'HomeFlow',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.indigo)),
       routerConfig: _router,
       builder: (context, child) => AppMaintenanceBanner(
